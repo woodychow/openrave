@@ -1713,7 +1713,7 @@ class IKFastSolver(AutoReloader):
             # exec(ipython_str, globals(), locals())
             # multiby by 400 in order to prioritize equations with less solutions
             #
-            # TGN: sol can be a SolverSolution class object or a SolverPolynomialRoots class object
+            # sol can be a SolverSolution class object or a SolverPolynomialRoots class object
 
             assert(sol.__class__.__name__=='SolverSolution' or \
                    sol.__class__.__name__=='SolverPolynomialRoots')
@@ -4202,74 +4202,55 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         solve5DIntersectingAxes
         buildEquationsFromPositions
         """
+        AllEquations = [] 
+        # TGN: ensure usedvars is a subset of self.trigvars_subs 
+        assert(all([z in self.trigvars_subs for z in usedvars])) 
+        numcol = len(leftside) 
+        assert(numcol == len(rightside))
         
-        # try to shift all the constants of each Position expression to one side
-        for i in range(len(leftside)):
-            for j in range(leftside[i].shape[0]):
-                p   = leftside[i][j]
+        for i in range(numcol):
+            numrow = leftside[i].shape[0] 
+            assert(numrow == rightside[i].shape[0])
+
+            for j in range(numrow):
+
+                p   =  leftside[i][j]
                 pee = rightside[i][j]
-                pconstterm   = None
-                peeconstterm = None
+                if uselength:
+                    # shift constants in expression of each position to the side that has fewer terms
+                    # useful when we need norm equations
+                    if p.is_Add:
+                        pconstterm = [term for term in p.args if term.is_number]
+                    else:
+                        pconstterm = [p] if p.is_number else []
+                    if pee.is_Add:
+                        peeconstterm = [term for term in pee.args if term.is_number]
+                    else:
+                        peeconstterm = [pee] if pee.is_number else []
 
-                # pconstterm consists of all constants in p
-                if p.is_Add:
-                    pconstterm = [term for term in p.args if term.is_number]
-                elif p.is_number:
-                    pconstterm = [p]
-                else:
-                    continue
-
-                # peeconstterm consists of all constants in pee
-                if pee.is_Add:
-                    peeconstterm = [term for term in pee.args if term.is_number]
-                elif pee.is_number:
-                    peeconstterm = [pee]
-                else:
-                    continue
-
-                if len(pconstterm) > 0 and len(peeconstterm) > 0:
-                    # shift it to the one that has the fewer constants
-                    for term in peeconstterm if len(p.args) < len(pee.args) else pconstterm:
-                        leftside[i][j]  -= term
-                        rightside[i][j] -= term
-
-        AllEquations = []
-        self.gen_trigsubs(usedvars)
+                    if len(pconstterm) > 0 and len(peeconstterm) > 0:
+                        sumterm = sum(term for term in (peeconstterm if len(p.args) < len(pee.args) else pconstterm))
+                        leftside [i][j] -= sumterm
+                        rightside[i][j] -= sumterm
                         
-        for i in range(len(leftside)):
-            for j in range(leftside[i].shape[0]):
-                eq = self.trigsimp_new(leftside[i][j]-rightside[i][j])
-                # old function
-                # e2 = self.trigsimp(leftside[i][j]-rightside[i][j], usedvars)
-                # print "e  = ", e
-                # print "e2 = ", e2
-                # assert(e==e2)
-
+                eq = self.trigsimp_new(p - pee)
                 if self.codeComplexity(eq) < 1500:
                     eq = self.SimplifyTransform(eq)
-                    
                 if self.CheckExpressionUnique(AllEquations, eq):
                     AllEquations.append(eq)
-                    
-            if uselength:
-                # here length means ||.||**2_2, square of the 2-norm
-                p2  = S.Zero
-                pe2 = S.Zero
-                
-                for j in range(leftside[i].shape[0]):
-                    p2  += leftside[i][j]**2
-                    pe2 += rightside[i][j]**2
-                    
-                if self.codeComplexity(p2) < 1200 and self.codeComplexity(pe2) < 1200:
-                    # sympy's trigsimp/customtrigsimp give up too easily
-                    eq = self.SimplifyTransform(self.trigsimp_new(p2)-self.trigsimp_new(pe2))
 
-                    # if this length equation is not in our equation set, then add it into the set  
+            if uselength:
+                # length means squared 2-norm
+                pnorm  = sum(  Tij**2 for   Tij in  leftside[i]) 
+                penorm = sum(Teeij**2 for Teeij in rightside[i]) 
+                    
+                if self.codeComplexity(pnorm) < 1200 and self.codeComplexity(penorm) < 1200:
+                    # sympy's trigsimp/customtrigsimp give up too easily
+                    eq = self.SimplifyTransform(self.trigsimp_new(pnorm - penorm))
                     if self.CheckExpressionUnique(AllEquations, eq):
                         AllEquations.append(eq.expand())
-                        
                 else:
-                    log.info('length of equation too big, skip %d, %d', \
+                    log.info('Length of equation too big, skip %d, %d', \
                              self.codeComplexity(p2), self.codeComplexity(pe2))
                     
         self.sortComplexity(AllEquations)
