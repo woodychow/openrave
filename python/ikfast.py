@@ -6109,9 +6109,28 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     unknownvars.pop(ivar)
                     endbranchtree2 = []
                     if 1:
-                        solutiontree = self.SolveAllEquations(AllEquations,curvars=[usedvars[ivar]],othersolvedvars=self.freejointvars[:],solsubs=self.freevarsubs[:],endbranchtree=[AST.SolverSequence([endbranchtree2])],unknownvars=unknownvars+unusedvars, canguessvars=False, currentcases=currentcases, currentcasesubs=currentcasesubs)
-                        endbranchtree2 += self.SolveAllEquations(AllEquations,curvars=unknownvars[0:2],othersolvedvars=self.freejointvars[:]+[usedvars[ivar]],solsubs=self.freevarsubs[:]+self.getVariable(usedvars[ivar]).subs, unknownvars=unusedvars, endbranchtree=endbranchtree, canguessvars=False, currentcases=currentcases, currentcasesubs=currentcasesubs)
+                        solutiontree = self.SolveAllEquations(AllEquations, \
+                                                              curvars = [usedvars[ivar]], \
+                                                              othersolvedvars = self.freejointvars[:], \
+                                                              solsubs = self.freevarsubs[:], \
+                                                              endbranchtree = [AST.SolverSequence([endbranchtree2])], \
+                                                              unknownvars = unknownvars+unusedvars, \
+                                                              canguessvars = False, \
+                                                              currentcases = currentcases, \
+                                                              currentcasesubs = currentcasesubs)
+                        
+                        endbranchtree2 += self.SolveAllEquations(AllEquations, \
+                                                                 curvars = unknownvars[0:2], \
+                                                                 othersolvedvars = self.freejointvars[:]+[usedvars[ivar]], \
+                                                                 solsubs = self.freevarsubs[:]+self.getVariable(usedvars[ivar]).subs, \
+                                                                 unknownvars = unusedvars, \
+                                                                 endbranchtree = endbranchtree, \
+                                                                 canguessvars = False, \
+                                                                 currentcases = currentcases, \
+                                                                 currentcasesubs = currentcasesubs)
+                        
                     return preprocesssolutiontree+solutiontree, usedvars#+unusedvars#[unknownvars[1], usedvars[ivar]]#
+                
                 except self.CannotSolveError, e:
                     log.debug(u'single variable %s failed: %s', usedvars[ivar], e)
                     
@@ -6129,21 +6148,24 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # always take the equations 4 at a time....?
             if len(newreducedeqs) == 3:
                 try:
-                    exportcoeffeqs,exportmonoms = self.solveDialytically(newreducedeqs,ileftvar,getsubs=getsubs)
+                    exportcoeffeqs,exportmonoms = self.solveDialytically(newreducedeqs, ileftvar, \
+                                                                         getsubs = getsubs)
                     break
                 except self.CannotSolveError,e:
                     log.warn('failed with leftvar %s: %s',newreducedeqs[0].gens[ileftvar],e)
             else:
                 for dialyticeqs in combinations(newreducedeqs,3):
                     try:
-                        exportcoeffeqs,exportmonoms = self.solveDialytically(dialyticeqs,ileftvar,getsubs=getsubs)
+                        exportcoeffeqs,exportmonoms = self.solveDialytically(dialyticeqs, ileftvar, \
+                                                                             getsubs = getsubs)
                         break
                     except self.CannotSolveError,e:
                         log.warn('failed with leftvar %s: %s',newreducedeqs[0].gens[ileftvar],e)
                 
                 for dialyticeqs in combinations(newreducedeqs,4):
                     try:
-                        exportcoeffeqs,exportmonoms = self.solveDialytically(dialyticeqs,ileftvar,getsubs=getsubs)
+                        exportcoeffeqs,exportmonoms = self.solveDialytically(dialyticeqs, ileftvar, \
+                                                                             getsubs = getsubs)
                         break
                     except self.CannotSolveError,e:
                         log.warn('failed with leftvar %s: %s',newreducedeqs[0].gens[ileftvar],e)
@@ -6152,10 +6174,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     filteredeqs = [peq for peq in newreducedeqs if peq.degree() <= 2] # has never worked for higher degrees than 2
                     for dialyticeqs in combinations(filteredeqs,6):
                         try:
-                            exportcoeffeqs,exportmonoms = self.solveDialytically(dialyticeqs,ileftvar,getsubs=getsubs)
+                            exportcoeffeqs,exportmonoms = self.solveDialytically(dialyticeqs, ileftvar, \
+                                                                                 getsubs = getsubs)
                             break
                         except self.CannotSolveError,e:
-                            log.warn('failed with leftvar %s: %s',newreducedeqs[0].gens[ileftvar],e)
+                            log.warn('failed with leftvar %s: %s',newreducedeqs[0].gens[ileftvar], e)
             if exportcoeffeqs is not None:
                 break
         
@@ -6259,7 +6282,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             if len(singlepolyequations) > 0:
                                 jointsol = 2*atan(leftoverhtvars[0])
                                 jointname = leftoverhtvars[0].name[2:]
-                                firstsolution = AST.SolverPolynomialRoots(jointname=jointname,poly=singlepolyequations[0],jointeval=[jointsol],isHinge=self.IsHinge(jointname))
+                                firstsolution = AST.SolverPolynomialRoots(jointname = jointname, \
+                                                                          poly = singlepolyequations[0], \
+                                                                          jointeval = [jointsol], \
+                                                                          isHinge = self.IsHinge(jointname))
                                 firstsolution.checkforzeros = []
                                 firstsolution.postcheckforzeros = []
                                 firstsolution.postcheckfornonzeros = []
@@ -6299,21 +6325,32 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                     curvars = list(usedvars)
                                     curvars.remove(solvevar)
                                     unusedvars = [solvejointvar for solvejointvar in solvejointvars if not solvejointvar in usedvars]
-                                    solutiontree = self.SolveAllEquations(AllEquations+AllEquationsExtra,curvars=curvars+unusedvars,othersolvedvars=self.freejointvars[:]+[solvevar],solsubs=self.freevarsubs[:]+self.getVariable(solvevar).subs,endbranchtree=endbranchtree, canguessvars=False, currentcases=currentcases, currentcasesubs=currentcasesubs)
+                                    solutiontree = self.SolveAllEquations(AllEquations + AllEquationsExtra, \
+                                                                          curvars = curvars+unusedvars, \
+                                                                          othersolvedvars = self.freejointvars[:]+[solvevar], \
+                                                                          solsubs = self.freevarsubs[:]+self.getVariable(solvevar).subs, \
+                                                                          endbranchtree = endbranchtree, \
+                                                                          canguessvars = False, \
+                                                                          currentcases = currentcases, \
+                                                                          currentcasesubs = currentcasesubs)
                                     #secondSolutionComplexity = self.codeComplexity(B) + self.codeComplexity(A)
                                     #if secondSolutionComplexity > 500:
                                     #    log.info('solution for %s is too complex, so delaying its solving')
                                     #solutiontree = self.SolveAllEquations(AllEquations,curvars=curvars,othersolvedvars=self.freejointvars[:]+[solvevar],solsubs=self.freevarsubs[:]+self.getVariable(solvevar).subs,endbranchtree=endbranchtree)
-                                    return preprocesssolutiontree+[firstsolution]+solutiontree,usedvars+unusedvars
+                                    return preprocesssolutiontree + [firstsolution] + solutiontree, usedvars + unusedvars
 
                                 except self.CannotSolveError, e:
                                     log.debug('could not solve full variables from scratch, so use existing solution: %s', e)
-                                    secondsolution = AST.SolverSolution(htvar.name[2:], isHinge=self.IsHinge(htvar.name[2:]))
+                                    secondsolution = AST.SolverSolution(htvar.name[2:], \
+                                                                        isHinge = self.IsHinge(htvar.name[2:]))
                                     secondsolution.jointeval = [2*atan2(B.as_expr(), A.as_expr())]
                                     secondsolution.AddHalfTanValue = True
-                                    thirdsolution = AST.SolverSolution(nonhtvars[0].name, isHinge=self.IsHinge(nonhtvars[0].name))
+                                    thirdsolution = AST.SolverSolution(nonhtvars[0].name, \
+                                                                       isHinge = self.IsHinge(nonhtvars[0].name))
                                     thirdsolution.jointeval = [usedvar0solution]
-                                    return preprocesssolutiontree+[firstsolution, secondsolution, thirdsolution]+endbranchtree, usedvars
+                                    return preprocesssolutiontree + [firstsolution, \
+                                                                     secondsolution, \
+                                                                     thirdsolution] + endbranchtree, usedvars
 #                               finally:
 #                                   self.maxcasedepth = oldmaxcasedepth
             # try to factor the equations manually
@@ -6328,14 +6365,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             if deg1index is not None:
                 # try to solve one variable in terms of the others
                 if len(htvars) > 2:
-                    usedvar0solutions = [solve(newreducedeqs[deg1index],htvars[2])[0]]
+                    usedvar0solutions = [solve(newreducedeqs[deg1index], htvars[2])[0]]
                     # check which index in usedvars matches htvars[2]
                     for igenoffset in range(len(usedvars)):
                         if htvars[2].name.find(usedvars[igenoffset].name) >= 0:
                             break
                     polyvars = htvars[0:2]
                 elif len(htvars) > 1:
-                    usedvar0solutions = solve(newreducedeqs[deg1index],htvars[1])
+                    usedvar0solutions = solve(newreducedeqs[deg1index], htvars[1])
                     igenoffset = 1
                     polyvars = htvars[0:1] + nonhtvars
                 else:
@@ -6358,7 +6395,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         else:
                             maxdegree = peq.degree(igenoffset)
                             eqnew = S.Zero
-                            for monoms,c in peq.terms():
+                            for monoms, c in peq.terms():
                                 term = c*denom**(maxdegree-monoms[igenoffset])
                                 term *= num**(monoms[igenoffset])
                                 for imonom, monom in enumerate(monoms):
@@ -6366,7 +6403,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                         term *= peq.gens[imonom]**monom
                                 eqnew += term.expand()
                             try:
-                                newpeq = Poly(eqnew,*polyvars)
+                                newpeq = Poly(eqnew, *polyvars)
                             except PolynomialError, e:
                                 # most likel uservar0solution was bad
                                 raise self.CannotSolveError('equation %s cannot be represented as a polynomial'%eqnew)
@@ -6391,7 +6428,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             coeff = int(round(coeff.evalf()))
                                         if highestcoeff is None or coeff > highestcoeff:
                                             highestcoeff = coeff
-                            if highestcoeff == oo:
+                            if highestcoeff.has(oo) or highestcoeff.has(-oo):
                                 log.warn('an equation has inifinity?!')
                             else:
                                 if highestcoeff is not None:
@@ -6400,6 +6437,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                     processedequations.append(newpeq)
                         else:
                             log.info('equation is zero, so ignoring')
+                            
                 for dialyticeqs in combinations(processedequations,3):
                     Mall = None
                     leftvar = None
@@ -6457,7 +6495,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         det += eq
                         
                     jointsol = 2*atan(leftvar)
-                    firstsolution = AST.SolverPolynomialRoots(jointname=usedvars[ileftvar].name,poly=det,jointeval=[jointsol],isHinge=self.IsHinge(usedvars[ileftvar].name))
+                    firstsolution = AST.SolverPolynomialRoots(jointname = usedvars[ileftvar].name, \
+                                                              poly = det, \
+                                                              jointeval = [jointsol], \
+                                                              isHinge = self.IsHinge(usedvars[ileftvar].name))
                     firstsolution.checkforzeros = []
                     firstsolution.postcheckforzeros = []
                     firstsolution.postcheckfornonzeros = []
@@ -6466,20 +6507,28 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     firstsolution.AddHalfTanValue = True
                     
                     # just solve the lowest degree one
-                    complexity = [(eq.degree(1-ileftvar)*100000+self.codeComplexity(eq.as_expr()),eq) for eq in processedequations if eq.degree(1-ileftvar) > 0]
-                    complexity.sort(key=itemgetter(0))
+                    complexity = [(eq.degree(1-ileftvar)*100000 + \
+                                   self.codeComplexity(eq.as_expr()),eq) for eq in processedequations if eq.degree(1-ileftvar) > 0]
+                    complexity.sort(key = itemgetter(0))
+                    
                     orderedequations = [peq for c,peq in complexity]
                     jointsol = 2*atan(htvars[1-ileftvar])
-                    secondsolution = AST.SolverPolynomialRoots(jointname=usedvars[1-ileftvar].name,poly=Poly(orderedequations[0],htvars[1-ileftvar]),jointeval=[jointsol],isHinge=self.IsHinge(usedvars[1-ileftvar].name))
+                    secondsolution = AST.SolverPolynomialRoots(jointname = usedvars[1-ileftvar].name, \
+                                                               poly = Poly(orderedequations[0], htvars[1-ileftvar]), \
+                                                               jointeval = [jointsol], \
+                                                               isHinge = self.IsHinge(usedvars[1-ileftvar].name))
                     secondsolution.checkforzeros = []
                     secondsolution.postcheckforzeros = []
                     secondsolution.postcheckfornonzeros = []
                     secondsolution.postcheckforrange = []
                     secondsolution.AddHalfTanValue = True
                     
-                    thirdsolution = AST.SolverSolution(usedvars[2].name, isHinge=self.IsHinge(usedvars[2].name))
+                    thirdsolution = AST.SolverSolution(usedvars[2].name, \
+                                                       isHinge = self.IsHinge(usedvars[2].name))
                     thirdsolution.jointeval = [usedvar0solution]
-                    return preprocesssolutiontree+[firstsolution, secondsolution, thirdsolution]+endbranchtree, usedvars
+                    return preprocesssolutiontree + [firstsolution, \
+                                                     secondsolution, \
+                                                     thirdsolution] + endbranchtree, usedvars
 
                     
             raise self.CannotSolveError('failed to solve dialytically')
@@ -6495,12 +6544,21 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             quadsoldenom = (-a1*b0 + a0*b1).expand()
             
         if ileftvar > 0:
-            raise self.CannotSolveError('solving equations dialytically succeeded with var index %d, unfortunately code generation supports only index 0'%ileftvar)
+            raise self.CannotSolveError(('solving equations dialytically succeeded with var index %d, ' + \
+                                         'unfortunately code generation supports only index 0') % ileftvar)
         
         exportvar = [htvars[ileftvar].name]
         exportvar += [v.name for i,v in enumerate(htvars) if i != ileftvar]
         exportfnname = 'solvedialyticpoly12qep' if len(exportmonoms) == 9 else 'solvedialyticpoly8qep'
-        coupledsolution = AST.SolverCoeffFunction(jointnames=[v.name for v in usedvars],jointeval=[v[1] for v in htvarsubs2],jointevalcos=[htvarsubs[2*i][1] for i in range(len(htvars))],jointevalsin=[htvarsubs[2*i+1][1] for i in range(len(htvars))],isHinges=[self.IsHinge(v.name) for v in usedvars],exportvar=exportvar,exportcoeffeqs=exportcoeffeqs,exportfnname=exportfnname, rootmaxdim=16)
+        coupledsolution = AST.SolverCoeffFunction(jointnames = [v.name for v in usedvars], \
+                                                  jointeval = [v[1] for v in htvarsubs2], \
+                                                  jointevalcos = [htvarsubs[2*i][1] for i in range(len(htvars))], \
+                                                  jointevalsin = [htvarsubs[2*i+1][1] for i in range(len(htvars))], \
+                                                  isHinges = [self.IsHinge(v.name) for v in usedvars], \
+                                                  exportvar = exportvar, \
+                                                  exportcoeffeqs = exportcoeffeqs, \
+                                                  exportfnname = exportfnname, \
+                                                  rootmaxdim = 16)
         coupledsolution.presetcheckforzeros = checkforzeros
         coupledsolution.dictequations = dictequations
         solutiontree.append(coupledsolution)
@@ -6521,8 +6579,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             evalcond = Abs(fmod(possiblevar-possiblevalue+pi,2*pi)-pi)# + evalcond
             cond2 = Abs(possiblevar2-possiblevalue2.evalf(n=30))
             evalcond2 = Abs(fmod(possiblevar2-possiblevalue2+pi,2*pi)-pi)# + evalcond
-            if self._iktype == 'transform6d' and possiblevar in rotsymbols and possiblevalue == S.Zero and possiblevar2 in rotsymbols and possiblevalue2 == S.Zero:
-                checkexpr = [[cond+cond2],evalcond+evalcond2, possiblesub+possiblesub2, []]
+            if self._iktype == 'transform6d' and \
+               possiblevar in rotsymbols and \
+               possiblevalue == S.Zero and \
+               possiblevar2 in rotsymbols and \
+               possiblevalue2 == S.Zero:
+                
+                checkexpr = [[cond+cond2], evalcond+evalcond2, possiblesub+possiblesub2, []]
                 #flatzerosubstitutioneqs.append(checkexpr)
                 #localsubstitutioneqs.append(checkexpr)
                 #handledconds.append(cond+cond2)
@@ -6579,8 +6642,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     #checkexpr[2].append((rc, -rb)) # not true
                     #checkexpr[2].append((rd, ra)) # not true
 
-
-        return preprocesssolutiontree+solutiontree+endbranchtree,usedvars
+        return preprocesssolutiontree + solutiontree + endbranchtree,usedvars
 
     def ConvertSinCosEquationToHalfTan(self, eq, convertvars):
         """
@@ -7162,6 +7224,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         return exportcoeffeqs,origmonoms
 
     def SubstituteGinacEquations(self,dictequations, valuesubs, localsymbolmap):
+        """
+        Called by solveLiWoernleHiller only (inside False branch, so not executed).
+        """
         gvaluesubs = []
         for var, value in valuesubs:
             if value != oo:
