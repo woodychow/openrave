@@ -4214,8 +4214,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         assert(numcol == len(rightside))
         
         for i in range(numcol):
-            numrow = leftside[i].shape[0] 
-            assert(numrow == rightside[i].shape[0])
+            numrow = len(leftside[i])
+            assert(numrow == len(rightside[i]))
 
             for j in range(numrow):
                 p   =  leftside[i][j]
@@ -4305,28 +4305,32 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             
         for i in range(len(T1links)-1):
             Taccum = T1linksinv[i]*Taccum
-            hasvars = [self.has(Taccum,v) for v in transvars]
-            if __builtin__.sum(hasvars) == numvarsdone:
-                # __builtin__.sum() is used to sum boolean vector
-                Positions.append(Taccum.extract(indices,[3]))
-                # TGN: this multiplyMatrix call can be improved in a cumulative manner
-                # to do in future
-                Positionsee.append(self.multiplyMatrix(T1links[(i+1):]).extract(indices,[3]))
+            hasvars = [v for v in transvars if self.has(Taccum, v)]
+            if len(hasvars) == numvarsdone:
+                toappend = Taccum.extract(indices, [3])
+                toappendee = self.multiplyMatrix(T1links[(i+1):]).extract(indices,[3])
+
+                # set constants below threshold to S.Zero
+                if removesmallnumbers:
+                    toappend   = [self.RoundEquationTerms(Ti.expand()) for Ti in toappend  ]
+                    toappendee = [self.RoundEquationTerms(Ti.expand()) for Ti in toappendee]
+                    
+                Positions.append(toappend)
+                Positionsee.append(toappendee)
                 numvarsdone += 1
+                
             if numvarsdone > 2:
                 # more than 2 variables is almost always useless
                 break
 
         if len(Positions) == 0:
-            Positions.append(zeros((len(indices),1)))
-            Positionsee.append(self.multiplyMatrix(T1links).extract(indices,[3]))
-
-        # set constants below threshold to S.Zero
-        if removesmallnumbers:
-            for i in range(len(Positions)):
-                for j in range(len(indices)):
-                    Positions[i][j]   = self.RoundEquationTerms(Positions[i][j].expand())
-                    Positionsee[i][j] = self.RoundEquationTerms(Positionsee[i][j].expand())
+            toappendee = self.multiplyMatrix(T1links).extract(indices, [3])
+            if removesmallnumbers:
+                Positions =   [[0]*len(indices)]
+                Positionsee = [[self.RoundEquationTerms(Ti.expand()) for Ti in toappendee]]
+            else:
+                Positions.append(zeros((len(indices),1)))
+                Positionsee.append(toappendee)
                     
         return self.buildEquationsFromTwoSides(Positions, Positionsee, \
                                                transvars + othersolvedvars, \
@@ -4341,31 +4345,34 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         Raccum = Ree
         numvarsdone = 0
         AllEquations = []
-        for i in range(len(T0links)):
-            Raccum = T0links[i][0:3,0:3].transpose()*Raccum # transpose is the inverse 
-            hasvars = [self.has(Raccum,v) for v in rotvars]
-            if len(AllEquations) > 0 and __builtin__.sum(hasvars) >= len(rotvars):
+        
+        for ilink, T0linki in enumerate(T0links):
+            Raccum = T0linki[0:3,0:3].transpose()*Raccum # transpose is the inverse 
+            hasvars = [v for v in rotvars if self.has(Raccum, v)]
+            
+            if len(AllEquations) > 0 and len(hasvars) >= len(rotvars):
                 break
-            if __builtin__.sum(hasvars) == numvarsdone:
-                R = self.multiplyMatrix(T0links[(i+1):])
+            if len(hasvars) == numvarsdone:
+                R = self.multiplyMatrix(T0links[(ilink+1):])
                 Reqs = []
+
                 # TGN: ensure othersolvedvars+rotvars is a subset of self.trigvars_subs
                 assert(all([z in self.trigvars_subs for z in othersolvedvars+rotvars]))
-                for i in range(3):
-                    Reqs.append([self.trigsimp_new(Raccum[i,j]-R[i,j]) for j in range(3)])
-                for i in range(3):
-                    for eq in Reqs[i]:
-                        AllEquations.append(eq)
+                AllEquations += [self.trigsimp_new(Raccum[i,j]-R[i,j]) \
+                                 for i in range(3) for j in range(3)]
                 numvarsdone += 1
+                """
                 # take dot products (equations become unnecessarily complex)
-#                 eqdots = [S.Zero, S.Zero, S.Zero]
-#                 for i in range(3):
-#                     eqdots[0] += Reqs[0][i] * Reqs[1][i]
-#                     eqdots[1] += Reqs[1][i] * Reqs[2][i]
-#                     eqdots[2] += Reqs[2][i] * Reqs[0][i]
-#                 for i in range(3):
-#                     AllEquations.append(self.trigsimp(eqdots[i].expand(),othersolvedvars+rotvars))
-                #AllEquations.append((eqs[0]*eqs[0]+eqs[1]*eqs[1]+eqs[2]*eqs[2]-S.One).expand())
+                 eqdots = [S.Zero, S.Zero, S.Zero]
+                 for i in range(3):
+                     eqdots[0] += Reqs[0][i] * Reqs[1][i]
+                     eqdots[1] += Reqs[1][i] * Reqs[2][i]
+                     eqdots[2] += Reqs[2][i] * Reqs[0][i]
+                 for i in range(3):
+                     AllEquations.append(self.trigsimp(eqdots[i].expand(), \
+                                         othersolvedvars + rotvars))
+                 AllEquations.append((eqs[0]*eqs[0]+eqs[1]*eqs[1]+eqs[2]*eqs[2]-S.One).expand())
+                """
         self.sortComplexity(AllEquations)
         return AllEquations
 
