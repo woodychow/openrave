@@ -3824,14 +3824,17 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                            ignoreaxis = None, \
                                            rawmanipnormaldir = None, \
                                            Tmanipraw = None):
-        """Solves 3D translation + Angle with respect to an axis
-        :param rawglobalnormaldir: the axis in the base coordinate system that will be computing a rotation about
-        :param rawglobaldir: the axis normal to rawglobalnormaldir that represents the 0 angle.
-        :param rawmanipnormaldir: the normal dir in the manip coordinate system for emasuring the 0 angle offset. complements rawglobalnormaldir, which shoudl be in the base coordinate system.
-        :param rawmanipdir: the axis in the manip coordinate system measuring the in-plane angle with.
-        :param rawmanippos: the position in manip effector coordinate system for measuring position
-        :param Tmanipraw: extra transform of the manip coordinate system with respect to the end effector
         """
+        Solves 3D translation + Angle with respect to an axis
+
+        :param rawglobalnormaldir: the axis in the base coordinate system about which we will compute a rotation.
+        :param rawglobaldir: the axis normal to rawglobalnormaldir that represents the 0 angle.
+        :param rawmanipnormaldir: the normal direction in the manip coordinate system for measuring the 0 angle offset. Complements rawglobalnormaldir, which should be in the base coordinate system.
+        :param rawmanipdir: the axis in the manip coordinate system measuring the in-plane angle with.
+        :param rawmanippos: the position in manip effector coordinate system for measuring position.
+        :param Tmanipraw: extra transform of the manip coordinate system with respect to the end effector.
+        """
+        
         self._iktype = 'translationaxisangle4d'
         globaldir = Matrix(3,1,[Float(x,30) for x in rawglobaldir])
         globaldir /= sqrt(globaldir[0]*globaldir[0]+globaldir[1]*globaldir[1]+globaldir[2]*globaldir[2])
@@ -3839,19 +3842,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             globaldir[i] = self.convertRealToRational(globaldir[i], 5)
             
         iktype = None
-        if rawglobalnormaldir is not None:
-            globalnormaldir = Matrix(3,1,[Float(x,30) for x in rawglobalnormaldir])
-            binormaldir = globalnormaldir.cross(globaldir).transpose()
-            
-            if globaldir[0] == S.One and globalnormaldir[2] == S.One:
-                iktype = IkType.TranslationXYOrientation3D if ignoreaxis == 2 else IkType.TranslationXAxisAngleZNorm4D
-                
-            elif globaldir[1] == S.One and globalnormaldir[0] == S.One:
-                iktype = IkType.TranslationYAxisAngleXNorm4D
-                
-            elif globaldir[2] == S.One and globalnormaldir[1] == S.One:
-                iktype = IkType.TranslationZAxisAngleYNorm4D
-        else:
+        if rawglobalnormaldir is None:
             globalnormaldir = None
             if globaldir[0] == S.One:
                 iktype = IkType.TranslationXAxisAngle4D
@@ -3860,20 +3851,34 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             elif globaldir[2] == S.One:
                 iktype = IkType.TranslationZAxisAngle4D
 
+        else:        
+            globalnormaldir = Matrix(3,1,[Float(x,30) for x in rawglobalnormaldir])
+            binormaldir = globalnormaldir.cross(globaldir).transpose()
+            
+            if globaldir[0] == S.One and globalnormaldir[2] == S.One:
+                iktype = IkType.TranslationXYOrientation3D if ignoreaxis == 2 else \
+                         IkType.TranslationXAxisAngleZNorm4D
+                
+            elif globaldir[1] == S.One and globalnormaldir[0] == S.One:
+                iktype = IkType.TranslationYAxisAngleXNorm4D
+                
+            elif globaldir[2] == S.One and globalnormaldir[1] == S.One:
+                iktype = IkType.TranslationZAxisAngleYNorm4D
+
         manipnormaldir = globalnormaldir if rawmanipnormaldir is None \
                          else Matrix(3,1,[self.convertRealToRational(x) for x in rawmanipnormaldir])
         
         if iktype is None:
-            raise ValueError('currently globaldir can only by one of x,y,z axes')
+            raise ValueError('Currently globaldir can only by x-, y-, or z-axis.')
         
         manippos = Matrix(3,1,[self.convertRealToRational(x) for x in rawmanippos])
         manipdir = Matrix(3,1,[Float(x,30) for x in rawmanipdir])
-        L = sqrt(manipdir[0]*manipdir[0]+manipdir[1]*manipdir[1]+manipdir[2]*manipdir[2])
-        manipdir /= L
+        manipdir /= sqrt(manipdir[0]*manipdir[0]+manipdir[1]*manipdir[1]+manipdir[2]*manipdir[2])
         for i in range(3):
             manipdir[i] = self.convertRealToRational(manipdir[i], 5)
+        # unfortunately have to do it again...            
         manipdir /= sqrt(manipdir[0]*manipdir[0]+manipdir[1]*manipdir[1]+manipdir[2]*manipdir[2])
-        # unfortunately have to do it again...
+
         Links = LinksRaw[:]
         if Tmanipraw is not None:
             Links.append(self.RoundMatrix(self.GetMatrixFromNumpy(Tmanipraw)))
@@ -3884,12 +3889,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         LinksInv = [self.affineInverse(link) for link in Links]
         Tallmult = self.multiplyMatrix(Links)
         self.Tfinal = zeros(4)
-        
-        if globalnormaldir is None:
-            self.Tfinal[0,0] = acos(globaldir.dot(Tallmult[0:3,0:3]*manipdir))
-        else:
-            self.Tfinal[0,0] = atan2(binormaldir.dot(Tallmult[0:3,0:3]*manipdir), \
-                                     globaldir.dot(Tallmult[0:3,0:3]*manipdir))
+
+        # TGN: refactored. Should we normalize v?
+        v = Tallmult[0:3,0:3]*manipdir
+        dotprod = globaldir.dot(v)
+        self.Tfinal[0,0] = acos(dotprod) if globalnormaldir is None else \
+                           atan2(binormaldir.dot(v), dotprod)
+
         if self.Tfinal[0,0] == nan:
             raise self.CannotSolveError('Cannot solve 4D axis angle IK. ' + \
                                         'Most likely manipulator direction is aligned with the rotation axis')
@@ -3899,49 +3905,51 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                  numsolutions = self._numsolutions)
         
         solvejointvars = [jointvars[i] for i in isolvejointvars]
-        expecteddof = 4
-        if ignoreaxis is not None:
-            expecteddof -= 1
+        expecteddof = 4 if ignoreaxis is None else 3
         if len(solvejointvars) != expecteddof:
-            raise self.CannotSolveError('Need %d joints' % expecteddof)
+            raise self.CannotSolveError('Need %d joints; now there are %i' % \
+                                        (expecteddof, len(solvejointvars)))
         
-        log.info('ikfast translation axis %dd, globaldir = %s, manipdir = %s: %s', \
+        log.info('ikfast translation axis %dd, globaldir = %s, manipdir = %s : %s', \
                  expecteddof, globaldir, manipdir, solvejointvars)
         
         # if last two axes are intersecting, can divide computing position and direction
-        ilinks = [i for i,Tlink in enumerate(Links) if self.has(Tlink,*solvejointvars)]
+        ilinks = [i for i, Tlink in enumerate(Links) if self.has(Tlink, *solvejointvars)]
         
         Tmanipposinv = eye(4)
         Tmanipposinv[0:3,3] = -manippos
-        T1links = [Tmanipposinv]+LinksInv[::-1]+[self.Tee]
-        T1linksinv = [self.affineInverse(Tmanipposinv)]+Links[::-1]+[self.Teeinv]
+        T1links = [Tmanipposinv] + LinksInv[::-1] + [self.Tee]
+        T1linksinv = [self.affineInverse(Tmanipposinv)] + Links[::-1] + [self.Teeinv]
         AllEquations = self.buildEquationsFromPositions(T1links, \
                                                         T1linksinv,\
                                                         solvejointvars, \
                                                         self.freejointvars, \
                                                         uselength = True, \
                                                         ignoreaxis = ignoreaxis)
-        
+        # TGN: only check one set of consistent values?
         if not all([abs(eq.subs(self.testconsistentvalues[0]).evalf())<=1e-10 for eq in AllEquations]):
             raise self.CannotSolveError('Some equations are not consistent with the IK, double check if IK type is correct')
         
-        for index in range(len(ilinks)):
+        for ilink in ilinks: # index in range(len(ilinks)):
             # inv(T0) * T1 * manipdir = globaldir
             # => T1 * manipdir = T0 * globaldir
-            T0links = LinksInv[:ilinks[index]][::-1]
+            T0links = LinksInv[:ilink][::-1]
             T0 = self.multiplyMatrix(T0links)
-            T1links = Links[ilinks[index]:]
+            T1links = Links[ilink:]
             T1 = self.multiplyMatrix(T1links)
             globaldir2 = T0[0:3,0:3]*globaldir
-            manipdir2 = T1[0:3,0:3]*manipdir
+            manipdir2  = T1[0:3,0:3]*manipdir
             
             for i in range(3):
                 if globaldir2[i].is_number:
                     globaldir2[i] = self.convertRealToRational(globaldir2[i])
                 if manipdir2[i].is_number:
                     manipdir2[i] = self.convertRealToRational(manipdir2[i])
-                    
-            eq = self.SimplifyTransform(self.trigsimp(globaldir2.dot(manipdir2), solvejointvars)) - cos(self.Tee[0])
+
+            # TGN: ensure solvejointvars is a subset of self.trigvars_subs
+            assert(all([z in self.trigvars_subs for z in solvejointvars]))
+            
+            eq = self.SimplifyTransform(self.trigsimp_new(globaldir2.dot(manipdir2))) - cos(self.Tee[0])
             if self.CheckExpressionUnique(AllEquations, eq):
                 AllEquations.append(eq)
                 
@@ -3951,8 +3959,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     if binormaldir2[i].is_number:
                         binormaldir2[i] = self.convertRealToRational(binormaldir2[i])
                         
-                eq = self.SimplifyTransform(self.trigsimp(binormaldir2.dot(manipdir2), \
-                                                          solvejointvars))-sin(self.Tee[0])
+                eq = self.SimplifyTransform(self.trigsimp_new(binormaldir2.dot(manipdir2))) - sin(self.Tee[0])
                 if self.CheckExpressionUnique(AllEquations, eq):
                     AllEquations.append(eq)
         
@@ -3970,12 +3977,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     if self.IsHinge(solvejoint.name):
                         Tall0 = Tallmult[0:3,0:3].subs(solvejoint, S.Zero)
                         Tall1 = Tallmult[0:3,0:3].subs(solvejoint, pi/2)
-                        if all([f==S.Zero for f in Tall0*Tnormaltest-Tall1]):
-                            angles.append(solvejoint)
-                            isanglepositive.append(True)
-                        else:
-                            angles.append(solvejoint)
-                            isanglepositive.append(False)
+                        angles.append(solvejoint)
+                        isanglepositive.append(all([f==S.Zero for f in Tall0*Tnormaltest-Tall1]))
                             
                 Tzero = Tallmult.subs([(a,S.Zero) for a in angles])
                 for i in range(3):
@@ -3983,9 +3986,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         binormaldir[i] = self.convertRealToRational(binormaldir[i])
                     if manipdir[i].is_number:
                         manipdir[i] = self.convertRealToRational(manipdir[i])
-                        
-                zeroangle = atan2(binormaldir.dot(Tzero[0:3,0:3]*manipdir), \
-                                  globaldir.dot(Tzero[0:3,0:3]*manipdir))
+
+                v = Tzero[0:3,0:3]*manipdir
+                zeroangle = atan2(binormaldir.dot(v), globaldir.dot(v))
                 eqangles = self.Tee[0]-zeroangle
                 for iangle, a in enumerate(angles[:-1]):
                     eqangles += -a if isanglepositive[iangle] else a
@@ -3996,8 +3999,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 coseq = cos(eqangles).expand(trig = True)
                 sineq = sin(eqangles).expand(trig = True)
                 AllEquationsOld = AllEquations
-                AllEquations = [self.trigsimp(eq.subs([(cos(angles[-1]),coseq), \
-                                                       (sin(angles[-1]),sineq)]).expand(), \
+                AllEquations = [self.trigsimp(eq.subs([(cos(angles[-1]), coseq), \
+                                                       (sin(angles[-1]), sineq)]).expand(), \
                                               solvejointvars) for eq in AllEquationsOld]
                 solvejointvarsold = list(solvejointvars)
                 for var in solvejointvars:
@@ -4006,6 +4009,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         break
 
         self.sortComplexity(AllEquations)
+
+        # AST.SolverStoreSolution
         endbranchtree = [AST.SolverStoreSolution(jointvars, \
                                                  isHinge = [self.IsHinge(var.name) for var in jointvars])]
         if extravar is not None:
@@ -4015,6 +4020,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             endbranchtree.insert(0, solution)
         
         try:
+            # solve, verify
             tree = self.SolveAllEquations(AllEquations, \
                                           curvars = solvejointvars[:], \
                                           othersolvedvars = self.freejointvars, \
@@ -4024,14 +4030,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                            tree)
             
         except self.CannotSolveError, e:
-            log.debug('failed to solve using SolveAllEquations: %s', e)
+            log.debug('Failed to solve using SolveAllEquations: %s', e)
             if 0:
                 solvejointvar0sols = solve(AllEquations[4], solvejointvars[0])
                 NewEquations = [eq.subs(solvejointvars[0], solvejointvar0sols[0]) for eq in AllEquations]
-                newsolution=AST.SolverSolution(solvejointvars[0].name, \
-                                               jointeval = solvejointvar0sols, \
-                                               isHinge = self.IsHinge(solvejointvars[0].name))
-                endbranchtree.insert(0,newsolution)
+                newsolution = AST.SolverSolution(solvejointvars[0].name, \
+                                                 jointeval = solvejointvar0sols, \
+                                                 isHinge = self.IsHinge(solvejointvars[0].name))
+                endbranchtree.insert(0, newsolution)
                 tree = self.SolveAllEquations(NewEquations, \
                                               curvars = solvejointvars[1:], \
                                               othersolvedvars = self.freejointvars, \
@@ -4065,11 +4071,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             for solution in rawsolutions:
                                 self.ComputeSolutionComplexity(solution, othersolvedvars, \
                                                                solvejointvars)
-                                solutions.append((solution,curvar))
+                                solutions.append((solution, curvar))
                         except self.CannotSolveError, e:
                             gatheredexceptions.append((curvar.name, e))
                     else:
                         gatheredexceptions.append((curvar.name, None))
+                        
                 if len(solutions) == 0:
                     raise self.CannotSolveError('Failed to solve for equations. Possible errors are %s' % \
                                                 gatheredexceptions)
@@ -4093,58 +4100,64 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         trigsubs.append((var.svar**3, var.svar*(1-var.cvar**2)))
                     else:
                         polyvars.append(v)
-                polysubsinv = [(b,a) for a,b in polysubs]
+                        
+                polysubsinv = [(b, a) for a, b in polysubs]
                 rawpolyeqs = [Poly(Poly(eq.subs(polysubs), *polyvars).subs(trigsubs), *polyvars) \
                               for eq in AllEquations if eq.has(*curvars)]
 
-                dummys = []
-                dummysubs = []
+                dummys     = []
+                dummysubs  = []
                 dummysubs2 = []
-                dummyvars = []
-                for i in range(0,len(polyvars),2):
-                    dummy = Symbol('ht%s'%polyvars[i].name[1:])
-                    # [0] - cos, [1] - sin
+                dummyvars  = []
+                numvars = len(polyvars)/2
+                dummydenoms = [0] * numvars
+                dummynums   = [0] * (numvars*2)
+
+                for i in range(numvars):
+                    dummy = Symbol('ht%s' % polyvars[2*i].name[1:]) # e.g. ht1
                     dummys.append(dummy)
-                    dummysubs += [(polyvars[i],  (1-dummy**2)/(1+dummy**2)),\
-                                  (polyvars[i+1],     2*dummy/(1+dummy**2))]
-                    var = polyvars[i].subs(self.invsubs).args[0]
+
+                    dummydenoms[i]   = 1+dummy**2
+                    dummynums[2*i]   = 1-dummy**2
+                    dummynums[2*i+1] = 2*dummy
+                    
+                    dummysubs += [(polyvars[2*i],   dummynums[2*i]  /dummydenoms[i]), \
+                                  (polyvars[2*i+1], dummynums[2*i+1]/dummydenoms[i])  ]
+                    
+                    var = polyvars[2*i].subs(self.invsubs).args[0]
                     dummysubs2.append((var, 2*atan(dummy)))
                     dummyvars.append((dummy, tan(0.5*var)))
 
                 newreducedeqs = []
                 for peq in rawpolyeqs:
-                    maxdenom = [0]*(len(polyvars)/2)
-                    for monoms in peq.monoms():
-                        for i in range(len(maxdenom)):
-                            maxdenom[i] = max(maxdenom[i], monoms[2*i]+monoms[2*i+1])
+                    maxdenom = [ max([monoms[2*i]+monoms[2*i+1] \
+                                      for monoms in peq.monoms()]) \
+                                 for i in range(numvar)]
                     eqnew = S.Zero
-                    for monoms,c in peq.terms():
+                    for monoms, c in peq.terms():
                         term = c
-                        for i in range(len(polyvars)):
-                            num,denom = fraction(dummysubs[i][1])
-                            term *= num**monoms[i]
-                        # the denoms for 0,1 and 2,3 are the same
-                        for i in range(len(maxdenom)):
-                            denom = fraction(dummysubs[2*i][1])[1]
-                            term *= denom**(maxdenom[i]-monoms[2*i]-monoms[2*i+1])
+                        for i in range(numvar):
+                            term *= dummynums[2*i]**monoms[2*i]
+                            term *= dummynums[2*i+1]**monoms[2*i+1]
+                            term *= dummydenoms[i]**(maxdenom[i]-monoms[2*i]-monoms[2*i+1])
                         eqnew += term
                     newreducedeqs.append(Poly(eqnew, *dummys))
 
-                newreducedeqs.sort(cmp = lambda x,y: len(x.monoms()) - len(y.monoms()))
+                newreducedeqs.sort(lambda x,y: len(x.monoms()) - len(y.monoms()))
                 ileftvar = 0
                 leftvar = dummys[ileftvar]
-                exportcoeffeqs=None
+                exportcoeffeqs = None
                 for ioffset in range(len(newreducedeqs)):
                     try:
-                        exportcoeffeqs,exportmonoms = self.solveDialytically(newreducedeqs[ioffset:], \
-                                                                             ileftvar)
-                        log.info('ioffset %d' % ioffset)
+                        exportcoeffeqs, exportmonoms = self.solveDialytically(newreducedeqs[ioffset:], \
+                                                                              ileftvar)
+                        log.info('ioffset %d/%d' % (ioffset, len(newreducedeqs)))
                         break
                     except self.CannotSolveError, e:
                         log.debug('solveDialytically errors: %s', e)
 
                 if exportcoeffeqs is None:
-                    raise self.CannotSolveError('failed to solveDialytically')
+                    raise self.CannotSolveError('Failed to solveDialytically')
 
                 coupledsolution = AST.SolverCoeffFunction(jointnames = [v.name for v in curvars], \
                                                           jointeval = [v[1] for v in dummysubs2], \
@@ -4161,7 +4174,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 self.usinglapack = True
                 tree = [firstsolution, coupledsolution] + endbranchtree
 
-        # package final solution
+        # call AST to package final solution
         chaintree = AST.SolverIKChainAxisAngle([(jointvars[ijoint], ijoint) \
                                                 for ijoint in isolvejointvars], \
                                                [(v,i) for v,i in izip(self.freejointvars, self.ifreejointvars)], \
@@ -4174,9 +4187,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         chaintree.dictequations += self.ppsubs
         return chaintree
 
-    def buildEquationsFromTwoSides(self, leftside, rightside, usedvars, uselength = True):
+    def buildEquationsFromTwoSides(self, leftside, rightside, usedvars, \
+                                   uselength = True):
         """
-
         uselength indicates whether to use the 2-norm of both sides.
         
         Called by 
@@ -4188,7 +4201,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         solveFullIK_Ray4D
         solve5DIntersectingAxes
         buildEquationsFromPositions
-
         """
         
         # try to shift all the constants of each Position expression to one side
@@ -12766,6 +12778,9 @@ class AST:
             self.Pee = Tleftinv[0:3,0:3]*self.Pee+Tleftinv[0:3,3]
             
     class SolverIKChainAxisAngle(SolverBase):
+        """
+        Called by solveFullIK_TranslationAxisAngle4D.
+        """
         solvejointvars = None
         freejointvars  = None
         jointtree      = None
