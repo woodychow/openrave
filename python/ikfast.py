@@ -4201,6 +4201,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         solveFullIK_Ray4D
         solve5DIntersectingAxes
         buildEquationsFromPositions
+          |
+          |-- _solveFullIK_Translation3D
+          |-- solve5DIntersectingAxes
+          |-- solve6DIntersectingAxes
+          |-- solveFullIK_TranslationAxisAngle4D
         """
         AllEquations = [] 
         # TGN: ensure usedvars is a subset of self.trigvars_subs 
@@ -4213,23 +4218,35 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             assert(numrow == rightside[i].shape[0])
 
             for j in range(numrow):
-
                 p   =  leftside[i][j]
                 pee = rightside[i][j]
                 if uselength:
-                    # shift constants in expression of each position to the side that has fewer terms
+                    # shift constants in expression of each position to the side that has fewer non-number addends
                     # useful when we need norm equations
                     if p.is_Add:
                         pconstterm = [term for term in p.args if term.is_number]
+                        # number of non-number addends
+                        np = len(p.args)-len(pconstterm)
+                    elif p.is_number:
+                        pconstterm = [p]
+                        np = 0
                     else:
-                        pconstterm = [p] if p.is_number else []
+                        pconstterm = []
+                        np = 1
                     if pee.is_Add:
                         peeconstterm = [term for term in pee.args if term.is_number]
+                        # number of non-number addends
+                        npee = len(pee.args)-len(peeconstterm)
+                    elif pee.is_number:
+                        peeconstterm = [pee]
+                        npee = 0
                     else:
-                        peeconstterm = [pee] if pee.is_number else []
-
-                    if len(pconstterm) > 0 and len(peeconstterm) > 0:
-                        sumterm = sum(term for term in (peeconstterm if len(p.args) < len(pee.args) else pconstterm))
+                        peeconstterm = []
+                        npee = 1
+                        
+                    termstosum = [term for term in (peeconstterm if np<npee else pconstterm)]
+                    if len(termstosum)>0:
+                        sumterm = sum(termstosum)
                         leftside [i][j] -= sumterm
                         rightside[i][j] -= sumterm
                         
