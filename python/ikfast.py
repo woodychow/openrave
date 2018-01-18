@@ -4380,34 +4380,43 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         .. [Raghavan1993] M Raghavan and B Roth, "Inverse Kinematics of the General 6R Manipulator and related Linkages",  Journal of Mechanical Design, Volume 115, Issue 3, 1993.
 
         Called by solveFullIK_6DGeneral only.
-
         """
+        
         p0 = T0[0:3,3]
         p1 = T1[0:3,3]
-        p=p0-p1
+        p = p0-p1
         T = T0-T1
         numminvars = 100000
         for irow in range(3):
-            hasvar = [self.has(T[0:3,irow],var) or self.has(p,var) for var in solvejointvars]
+            hasvar = [self.has(T[0:3,irow], var) or \
+                      self.has(p, var) for var in solvejointvars]
             numcurvars = __builtin__.sum(hasvar)
             if numminvars > numcurvars and numcurvars > 0:
                 numminvars = numcurvars
-                l0 = T0[0:3,irow]
-                l1 = T1[0:3,irow]
-            hasvar = [self.has(T[irow,0:3],var) or self.has(p,var) for var in solvejointvars]
+                l0 = T0[0:3, irow]
+                l1 = T1[0:3, irow]
+                
+            hasvar = [self.has(T[irow,0:3], var) or \
+                      self.has(p,var) for var in solvejointvars]
             numcurvars = __builtin__.sum(hasvar)
             if numminvars > numcurvars and numcurvars > 0:
                 numminvars = numcurvars
-                l0 = T0[irow,0:3].transpose()
-                l1 = T1[irow,0:3].transpose()
+                l0 = T0[irow, 0:3].transpose()
+                l1 = T1[irow, 0:3].transpose()
+                
         if currentcasesubs is not None:
             p0 = p0.subs(currentcasesubs)
             p1 = p1.subs(currentcasesubs)
             l0 = l0.subs(currentcasesubs)
             l1 = l1.subs(currentcasesubs)
-        return self.buildRaghavanRothEquations(p0,p1,l0,l1,solvejointvars,simplify,currentcasesubs),numminvars
+        return self.buildRaghavanRothEquations(p0, p1, l0, l1, \
+                                               solvejointvars, simplify, currentcasesubs), \
+                                               numminvars
 
     def CheckEquationForVarying(self, eq):
+        """
+        Called by buildRaghavanRothEquations
+        """
         return eq.has('vj0px') or eq.has('vj0py') or eq.has('vj0pz')
 
     """
@@ -4512,7 +4521,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             usedvars.append([var for var in polyvars if any([eq[j].subs(polysubs).has(var) for eq in eqs])])
         for i in range(len(eqs)):
             self._CheckPreemptFn(progress = 0.05)
-            if not self.CheckEquationForVarying(eqs[i][0]) and not self.CheckEquationForVarying(eqs[i][1]):
+            if not self.CheckEquationForVarying(eqs[i][0]) and \
+               not self.CheckEquationForVarying(eqs[i][1]):
                 for j in range(2):
                     if polyeqs[i][j] is not None:
                         continue
@@ -4532,7 +4542,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         for i in range(3):
             eqs.append([ppl0[i],ppl1[i]])
         for i in range(11, len(eqs)):
-            if not self.CheckEquationForVarying(eqs[i][0]) and not self.CheckEquationForVarying(eqs[i][1]):
+            if not self.CheckEquationForVarying(eqs[i][0]) and \
+               not self.CheckEquationForVarying(eqs[i][1]):
                 for j in range(2):
                     if polyeqs[i][j] is not None:
                         continue
@@ -4555,45 +4566,53 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 not self.CheckEquationForVarying(peq0) and \
                 not self.CheckEquationForVarying(peq1)]
 
-    def reduceBothSides(self,polyeqs):
+    def reduceBothSides(self, polyeqs):
         """
         Reduces a set of equations in 5 unknowns to a set of equations with 3 unknowns by 
         solving for one side with respect to another.
         
         The input is usually the output of buildRaghavanRothEquations.
+
+        Called by solveManochaCanny only.
         """
         
         usedvars = [polyeqs[0][0].gens, polyeqs[0][1].gens]
         reducedelayed = []
-        for j in range(2):
+        for j in (0, 1):
             if len(usedvars[j]) <= 4:
                 leftsideeqs = [polyeq[j] for polyeq in polyeqs if sum(polyeq[j].degree_list()) > 0]
                 rightsideeqs = [polyeq[1-j] for polyeq in polyeqs if sum(polyeq[j].degree_list()) > 0]
                 if all([all(d <= 2 for d in eq.degree_list()) for eq in leftsideeqs]):
                     try:
-                        numsymbolcoeffs, _computereducedequations = self.reduceBothSidesSymbolicallyDelayed(leftsideeqs,rightsideeqs)
-                        reducedelayed.append([j,leftsideeqs,rightsideeqs,__builtin__.sum(numsymbolcoeffs), _computereducedequations])
+                        numsymbolcoeffs, _computereducedequations = self.reduceBothSidesSymbolicallyDelayed(leftsideeqs, \
+                                                                                                            rightsideeqs)
+                        reducedelayed.append([j, leftsideeqs, \
+                                              rightsideeqs,__builtin__.sum(numsymbolcoeffs), \
+                                              _computereducedequations])
                     except self.CannotSolveError:
                         continue
         
         # sort with respect to least number of symbols
-        reducedelayed.sort(lambda x,y: x[3]-y[3])
+        reducedelayed.sort(lambda x, y: x[3]-y[3])
 
         reducedeqs = []
         tree = []
-        for j,leftsideeqs,rightsideeqs,numsymbolcoeffs, _computereducedequations in reducedelayed:
+        for j, leftsideeqs, rightsideeqs, numsymbolcoeffs, _computereducedequations in reducedelayed:
             self._CheckPreemptFn(progress = 0.06)
             try:
                 reducedeqs2 = _computereducedequations()
                 if len(reducedeqs2) == 0:
                     log.info('forcing matrix inverse (might take some time)')
-                    reducedeqs2,tree = self.reduceBothSidesInverseMatrix(leftsideeqs,rightsideeqs)
+                    reducedeqs2, tree = self.reduceBothSidesInverseMatrix(leftsideeqs, rightsideeqs)
                 if len(reducedeqs2) > 0:
                     # success, add all the reduced equations
-                    reducedeqs += [[Poly(eq[0],*usedvars[j]),Poly(eq[1],*usedvars[1-j])] for eq in reducedeqs2] + [[Poly(S.Zero,*polyeq[j].gens),polyeq[1-j]-polyeq[j].as_expr()] for polyeq in polyeqs if sum(polyeq[j].degree_list()) == 0]
+                    reducedeqs += [[Poly(eq[0], *usedvars[j]), \
+                                    Poly(eq[1], *usedvars[1-j])] for eq in reducedeqs2] + \
+                                    [[Poly(S.Zero, *polyeq[j].gens), polyeq[1-j]-polyeq[j].as_expr()] \
+                                     for polyeq in polyeqs if sum(polyeq[j].degree_list()) == 0]
                     if len(reducedeqs) > 0:
                         break;
-            except self.CannotSolveError,e:
+            except self.CannotSolveError, e:
                 log.warn(e)
                 continue
 
@@ -4603,10 +4622,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 #                 for j in range(2):
 #                     eq[j] = Poly(eq[j].subs(trigsubs).as_expr().expand(),*eq[j].gens)
             polyeqs = reducedeqs
-        return [eq for eq in polyeqs if eq[0] != S.Zero or eq[1] != S.Zero],tree
+        return [eq for eq in polyeqs if eq[0] != S.Zero or eq[1] != S.Zero], tree
 
-    def reduceBothSidesInverseMatrix(self,leftsideeqs,rightsideeqs):
-        """solve a linear system inside the program since the matrix cannot be reduced so easily
+    def reduceBothSidesInverseMatrix(self, leftsideeqs, rightsideeqs):
+        """
+        Solve a linear system inside the program since the matrix cannot be reduced so easily.
+
+        Called by reduceBothSides only.
         """
         allmonomsleft = set()
         for peq in leftsideeqs:
@@ -4616,10 +4638,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         if __builtin__.sum(allmonomsleft[0]) == 0:
             allmonomsleft.pop(0)
         if len(leftsideeqs) < len(allmonomsleft):
-            raise self.CannotSolveError('left side has too few equations for the number of variables %d<%d'%(len(leftsideeqs),len(allmonomsleft)))
+            raise self.CannotSolveError('Left side has too few equations for the number of variables %d < %d' % \
+                                        (len(leftsideeqs), len(allmonomsleft)))
         
         systemcoeffs = []
-        for ileft,left in enumerate(leftsideeqs):
+        for ileft, left in enumerate(leftsideeqs):
             coeffs = [S.Zero]*len(allmonomsleft)
             rank = 0
             for m,c in left.terms():
@@ -4627,21 +4650,21 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     if c != S.Zero:
                         rank += 1
                     coeffs[allmonomsleft.index(m)] = c
-            systemcoeffs.append((rank,ileft,coeffs))
+            systemcoeffs.append((rank, ileft, coeffs))
         # ideally we want to try all combinations of simple equations first until we arrive to linearly independent ones.
         # However, in practice most of the first equations are linearly dependent and it takes a lot of time to prune all of them,
         # so start at the most complex
-        systemcoeffs.sort(lambda x,y: -x[0]+y[0])
+        systemcoeffs.sort(lambda x, y: -x[0]+y[0])
         # sort left and right in the same way
-        leftsideeqs = [leftsideeqs[ileft] for rank,ileft,coeffs in systemcoeffs]
+        leftsideeqs  = [leftsideeqs [ileft] for rank,ileft,coeffs in systemcoeffs]
         rightsideeqs = [rightsideeqs[ileft] for rank,ileft,coeffs in systemcoeffs]
 
-        A = zeros((len(allmonomsleft),len(allmonomsleft)))
+        A = zeros((len(allmonomsleft), len(allmonomsleft)))
         Asymbols = []
         for i in range(A.shape[0]):
             Asymbols.append([Symbol('gconst%d_%d'%(i,j)) for j in range(A.shape[1])])
         solution = None
-        for eqindices in combinations(range(len(leftsideeqs)),len(allmonomsleft)):
+        for eqindices in combinations(range(len(leftsideeqs)), len(allmonomsleft)):
             self._CheckPreemptFn(progress = 0.06)
             for i,index in enumerate(eqindices):
                 for k in range(len(allmonomsleft)):
@@ -4657,17 +4680,17 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 if det == S.Zero:
                     continue
                 solution.checkforzeros = [self.removecommonexprs(det)]
-            solution = AST.SolverMatrixInverse(A=A,Asymbols=Asymbols)
+            solution = AST.SolverMatrixInverse(A = A,Asymbols = Asymbols)
             self.usinglapack = True
-            Aadj=A.adjugate() # too big to be useful for now, but can be used to see if any symbols are always 0
+            Aadj = A.adjugate() # too big to be useful for now, but can be used to see if any symbols are always 0
             break
         if solution is None:
-            raise self.CannotSolveError('failed to find %d linearly independent equations'%len(allmonomsleft))
+            raise self.CannotSolveError('failed to find %d linearly independent equations' % len(allmonomsleft))
         
         reducedeqs = []
         for i in range(len(allmonomsleft)):
-            var=S.One
-            for k,kpower in enumerate(allmonomsleft[i]):
+            var = S.One
+            for k, kpower in enumerate(allmonomsleft[i]):
                 if kpower != 0:
                     var *= leftsideeqs[0].gens[k]**kpower
             pright = S.Zero
@@ -4675,6 +4698,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 if Aadj[i,k] != S.Zero:
                     pright += Asymbols[i][k] * (rightsideeqs[eqindices[k]].as_expr()-leftsideeqs[eqindices[k]].TC())
             reducedeqs.append([var,pright.expand()])
+            
         othereqindices = set(range(len(leftsideeqs))).difference(set(eqindices))
         for i in othereqindices:
             # have to multiply just the constant by the determinant
@@ -4684,7 +4708,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     neweq -= c*reducedeqs[allmonomsleft.index(m)][1]
                 else:
                     neweq -= c
-            reducedeqs.append([S.Zero,neweq])
+            reducedeqs.append([S.Zero, neweq])
         return reducedeqs, [solution]
 
 #                 Adj=M[:,:-1].adjugate()
@@ -4756,12 +4780,20 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 #                 print 'ignoring num symbols: ',numsymbols
 #                 continue
 
-    def reduceBothSidesSymbolically(self,*args,**kwargs):
-        numsymbolcoeffs, _computereducedequations = self.reduceBothSidesSymbolicallyDelayed(*args,**kwargs)
+    def reduceBothSidesSymbolically(self, *args, **kwargs):
+        """
+        Called by solveKohliOsvatic only.
+        """
+        numsymbolcoeffs, _computereducedequations = self.reduceBothSidesSymbolicallyDelayed(*args, **kwargs)
         return _computereducedequations()
 
-    def reduceBothSidesSymbolicallyDelayed(self,leftsideeqs,rightsideeqs,maxsymbols=10,usesymbols=True):
-        """the left and right side of the equations need to have different variables
+    def reduceBothSidesSymbolicallyDelayed(self, leftsideeqs, rightsideeqs, \
+                                           maxsymbols = 10, \
+                                           usesymbols = True):
+        """
+        The left and right side of the equations need to have different variables.
+
+        Called by reduceBothSides and reduceBothSidesSymbolically.
         """
         assert(len(leftsideeqs)==len(rightsideeqs))
         # first count the number of different monomials, then try to solve for each of them
@@ -4771,24 +4803,26 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         localsymbols = []
         dividesymbols = []
         allmonoms = dict()
-        for left,right in izip(leftsideeqs,rightsideeqs):
+        for left, right in izip(leftsideeqs, rightsideeqs):
             if right != S.Zero:
                 rightsidedummy.append(symbolgen.next())
-                localsymbols.append((rightsidedummy[-1],right.as_expr().expand()))
+                localsymbols.append((rightsidedummy[-1], right.as_expr().expand()))
             else:
                 rightsidedummy.append(S.Zero)
+                
             for m in left.monoms():
                 if __builtin__.sum(m) > 0 and not m in allmonoms:
                     newvar = vargen.next()
-                    localsymbols.append((newvar,Poly.from_dict({m:S.One},*left.gens).as_expr()))
+                    localsymbols.append((newvar, Poly.from_dict({m:S.One}, *left.gens).as_expr()))
                     allmonoms[m] = newvar
 
         if len(leftsideeqs) < len(allmonoms):
-            raise self.CannotSolveError('left side has too few equations for the number of variables %d<%d'%(len(leftsideeqs),len(allmonoms)))
+            raise self.CannotSolveError('left side has too few equations for the number of variables %d < %d' % \
+                                        (len(leftsideeqs), len(allmonoms)))
         
         if len(allmonoms) == 0:
             def _returnequations():
-                return [[left,right] for left,right in izip(leftsideeqs,rightsideeqs)]
+                return [[left, right] for left, right in izip(leftsideeqs, rightsideeqs)]
             
             return 0, _returnequations
         
@@ -4857,7 +4891,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # order the equations based on the number of terms
             newleftsideeqs.sort(lambda x,y: len(x.monoms()) - len(y.monoms()))
             newunknowns = newleftsideeqs[0].gens
-            log.info('solving for all pairwise variables in %s, number of symbol coeffs are %s',unknownvars,__builtin__.sum(numsymbolcoeffs))
+            log.info('solving for all pairwise variables in %s, number of symbol coeffs are %s', \
+                     unknownvars, __builtin__.sum(numsymbolcoeffs))
             systemcoeffs = []
             for eq in newleftsideeqs:
                 eqdict = eq.as_dict()
@@ -4886,7 +4921,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 except IndexError:
                     # not enough equations?
                     continue                
-                if solution is not None and all([self.isValidSolution(value.subs(localsymbols)) for key,value in solution.iteritems()]):
+                if solution is not None and \
+                   all([self.isValidSolution(value.subs(localsymbols)) for key,value in solution.iteritems()]):
                     # substitute 
                     solsubs = []
                     allvalid = True
@@ -4900,7 +4936,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     break
             
             # remove the dividesymbols from reducedeqs
-            for sym,ivalue in dividesymbols:
+            for sym, ivalue in dividesymbols:
                 value=1/ivalue
                 for i in range(len(reducedeqs)):
                     eq = reducedeqs[i][1]
@@ -5035,8 +5071,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         if len(singlevariables) > 0:
             try:
                 AllEquations = [eq.subs(self.invsubs).as_expr() for eq in newreducedeqs]
-                tree = self.SolveAllEquations(AllEquations,curvars=dummys,othersolvedvars=[],solsubs=self.freevarsubs,endbranchtree=endbranchtree, currentcases=currentcases, currentcasesubs=currentcasesubs)
-                return raghavansolutiontree+tree,usedvars
+                tree = self.SolveAllEquations(AllEquations, \
+                                              curvars = dummys, \
+                                              othersolvedvars = [], \
+                                              solsubs = self.freevarsubs, \
+                                              endbranchtree = endbranchtree, \
+                                              currentcases = currentcases, \
+                                              currentcasesubs = currentcasesubs)
+                return raghavansolutiontree + tree, usedvars
             except self.CannotSolveError:
                 pass
 
@@ -5078,9 +5120,17 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         jointevalcos=[d[1] for d in dummysubs if d[0].name[0] == 'c']
         jointevalsin=[d[1] for d in dummysubs if d[0].name[0] == 's']
         #jointeval=[d[1] for d in dummysubs if d[0].name[0] == 'j']
-        coupledsolution = AST.SolverCoeffFunction(jointnames=[v.name for v in usedvars],jointeval=[v[1] for v in dummysubs2],jointevalcos=jointevalcos, jointevalsin=jointevalsin, isHinges=[self.IsHinge(v.name) for v in usedvars],exportvar=[v.name for v in dummys],exportcoeffeqs=exportcoeffeqs,exportfnname='solvedialyticpoly12qep',rootmaxdim=16)
+        coupledsolution = AST.SolverCoeffFunction(jointnames = [v.name for v in usedvars], \
+                                                  jointeval = [v[1] for v in dummysubs2], \
+                                                  jointevalcos = jointevalcos, \
+                                                  jointevalsin = jointevalsin, \
+                                                  isHinges = [self.IsHinge(v.name) for v in usedvars], \
+                                                  exportvar = [v.name for v in dummys], \
+                                                  exportcoeffeqs = exportcoeffeqs, \
+                                                  exportfnname = 'solvedialyticpoly12qep', \
+                                                  rootmaxdim = 16)
         self.usinglapack = True
-        return raghavansolutiontree+[coupledsolution]+endbranchtree,usedvars
+        return raghavansolutiontree + [coupledsolution] + endbranchtree, usedvars
 
     def solveLiWoernleHiller(self,rawpolyeqs, \
                              solvejointvars, \
@@ -5108,7 +5158,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             for var in self.getVariable(solvejointvar).vars:
                 if var in originalsymbols:
                     numsymbols += 1
-                    break
+                    break # var for-loop
         if numsymbols != 3:
             raise self.CannotSolveError('Li/Woernle/Hiller method requires 3 unknown variables; now there are %d' % numsymbols)
         
