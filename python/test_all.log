@@ -34,3 +34,4 @@
 18/01/19-10:04:34, --robot=robotfiles/unimation-pumaarm.zae, 1000, 1000, 0, 100.0, 0.000, 0.000, 32.400, runtime = 22.1s
 18/01/19-10:05:43, --robot=robotfiles/universalrobots-ur6-85-5-a.zae, 1000, 993, 0, 99.3, 0.000, 0.700, 94.900, runtime = 66.4s
 18/01/19-10:13:43, --robot=robotfiles/neuronics-katana.zae, 1000, 917, 0, 91.7, 0.000, 8.300, 4.900, runtime = 470.1s
+18/01/19-14:11:24, --robot=robotfiles/barrettsegway.robot.xml, 1000, 1000, 0, 100.0, 0.000, 0.000, 26.600, runtime = 31.4s

@@ -703,7 +703,7 @@ class IKFastSolver(AutoReloader):
 
         self._numsolutions = 6
 
-        self._isUnderAnalysis = False
+        self._isUnderAnalysis = True # False
         # ================ End of TGN's addition ===============
         
     def _CheckPreemptFn(self, msg = u'', progress = 0.25):
@@ -8657,16 +8657,18 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                     # in which case the solutions would be
                                     # [-atan2(-r21, -r20), -atan2(-r21, -r20) + 3.14159265358979]
                                     log.info('AddSolution calls solveSingleVariable to solve for %r', othervar)
-                                    ss += self.solveSingleVariable([checksimplezeroexpr.subs([(sothervar, sin(othervar)), \
-                                                                                              (cothervar, cos(othervar))])], \
-                                                                   othervar, \
-                                                                   othersolvedvars)
+                                    newsol = self.solveSingleVariable([checksimplezeroexpr.subs([(sothervar, sin(othervar)), \
+                                                                                                 (cothervar, cos(othervar))])], \
+                                                                      othervar, \
+                                                                      othersolvedvars)
+                                    ss += newsol
                                 except PolynomialError:
                                     log.info('Cannot use solveSingleVariable to solve for %r', othervar)
                                     # checksimplezeroexpr was too complex
                                     pass
                                 
-                                except self.CannotSolveError,e:
+                                except self.CannotSolveError, e:
+                                    log.info('Cannot use solveSingleVariable to solve for %r', othervar)
                                     # this is actually a little tricky
                                     # sometimes really good solutions can have a divide that looks like:
                                     # ((0.405 + 0.331*cj2)**2 + 0.109561*sj2**2 (manusarm_left)
@@ -8917,14 +8919,18 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     # degenreate cases should get restored here since once we go down a particular branch, there's no turning back
                     olddegeneratecases = self.degeneratecases
                     self.degeneratecases = olddegeneratecases.Clone()
-                    nextsolutions[var] = self.SolveAllEquations(AllEquations, \
-                                                                curvars = newvars, \
-                                                                othersolvedvars = othersolvedvars + [var], \
-                                                                solsubs = solsubs + self.getVariable(var).subs, \
-                                                                endbranchtree = endbranchtree, \
-                                                                currentcases = currentcases, \
-                                                                currentcasesubs = currentcasesubs, \
-                                                                unknownvars = unknownvars)
+                    if len(newvars)>0:
+                        log.info('AddSolution calls SolveAllEquations to solve for %r', newvars)
+                        nextsolutions[var] = self.SolveAllEquations(AllEquations, \
+                                                                    curvars = newvars, \
+                                                                    othersolvedvars = othersolvedvars + [var], \
+                                                                    solsubs = solsubs + self.getVariable(var).subs, \
+                                                                    endbranchtree = endbranchtree, \
+                                                                    currentcases = currentcases, \
+                                                                    currentcasesubs = currentcasesubs, \
+                                                                    unknownvars = unknownvars)
+                    else:
+                        nextsolutions[var] = endbranchtree
                 finally:
                     addhandleddegeneratecases += olddegeneratecases.handleddegeneratecases
                     self.degeneratecases = olddegeneratecases
@@ -8933,7 +8939,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 hascheckzeros = True                
                 solvercheckzeros = AST.SolverCheckZeros(jointname = var.name, \
                                                         jointcheckeqs = checkforzeros, \
-                                                        nonzerobranch = [solution]+nextsolutions[var], \
+                                                        nonzerobranch = [solution] + nextsolutions[var], \
                                                         zerobranch = prevbranch,anycondition = True, \
                                                         thresh = solution.GetZeroThreshold())
                 # have to transfer the dictionary!
@@ -8945,7 +8951,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 prevbranch = [solution] + nextsolutions[var]
         
         if len(prevbranch) == 0:
-            raise self.CannotSolveError('failed to add solution!')
+            raise self.CannotSolveError('AddSolution fails to add solution!')
 
         maxlevel2scopecounter = 300 # used to limit how deep the hierarchy goes or otherwise IK can get too big
         if len(currentcases) >= self.maxcasedepth or \
@@ -9138,8 +9144,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                         flatzerosubstitutioneqs.append(checkexpr)
                                         localsubstitutioneqs.append(checkexpr)
                                         handledconds.append(cond+cond2)
-                                        row1 = int(possiblevar.name[-2])
-                                        col1 = int(possiblevar.name[-1])
+                                        row1 = int(possiblevar. name[-2])
+                                        col1 = int(possiblevar. name[-1])
                                         row2 = int(possiblevar2.name[-2])
                                         col2 = int(possiblevar2.name[-1])
                                         row3 = 3 - row1 - row2
@@ -10102,13 +10108,16 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     eq = neweqs2.pop(i)
         return neweqs2
 
-    def solveHighDegreeEquationsHalfAngle(self, lineareqs, varsym, tosubs = []):
+    def solveHighDegreeEquationsHalfAngle(self, lineareqs, var, tosubs = []):
         """
         Solve a set of equations in one variable with half-angle substitution.
 
         Called by SolvePairVariables, SolveAllEquations, solveSingleVariable.
         """
-        
+
+        log.info('Starting solveHighDegreeEquationsHalfAngle for %r', var)
+
+        varsym = self.getVariable(var)
         dummysubs = [(varsym.cvar, (1-varsym.htvar**2)/(1+varsym.htvar**2)), \
                      (varsym.svar,      2*varsym.htvar/(1+varsym.htvar**2))]
         polyeqs = []
@@ -10118,7 +10127,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         (varsym.svar**3, varsym.svar*(1-varsym.cvar**2))]
             try:
                 peq = Poly(eq.subs(varsym.subs).subs(trigsubs), varsym.cvar, varsym.svar)
-                
             except PolynomialError, e:
                 raise self.CannotSolveError('solveHighDegreeEquationsHalfAngle: poly error (%r)' % eq)
             
@@ -10165,6 +10173,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 solution.postcheckforzeros    = []
                 solution.postcheckfornonzeros = []
                 solution.postcheckforrange    = []
+                log.info('solveHighDegreeEquationsHalfAngle returns a solution for %r', varsym)
                 return solution
 
         raise self.CannotSolveError(('half-angle substitution for joint %s failed, ' + \
@@ -10556,18 +10565,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                               s.has_key(varsym.svar) and \
                               s.has_key(varsym.cvar) else [] if \
                               hasattr(s, 'has_key') else s
-                    
-                    # sollist = None
-                    # if hasattr(s, 'has_key'):
-                    #     if s.has_key(varsym.svar) and \
-                    #        s.has_key(varsym.cvar):
-                    #         sollist = [(s[varsym.svar], s[varsym.cvar])]
-                    #     else:
-                    #         sollist = []
-                    # else:
-                    #     sollist = s
                         
-                    solversolution = AST.SolverSolution(var.name,jointeval = [], \
+                    solversolution = AST.SolverSolution(var.name, \
+                                                        jointeval = [], \
                                                         isHinge = self.IsHinge(var.name))
                     goodsolution = 0
                     for svarsol, cvarsol in sollist:
@@ -10667,7 +10667,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             cvarfrac[0] = -cvarfrac[0]
                             cvarfracsimp_denom = -cvarfracsimp_denom
                             
-                        if self.equal(svarfracsimp_denom,cvarfracsimp_denom) and \
+                        if self.equal(svarfracsimp_denom, cvarfracsimp_denom) and \
                            not svarfracsimp_denom.is_number:
                             log.debug('denom of %s = %s\n' + \
                                       '        do global subs', \
@@ -10940,8 +10940,16 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             log.info('solveSingleVariable returns a solution for %r', var)
             return solutions
 
-        log.info('solveSingleVariable tries solveHighDegreeEquationsHalfAngle')
-        return [self.solveHighDegreeEquationsHalfAngle(eqns, varsym)]
+        try:
+            log.info('solveSingleVariable tries solveHighDegreeEquationsHalfAngle for %r', var)
+            solution = self.solveHighDegreeEquationsHalfAngle(eqns, var)
+        except self.CannotSolveError, e:
+            log.info('Cannot use solveHighDegreeEquationsHalfAngle to solve for %r', var)
+            log.debug(e)
+            raise self.CannotSolveError(e)
+            
+        log.info('solveSingleVariable returns a solution for %r', var)
+        return [solution]
 
     def SolvePrismaticHingePairVariables(self, raweqns, \
                                          var0, var1, \
@@ -12309,8 +12317,9 @@ class AST:
 
         def show(self):
             # print jointname and jointeval for now
-            print('%s = %s' % (self.jointname, \
-                               ('\n'+' '*5).join(str(x) for x in self.jointeval)))
+            if self.jointeval is not None:
+                print('%s = %s' % (self.jointname, \
+                                   ('\n'+' '*5).join(str(x) for x in self.jointeval)))
             if self.jointevalcos is not None:
                 print('cos(%s) = %s' % (self.jointname, \
                                         ('\n'+' '*10).join(str(x) for x in self.jointevalcos)))
