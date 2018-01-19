@@ -8013,14 +8013,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         self._CheckPreemptFn(progress = progress)
         
         if len(curvars) == 0:
+            exec(ipython_str, globals(), locals())
             return endbranchtree
         
         self._scopecounter += 1
         scopecounter = int(self._scopecounter)
 
-        if currentcases is None:
-            exec(ipython_str, globals(), locals())
-            
         log.info('depth = %d, c = %d\n' + \
                  '        %s, %s\n' + \
                  '        cases = %s', \
@@ -8028,6 +8026,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                  self._scopecounter, othersolvedvars, curvars, \
                  None if len(currentcases) is 0 else \
                  ("\n"+" "*16).join(str(x) for x in list(currentcases)))
+
+        exec(ipython_str, globals(), locals())
 
         # solsubs = solsubs[:]
 
@@ -8076,6 +8076,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             log.warn('solution did not have any equations')
 
                 except self.CannotSolveError:
+                    log.info('solveSingleVariable cannot solve.')
                     pass
 
         # Only return here if a solution was found that perfectly determines the unknown.
@@ -8089,15 +8090,17 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         # TGN: don't we check Abs(y)+Abs(x) for atan2?
         
         if any([s[0].numsolutions() == 1 for s in solutions]):
-            return self.AddSolution(solutions, \
-                                    AllEquations, \
-                                    curvars, \
-                                    othersolvedvars, \
-                                    solsubs, \
-                                    endbranchtree, \
-                                    currentcases = currentcases, \
-                                    currentcasesubs = currentcasesubs, \
-                                    unknownvars = unknownvars)
+            prevbranch = self.AddSolution(solutions, \
+                                          AllEquations, \
+                                          curvars, \
+                                          othersolvedvars, \
+                                          solsubs, \
+                                          endbranchtree, \
+                                          currentcases = currentcases, \
+                                          currentcasesubs = currentcasesubs, \
+                                          unknownvars = unknownvars)
+            exec(ipython_str, globals(), locals())
+            return prevbranch
         
         curvarsubssol = []
         for var0, var1 in combinations(curvars,2):
@@ -8245,7 +8248,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                 currentcasesubs = currentcasesubs,
                                                 unknownvars = unknownvars)
                         if tree is not None:
-                            return [AST.SolverFreeParameter(curvars[1].name, tree)]
+                            prevbranch = [AST.SolverFreeParameter(curvars[1].name, tree)]
+                            exec(ipython_str, globals(), locals())
+                            return prevbranch
                 else:
                     log.warn('Almost found two axes, but number of solutions is %r', \
                              [s.numsolutions() == 1 for s in dummysolutions])
@@ -8291,13 +8296,15 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         
         # take the least complex solution and go on
         if len(solutions) > 0:
-            return self.AddSolution(solutions, AllEquations, \
-                                    curvars, othersolvedvars, \
-                                    solsubs, \
-                                    endbranchtree, \
-                                    currentcases = currentcases, \
-                                    currentcasesubs = currentcasesubs, \
-                                    unknownvars = unknownvars)
+            prevbranch = self.AddSolution(solutions, AllEquations, \
+                                          curvars, othersolvedvars, \
+                                          solsubs, \
+                                          endbranchtree, \
+                                          currentcases = currentcases, \
+                                          currentcasesubs = currentcasesubs, \
+                                          unknownvars = unknownvars)
+            exec(ipython_str, globals(), locals())
+            return prevbranch
         
         # test with higher degrees, necessary?
         for curvar in curvars:
@@ -8320,14 +8327,15 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     pass
                
         if len(solutions) > 0:
-            return self.AddSolution(solutions, AllEquations, \
-                                    curvars, othersolvedvars, \
-                                    solsubs, \
-                                    endbranchtree, \
-                                    currentcases = currentcases, \
-                                    currentcasesubs = currentcasesubs, \
-                                    unknownvars = unknownvars)
-        
+            prevbranch = self.AddSolution(solutions, AllEquations, \
+                                          curvars, othersolvedvars, \
+                                          solsubs, \
+                                          endbranchtree, \
+                                          currentcases = currentcases, \
+                                          currentcasesubs = currentcasesubs, \
+                                          unknownvars = unknownvars)
+            exec(ipython_str, globals(), locals())
+            return prevbranch
         # solve with all 3 variables together?
 #         htvars = [self.getVariable(varsym).htvar for varsym in curvars]
 #         reducedeqs = []
@@ -8348,12 +8356,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # perhaps there's a degree of freedom that is not trivial to compute?
             # take the highest hinge variable and set it
             log.info('trying to guess variable from %r', curvars)
-            return self.GuessValuesAndSolveEquations(AllEquations, \
-                                                     curvars, othersolvedvars, solsubs, \
-                                                     endbranchtree, \
-                                                     currentcases, \
-                                                     unknownvars, \
-                                                     currentcasesubs)
+            prevbranch = self.GuessValuesAndSolveEquations(AllEquations, \
+                                                           curvars, othersolvedvars, solsubs, \
+                                                           endbranchtree, \
+                                                           currentcases, \
+                                                           unknownvars, \
+                                                           currentcasesubs)
+            exec(ipython_str, globals(), locals())
+            return prevbranch
         
         # have got this far, so perhaps two axes are aligned?
         #
@@ -8397,10 +8407,21 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
         Called by SolveAllEquations and also calls it recursively.
         """
-        
+
         self._CheckPreemptFn()
         self._scopecounter += 1
         scopecounter = int(self._scopecounter)
+
+        log.info('depth = %d, c = %d\n' + \
+                 '        %s, %s\n' + \
+                 '        cases = %s', \
+                 len(currentcases), \
+                 self._scopecounter, othersolvedvars, curvars, \
+                 None if len(currentcases) is 0 else \
+                 ("\n"+" "*16).join(str(x) for x in list(currentcases)))
+
+        exec(ipython_str, globals(), locals())
+        
         # remove solution that has infinite scores
         solutions = [s for s in solutions if s[0].score < oo and \
                      s[0].checkValidSolution()] 
@@ -8418,15 +8439,17 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 var = solution[1]
                 newvars = curvars[:]
                 newvars.remove(var)
-                return [solution[0].subs(solsubs)] + \
-                    self.SolveAllEquations(AllEquations, \
-                                           curvars = newvars, \
-                                           othersolvedvars = othersolvedvars+[var], \
-                                           solsubs = solsubs+self.getVariable(var).subs, \
-                                           endbranchtree = endbranchtree, \
-                                           currentcases = currentcases, \
-                                           currentcasesubs = currentcasesubs, \
-                                           unknownvars = unknownvars)
+                prevbranch = [solution[0].subs(solsubs)] + \
+                             self.SolveAllEquations(AllEquations, \
+                                                    curvars = newvars, \
+                                                    othersolvedvars = othersolvedvars+[var], \
+                                                    solsubs = solsubs+self.getVariable(var).subs, \
+                                                    endbranchtree = endbranchtree, \
+                                                    currentcases = currentcases, \
+                                                    currentcasesubs = currentcasesubs, \
+                                                    unknownvars = unknownvars)
+                exec(ipython_str, globals(), locals())
+                return prevbranch
             
         if not hasonesolution:
             # check again except without the number of solutions requirement
@@ -8437,15 +8460,17 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     var = solution[1]
                     newvars = curvars[:]
                     newvars.remove(var)
-                    return [solution[0].subs(solsubs)] + \
-                        self.SolveAllEquations(AllEquations, \
-                                               curvars = newvars, \
-                                               othersolvedvars = othersolvedvars+[var], \
-                                               solsubs = solsubs+self.getVariable(var).subs, \
-                                               endbranchtree = endbranchtree, \
-                                               currentcases = currentcases, \
-                                               currentcasesubs = currentcasesubs, \
-                                               unknownvars = unknownvars)
+                    prevbranch = [solution[0].subs(solsubs)] + \
+                                 self.SolveAllEquations(AllEquations, \
+                                                        curvars = newvars, \
+                                                        othersolvedvars = othersolvedvars+[var], \
+                                                        solsubs = solsubs+self.getVariable(var).subs, \
+                                                        endbranchtree = endbranchtree, \
+                                                        currentcases = currentcases, \
+                                                        currentcasesubs = currentcasesubs, \
+                                                        unknownvars = unknownvars)
+                    exec(ipython_str, globals(), locals())
+                    return prevbranch
 
         originalGlobalSymbols = self.globalsymbols
         # all solutions have check for zero equations
@@ -8905,7 +8930,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                               othersolvedvars, \
                                               solsubs, \
                                               endbranchtree))
-
+            exec(ipython_str, globals(), locals())
             return prevbranch
         
         # fill the last branch with all the zero conditions
@@ -9329,7 +9354,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                               othersolvedvars, \
                                               solsubs, \
                                               endbranchtree))
-            
+
+        exec(ipython_str, globals(), locals())
         return prevbranch
     
     def GuessValuesAndSolveEquations(self, AllEquations, \
@@ -10315,6 +10341,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         AddSolution
         SolvePairVariablesHalfAngle
         """
+
+        log.info('Starting solveSingleVariable')
         
         varsym = self.getVariable(var)
         vars = [varsym.cvar, varsym.svar, varsym.htvar, var]
@@ -10371,6 +10399,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         hasdividebyzero = any([len(self.checkForDivideByZero(self._SubstituteGlobalSymbols(s))) > 0 \
                                                for s in jointsolutions])
                         if not hasdividebyzero:
+                            log.info('solveSingleVariable returns a solution')
                             return returnfirstsolutions
                         
                 except NotImplementedError, e:
@@ -10406,6 +10435,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         hasdividebyzero = any([len(self.checkForDivideByZero(self._SubstituteGlobalSymbols(s))) > 0 \
                                                for s in jointsolutions])
                         if not hasdividebyzero:
+                            log.info('solveSingleVariable returns a solution')
                             return returnfirstsolutions
 
                 except NotImplementedError, e:
@@ -10415,6 +10445,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         if len(returnfirstsolutions) > 0:
             # already computed some solutions, so return them
             # note that this means that all solutions have a divide-by-zero condition
+            log.info('solveSingleVariable returns a solution')
             return returnfirstsolutions
         
         solutions = []
@@ -10685,6 +10716,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
             if len(solutions) > 0 or hasgoodsolution:
                 # found a solution without any divides, necessary for pr2 head_torso lookat3d ik
+                log.info('solveSingleVariable returns a solution')
                 return solutions
 
         # solve one equation
@@ -10862,9 +10894,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             except self.CannotSolveError, e:
                 log.debug(e)
                 
-        if len(solutions) > 0:                
+        if len(solutions) > 0:
+            log.info('solveSingleVariable returns a solution')
             return solutions
-        
+
+        log.info('solveSingleVariable tries solveHighDegreeEquationsHalfAngle')
         return [self.solveHighDegreeEquationsHalfAngle(eqns, varsym)]
 
     def SolvePrismaticHingePairVariables(self, raweqns, var0,var1,othersolvedvars,unknownvars=None):
@@ -10933,6 +10967,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
         Called by SolveAllEquations only.
         """
+        
+        log.info('Starting solvePairVariables')
+        
         # make sure both variables are hinges
         if not (self.IsHinge(var0.name) and self.IsHinge(var1.name)):
             raise self.CannotSolveError('pairwise variables only supports hinge joints')
@@ -11114,6 +11151,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     pass
                 
             if len(solutions) > 0:
+                log.info('solvePairVariables returns a solution')
                 return solutions
         
         groups=[]
@@ -11174,6 +11212,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             useconic=True
             if len(goodgroup) == 0:
                 try:
+                    log.info('solvePairVariables tries SolvePairVariablesHalfAngle')
                     return self.SolvePairVariablesHalfAngle(raweqns,var0,var1,othersolvedvars)
                 except self.CannotSolveError,e:
                     log.warn('%s',e)
@@ -11233,12 +11272,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                     solution.postcheckforzeros = [ptotal_sin.as_expr()]
                                     solution.postcheckfornonzeros = []
                                     solution.postcheckforrange = []
+                                    log.info('solvePairVariables returns a solution')
                                     return [solution]
                                 
                 # if maxnumeqs is any less, it will miss linearly independent equations
                 lineareqs = self.solveSingleVariableLinearly(raweqns,var0,[var1],maxnumeqs=len(raweqns))
                 if len(lineareqs) > 0:
                     try:
+                        log.info('solvePairVariables tries solveHighDegreeEquationsHalfAngle')
                         return [self.solveHighDegreeEquationsHalfAngle(lineareqs,varsym1)]
                     except self.CannotSolveError,e:
                         log.warn('%s',e)
@@ -11307,10 +11348,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     finaleq = expand(p0.as_expr().subs(allsymbols))
         if finaleq is None:
             log.warn('SolvePairVariables: did not compute a final variable. This is a weird condition...')
+            log.info('solvePairVariables tries SolvePairVariablesHalfAngle')
             return self.SolvePairVariablesHalfAngle(raweqns,var0,var1,othersolvedvars)
         
         if not self.isValidSolution(finaleq):
             log.warn('failed to solve pairwise equation: %s'%str(finaleq))
+            log.info('solvePairVariables tries SolvePairVariablesHalfAngle')
             return self.SolvePairVariablesHalfAngle(raweqns,var0,var1,othersolvedvars)
 
         newunknownvars = unknownvars[:]
@@ -11318,14 +11361,17 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         if finaleq.has(*newunknownvars):
             log.warn('equation relies on unsolved variables(%s):\n' + \
                      '        %s',newunknownvars, finaleq)
+            log.info('solvePairVariables tries SolvePairVariablesHalfAngle')
             return self.SolvePairVariablesHalfAngle(raweqns,var0,var1,othersolvedvars)
 
         if not finaleq.has(unknownvar):
             # somehow removed all variables, so try the general method
+            log.info('solvePairVariables tries SolvePairVariablesHalfAngle')
             return self.SolvePairVariablesHalfAngle(raweqns,var0,var1,othersolvedvars)
 
         try:
             if self.codeComplexity(finaleq) > 100000:
+                log.info('solvePairVariables tries SolvePairVariablesHalfAngle')
                 return self.SolvePairVariablesHalfAngle(raweqns,var0,var1,othersolvedvars)
             
         except self.CannotSolveError:
@@ -11336,6 +11382,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             #return [SolverConicRoots(var.name,[finaleq],isHinge=self.IsHinge(var.name))]
             solution = self.solveHighDegreeEquationsHalfAngle([finaleq],varsym)
             solution.checkforzeros += checkforzeros
+            log.info('solvePairVariables returns a solution')
             return [solution]
 
         # now that everything is with respect to one variable, simplify and solve the equation
@@ -11354,11 +11401,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     processedsolution = self.SimplifyTransform(self.trigsimp(processedsolution,othersolvedvars))
                 processedsolutions.append(processedsolution.subs(varsubs))
             if (varindex%2)==0:
-                solversolution.jointevalcos=processedsolutions
+                solversolution.jointevalcos = processedsolutions
             else:
-                solversolution.jointevalsin=processedsolutions
+                solversolution.jointevalsin = processedsolutions
+            log.info('solvePairVariables returns a solution')
             return [solversolution]
         
+        log.info('solvePairVariables tries SolvePairVariablesHalfAngle')
         return self.SolvePairVariablesHalfAngle(raweqns,var0,var1,othersolvedvars)
         #raise self.CannotSolveError('cannot solve pair equation')
         
@@ -12156,10 +12205,16 @@ class AST:
         def GetZeroThreshold(self):
             return self.thresh
 
-        def printSolution(self):
+        def show(self):
             # print jointname and jointeval for now
             print('%s = %s' % (self.jointname, \
                                ('\n'+' '*5).join(str(x) for x in self.jointeval)))
+            if self.jointevalcos is not None:
+                print('cos(%s) = %s' % (self.jointname, \
+                                        ('\n'+' '*10).join(str(x) for x in self.jointevalcos)))
+            if self.jointevalsin is not None:
+                print('sin(%s) = %s' % (self.jointname, \
+                                        ('\n'+' '*10).join(str(x) for x in self.jointevalsin)))
             
     class SolverPolynomialRoots(SolverBase):
         """
