@@ -702,6 +702,8 @@ class IKFastSolver(AutoReloader):
         self.variable_obj = {}
 
         self._numsolutions = 6
+
+        self._isUnderAnalysis = False
         # ================ End of TGN's addition ===============
         
     def _CheckPreemptFn(self, msg = u'', progress = 0.25):
@@ -7991,8 +7993,16 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             else:
                 NewEquations.append(eq)
         return NewEquations
+
+    @staticmethod
+    def printSS(solutions):
+        sols = [solution[0] for solution in solutions]
+        for i, sol in enumerate(sols):
+            print('\n----- i = %i -----' % i)
+            sol.show()
     
-    def SolveAllEquations(self, AllEquations, \
+    def SolveAllEquations(self, \
+                          AllEquations, \
                           curvars, othersolvedvars, \
                           solsubs, endbranchtree, \
                           currentcases    = set(), \
@@ -8013,21 +8023,24 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         self._CheckPreemptFn(progress = progress)
         
         if len(curvars) == 0:
-            exec(ipython_str, globals(), locals())
+            if self._isUnderAnalysis:
+                exec(ipython_str, globals(), locals())
             return endbranchtree
         
         self._scopecounter += 1
         scopecounter = int(self._scopecounter)
 
         log.info('depth = %d, c = %d\n' + \
-                 '        %s, %s\n' + \
+                 '         vars = %s\n' + \
+                 '        known = %s\n' + \
                  '        cases = %s', \
                  len(currentcases), \
-                 self._scopecounter, othersolvedvars, curvars, \
+                 self._scopecounter, curvars, othersolvedvars, \
                  None if len(currentcases) is 0 else \
                  ("\n"+" "*16).join(str(x) for x in list(currentcases)))
 
-        exec(ipython_str, globals(), locals())
+        if self._isUnderAnalysis:
+            exec(ipython_str, globals(), locals())
 
         # solsubs = solsubs[:]
 
@@ -8100,7 +8113,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                           currentcases = currentcases, \
                                           currentcasesubs = currentcasesubs, \
                                           unknownvars = unknownvars)
-            exec(ipython_str, globals(), locals())
+            if self._isUnderAnalysis:
+                exec(ipython_str, globals(), locals())
             return prevbranch
         
         curvarsubssol = []
@@ -8251,7 +8265,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                 unknownvars = unknownvars)
                         if tree is not None:
                             prevbranch = [AST.SolverFreeParameter(curvars[1].name, tree)]
-                            exec(ipython_str, globals(), locals())
+                            if self._isUnderAnalysis:
+                                exec(ipython_str, globals(), locals())
                             return prevbranch
                 else:
                     log.warn('Almost found two axes, but number of solutions is %r', \
@@ -8311,7 +8326,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                           currentcases = currentcases, \
                                           currentcasesubs = currentcasesubs, \
                                           unknownvars = unknownvars)
-            exec(ipython_str, globals(), locals())
+            if self._isUnderAnalysis:
+                exec(ipython_str, globals(), locals())
             return prevbranch
         
         # test with higher degrees, necessary?
@@ -8342,7 +8358,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                           currentcases = currentcases, \
                                           currentcasesubs = currentcasesubs, \
                                           unknownvars = unknownvars)
-            exec(ipython_str, globals(), locals())
+            if self._isUnderAnalysis:
+                exec(ipython_str, globals(), locals())
             return prevbranch
         # solve with all 3 variables together?
 #         htvars = [self.getVariable(varsym).htvar for varsym in curvars]
@@ -8371,7 +8388,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                            currentcases, \
                                                            unknownvars, \
                                                            currentcasesubs)
-            exec(ipython_str, globals(), locals())
+            if self._isUnderAnalysis:
+                exec(ipython_str, globals(), locals())
             return prevbranch
         
         # have got this far, so perhaps two axes are aligned?
@@ -8405,7 +8423,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         self.globalsymbols[var] = eq
         return # is_update
         
-    def AddSolution(self, solutions, AllEquations, \
+    def AddSolution(self, solutions, \
+                    AllEquations, \
                     curvars, othersolvedvars, \
                     solsubs, endbranchtree, \
                     currentcases    = set(), \
@@ -8422,14 +8441,17 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         scopecounter = int(self._scopecounter)
 
         log.info('depth = %d, c = %d\n' + \
-                 '        %s, %s\n' + \
+                 '         vars = %s\n' + \
+                 '        known = %s\n' + \
                  '        cases = %s', \
                  len(currentcases), \
-                 self._scopecounter, othersolvedvars, curvars, \
+                 self._scopecounter, curvars, othersolvedvars, \
                  None if len(currentcases) is 0 else \
                  ("\n"+" "*16).join(str(x) for x in list(currentcases)))
 
-        exec(ipython_str, globals(), locals())
+        if self._isUnderAnalysis:
+            self.printSS(solutions)
+            exec(ipython_str, globals(), locals())
         
         # remove solution that has infinite scores
         solutions = [s for s in solutions if s[0].score < oo and \
@@ -8448,6 +8470,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 var = solution[1]
                 newvars = curvars[:]
                 newvars.remove(var)
+                log.info('AddSolution calls SolveAllEquations to solve for %r', newvars)
                 prevbranch = [solution[0].subs(solsubs)] + \
                              self.SolveAllEquations(AllEquations, \
                                                     curvars = newvars, \
@@ -8457,7 +8480,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                     currentcases = currentcases, \
                                                     currentcasesubs = currentcasesubs, \
                                                     unknownvars = unknownvars)
-                exec(ipython_str, globals(), locals())
+                if self._isUnderAnalysis:
+                    exec(ipython_str, globals(), locals())
                 return prevbranch
             
         if not hasonesolution:
@@ -8469,6 +8493,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     var = solution[1]
                     newvars = curvars[:]
                     newvars.remove(var)
+                    log.info('AddSolution calls SolveAllEquations to solve for %r', newvars)
                     prevbranch = [solution[0].subs(solsubs)] + \
                                  self.SolveAllEquations(AllEquations, \
                                                         curvars = newvars, \
@@ -8478,7 +8503,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                         currentcases = currentcases, \
                                                         currentcasesubs = currentcasesubs, \
                                                         unknownvars = unknownvars)
-                    exec(ipython_str, globals(), locals())
+                    if self._isUnderAnalysis:                    
+                        exec(ipython_str, globals(), locals())
                     return prevbranch
 
         originalGlobalSymbols = self.globalsymbols
@@ -8601,7 +8627,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         for othervar in othersolvedvars:
                             sothervar = self.getVariable(othervar).svar
                             cothervar = self.getVariable(othervar).cvar
-                            if checksimplezeroexpr.has(othervar,sothervar,cothervar):
+                            if checksimplezeroexpr.has(othervar, sothervar, cothervar):
                                 # the easiest thing to check first is if the equation evaluates to zero on boundaries
                                 # 0, pi/2, pi, -pi/2
                                 s = AST.SolverSolution(othervar.name, \
@@ -8630,11 +8656,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                     # checksimplezeroexpr can be simple like -cj4*r21 - r20*sj4
                                     # in which case the solutions would be
                                     # [-atan2(-r21, -r20), -atan2(-r21, -r20) + 3.14159265358979]
+                                    log.info('AddSolution calls solveSingleVariable to solve for %r', othervar)
                                     ss += self.solveSingleVariable([checksimplezeroexpr.subs([(sothervar, sin(othervar)), \
                                                                                               (cothervar, cos(othervar))])], \
                                                                    othervar, \
                                                                    othersolvedvars)
                                 except PolynomialError:
+                                    log.info('Cannot use solveSingleVariable to solve for %r', othervar)
                                     # checksimplezeroexpr was too complex
                                     pass
                                 
@@ -8939,7 +8967,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                               othersolvedvars, \
                                               solsubs, \
                                               endbranchtree))
-            exec(ipython_str, globals(), locals())
+            if self._isUnderAnalysis:
+                exec(ipython_str, globals(), locals())
             return prevbranch
         
         # fill the last branch with all the zero conditions
@@ -9363,8 +9392,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                               othersolvedvars, \
                                               solsubs, \
                                               endbranchtree))
-
-        exec(ipython_str, globals(), locals())
+        if self._isUnderAnalysis:
+            exec(ipython_str, globals(), locals())
         return prevbranch
     
     def GuessValuesAndSolveEquations(self, AllEquations, \
@@ -10337,7 +10366,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
     def solveSingleVariable(self, raweqns, \
                             var, othersolvedvars, \
-                            maxsolutions = 4, maxdegree = 2, \
+                            maxsolutions = 4, \
+                            maxdegree = 2, \
                             subs = None, \
                             unknownvars = None):
         """
@@ -10352,6 +10382,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         """
 
         log.info('Starting solveSingleVariable for %r', var)
+        # exec(ipython_str, globals(), locals())
         
         varsym = self.getVariable(var)
         vars = [varsym.cvar, varsym.svar, varsym.htvar, var]
@@ -10740,7 +10771,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 pc = Poly(eqnew, varsym.cvar)
                 if max(ps.degree_list()) > maxdegree or \
                    max(pc.degree_list()) > maxdegree:
-                    log.debug('cannot solve equation with high degree: %s', str(eqnew))
+                    log.debug('Cannot solve equation with high degree: %s', str(eqnew))
                     continue
                 
                 if ps.TC() == S.Zero and len(ps.monoms()) > 0:
@@ -10897,10 +10928,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 continue
             
             try:
+                log.info('solveSingleVariable tries solveHighDegreeEquationsHalfAngle for %r', varsym)
                 solution = self.solveHighDegreeEquationsHalfAngle([eqnew], varsym, symbols)
                 solutions.append(solution.subs(symbols))
                 solutions[-1].equationsused = equationsused
             except self.CannotSolveError, e:
+                log.info('Cannot use solveHighDegreeEquationsHalfAngle to solve for %r', varsym)
                 log.debug(e)
                 
         if len(solutions) > 0:
@@ -11263,9 +11296,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             
             if len(goodgroup) == 0:
                 try:
-                    log.info('solvePairVariables tries SolvePairVariablesHalfAngle')
+                    log.info('solvePairVariables tries SolvePairVariablesHalfAngle for %r, %r', \
+                             var0, var1)
                     return self.SolvePairVariablesHalfAngle(raweqns,var0,var1,othersolvedvars)
                 except self.CannotSolveError,e:
+                    log.info('Cannot use SolvePairVariablesHalfAngle to solve for %r, %r', \
+                             var0, var1)
                     log.warn('%s',e)
 
                 # try a separate approach where the two variables are divided on both sides
