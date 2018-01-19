@@ -8063,6 +8063,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
             if len(raweqns) > 0:
                 try:
+                    log.info('SolveAllEquations calls solveSingleVariables for %r', curvar)
                     rawsolutions = self.solveSingleVariable(\
                                                             self.sortComplexity(raweqns), \
                                                             curvar, othersolvedvars, \
@@ -8144,13 +8145,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 assert(all([z in self.trigvars_subs for z in curvars]))
 
                 # try dummyvar = var0 + var1
-                neweq = self.trigsimp_new(eq.subs(var0, dummyvar-var1).expand(trig=True))
+                neweq = self.trigsimp_new(eq.subs(var0, dummyvar-var1).expand(trig = True))
                 eq = neweq.subs(self.freevarsubs+solsubs)
                 if self.CheckExpressionUnique(NewEquationsAll, eq):
                     NewEquationsAll.append(eq)
                     
                 if neweq.has(dummyvar):
-                    if neweq.has(*(othervars+curvars)):
+                    if neweq.has(*(othervars + curvars)):
                         hasExtraConstraints = True
                         # break
                         # don't know why breaking here ...
@@ -8191,6 +8192,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             if len(NewEquations) >= 2:
                 dummysolutions = []
                 try:
+                    log.info('SolveAllEquations calls solveSingleVariables for %r', dummyvar)
                     rawsolutions = self.solveSingleVariable(NewEquations, dummyvar, othersolvedvars, \
                                                             unknownvars = curvars+unknownvars)
                     for solution in rawsolutions:
@@ -8257,6 +8259,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     
         for var0, var1, raweqns, complexity in curvarsubssol:
             try:
+                log.info('SolveAllEquations calls SolvePrismaticHingePairVariables for %r, %r', \
+                         var0, var1)
                 rawsolutions = self.SolvePrismaticHingePairVariables(raweqns, var0, var1, \
                                                                      othersolvedvars, \
                                                                      unknownvars = curvars + unknownvars)
@@ -8269,10 +8273,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     # TGN: so we don't try others in the for-loop?
                     break
             except self.CannotSolveError:
+                log.info('Cannot use SolvePrismaticHingePairVariables to solve for %r, %r', \
+                         var0, var1)
                 pass
             
         for var0, var1, raweqns, complexity in curvarsubssol:
             try:
+                log.info('SolveAllEquations calls SolvePairVariables for %r, %r', \
+                         var0, var1)
                 rawsolutions = self.SolvePairVariables(raweqns, var0, var1, \
                                                        othersolvedvars, \
                                                        unknownvars = curvars + unknownvars)
@@ -8318,7 +8326,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         
             for raweqn in raweqns:
                 try:
-                    log.debug('testing with higher degrees')
+                    log.info('SolveAllEquations calls solveHighDegreeEquationsHalfAngle for %r', curvar)
                     solution = self.solveHighDegreeEquationsHalfAngle([raweqn], self.getVariable(curvar))
                     self.ComputeSolutionComplexity(solution, othersolvedvars, curvars)
                     solutions.append((solution, curvar))
@@ -8355,7 +8363,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # only estimate when deep in the hierarchy, do not want the guess to be executed all the time
             # perhaps there's a degree of freedom that is not trivial to compute?
             # take the highest hinge variable and set it
-            log.info('trying to guess variable from %r', curvars)
+
+            log.info('SolveAllEquations calls GuessValuesAndSolveEquations for %r', curvars)
             prevbranch = self.GuessValuesAndSolveEquations(AllEquations, \
                                                            curvars, othersolvedvars, solsubs, \
                                                            endbranchtree, \
@@ -10342,7 +10351,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         SolvePairVariablesHalfAngle
         """
 
-        log.info('Starting solveSingleVariable')
+        log.info('Starting solveSingleVariable for %r', var)
         
         varsym = self.getVariable(var)
         vars = [varsym.cvar, varsym.svar, varsym.htvar, var]
@@ -10895,15 +10904,23 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 log.debug(e)
                 
         if len(solutions) > 0:
-            log.info('solveSingleVariable returns a solution')
+            log.info('solveSingleVariable returns a solution for %r', var)
             return solutions
 
         log.info('solveSingleVariable tries solveHighDegreeEquationsHalfAngle')
         return [self.solveHighDegreeEquationsHalfAngle(eqns, varsym)]
 
-    def SolvePrismaticHingePairVariables(self, raweqns, var0,var1,othersolvedvars,unknownvars=None):
-        """solves one hinge and one prismatic variable together
+    def SolvePrismaticHingePairVariables(self, raweqns, \
+                                         var0, var1, \
+                                         othersolvedvars, \
+                                         unknownvars = None):
         """
+        Solves one hinge and one prismatic variable together.
+
+        Called by SolveAllEquations only so far.
+        """
+        log.info('Starting SolvePrismaticHingePairVariables for %r, %r', var0, var1)
+        
         if self.IsPrismatic(var0.name) and self.IsHinge(var1.name):
             prismaticSymbol = var0
             hingeSymbol = var1
@@ -10911,18 +10928,19 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             hingeSymbol = var0
             prismaticSymbol = var1
         else:
-            raise self.CannotSolveError('need to have one hinge and one prismatic variable')
+            raise self.CannotSolveError('Need to have one hinge and one prismatic variable')
         
         prismaticVariable = self.getVariable(prismaticSymbol)
         hingeVariable = self.getVariable(hingeSymbol)
-        chingeSymbol,shingeSymbol = hingeVariable.cvar, hingeVariable.svar
-        varsubs=prismaticVariable.subs+hingeVariable.subs
-        varsubsinv = prismaticVariable.subsinv+hingeVariable.subsinv
-        unknownvars=[chingeSymbol,shingeSymbol,prismaticSymbol]
-        reducesubs = [(shingeSymbol**2,1-chingeSymbol**2)]
-        polyeqs = [Poly(eq.subs(varsubs).subs(reducesubs).expand(),unknownvars) for eq in raweqns if eq.has(prismaticSymbol,hingeSymbol)]
+        chingeSymbol, shingeSymbol = hingeVariable.cvar, hingeVariable.svar
+        varsubs = prismaticVariable.subs + hingeVariable.subs
+        varsubsinv = prismaticVariable.subsinv + hingeVariable.subsinv
+        unknownvars = [chingeSymbol, shingeSymbol, prismaticSymbol]
+        reducesubs = [(shingeSymbol**2, 1-chingeSymbol**2)]
+        polyeqs = [Poly(eq.subs(varsubs).subs(reducesubs).expand(),unknownvars) \
+                   for eq in raweqns if eq.has(prismaticSymbol, hingeSymbol)]
         if len(polyeqs) <= 1:
-            raise self.CannotSolveError('not enough equations')
+            raise self.CannotSolveError('Need at least 2 equations; now there are %i' % len(polyeqs))
         
         # try to solve one variable in terms of the others
         solvevariables = []
@@ -10938,7 +10956,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 solvevariables.append((hingeSymbol,[(prismaticSymbol,prismaticSolutions[0])]))
         
         # prioritize solving the hingeSymbol out
-        for solveSymbol in [hingeSymbol,prismaticSymbol]:
+        for solveSymbol in [hingeSymbol, prismaticSymbol]:
             for solveSymbol2, solvesubs in solvevariables:
                 if solveSymbol == solveSymbol2:
                     # have a solution for one variable, so substitute it in and see if the equations become solvable with one variable
@@ -10949,11 +10967,17 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             reducedeqs.append(eqnew)
                     self.sortComplexity(reducedeqs)
                     try:
-                        rawsolutions = self.solveSingleVariable(reducedeqs,solveSymbol,othersolvedvars, unknownvars=unknownvars)
+                        log.info('SolvePrismaticHingePairVariables tries solveSingleVariable for %r', solveSymbol)
+                        rawsolutions = self.solveSingleVariable(reducedeqs, \
+                                                                solveSymbol, \
+                                                                othersolvedvars, \
+                                                                unknownvars = unknownvars)
                         if len(rawsolutions) > 0:
+                            log.info('SolvePrismaticHingePairVariables returns a solution for %r', solveSymbol)
                             return rawsolutions
 
                     except self.CannotSolveError:
+                        log.info('Cannot use solveSingleVariable to solve for %r', solveSymbol)
                         pass
                 
         raise self.CannotSolveError(u'SolvePrismaticHingePairVariables: failed to find variable with degree 1')
@@ -10968,7 +10992,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         Called by SolveAllEquations only.
         """
         
-        log.info('Starting solvePairVariables')
+        log.info('Starting solvePairVariables for %r, %r', var0, var1)
         
         # make sure both variables are hinges
         if not (self.IsHinge(var0.name) and self.IsHinge(var1.name)):
@@ -11148,6 +11172,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                      subs = allsymbols, \
                                                      unknownvars = unknownvars)
         except self.CannotSolveError:
+            log.info('solveSingleVariable cannot solve for %r', var0)
             pass
 
         try:
@@ -11160,6 +11185,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                      subs = allsymbols, \
                                                      unknownvars = unknownvars)                    
         except self.CannotSolveError:
+            log.info('solveSingleVariable cannot solve for %r', var1)
             pass
 
         if len(rawsolutions) > 0:
@@ -11171,7 +11197,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     pass
                 
             if len(solutions) > 0:
-                log.info('solvePairVariables returns a solution')
+                log.info('solvePairVariables returns a solution for %r, %r', var0, var1)
                 return solutions
         
         groups = []
