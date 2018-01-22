@@ -703,7 +703,7 @@ class IKFastSolver(AutoReloader):
 
         self._numsolutions = 6
 
-        self._isUnderAnalysis = True # False
+        self._isUnderAnalysis = False # True # False
         self._solutionStackCounter = 0
         # ================ End of TGN's addition ===============
 
@@ -5908,8 +5908,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                        currentcasesubs = currentcasesubs)
                     
                     # solvable, which means we now have len(AllEquations)-1 with two variables, solve with half angles
-                    halfanglesolution=self.SolvePairVariablesHalfAngle(raweqns=[eq.subs(curvarsubs) for eq in AllEquations],var0=unknownvars[0],var1=unknownvars[1],othersolvedvars=self.freejointvars+[curvar])[0]
-                    # sometimes halfanglesolution can evaluate to all zeros (katana arm), need to catch this and go to a different branch
+                    halfanglesolution = self.SolvePairVariablesHalfAngle(raweqns = [eq.subs(curvarsubs) for eq in AllEquations], \
+                                                                         var0 = unknownvars[0], \
+                                                                         var1 = unknownvars[1], \
+                                                                         othersolvedvars = self.freejointvars+[curvar])[0]
+                    # sometimes halfanglesolution can evaluate to all zeros (katana arm)
+                    # need to catch this and go to a different branch
                     halfanglesolution.AddHalfTanValue = True
                     jointtrees2.append(halfanglesolution)
                     halfanglevar = unknownvars[0] if halfanglesolution.jointname==unknownvars[0].name else unknownvars[1]
@@ -5926,10 +5930,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             subsinv += self.getVariable(v).subsinv
                         AllEquationsOrig = [(peq[0].as_expr()-peq[1].as_expr()).subs(subsinv) for peq in rawpolyeqs]
                         self.sortComplexity(AllEquationsOrig)
-
+                        
                         log.info('[SOLVE %i] solveLiWoernleHiller calls SolveAllEquations for %r', \
-                                 self._solutionStackCounter, curvars)
-                        self._inc_solutionStackCounter()
+                                 self._solutionStackCounter-1, curvars)
                         jointtrees2 += self.SolveAllEquations(AllEquationsOrig, \
                                                               curvars = curvars, \
                                                               othersolvedvars = self.freejointvars+[curvar, halfanglevar], \
@@ -5938,20 +5941,29 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                               canguessvars = False, \
                                                               currentcases = currentcases, \
                                                               currentcasesubs = currentcasesubs)
-                        self._dec_solutionStackCounter()
-                        return preprocesssolutiontree+solutiontree+treefirst, solvejointvars
+                        log.info('[SOLVE %i] solveLiWoernleHiller returns solution for %r', \
+                                 self._solutionStackCounter-1, curvars)
+                        return preprocesssolutiontree + solutiontree + treefirst, solvejointvars
                     
-                    except self.CannotSolveError,e:
+                    except self.CannotSolveError, e:
                         # try another strategy
                         log.debug(e)
-                    finally:
                         log.info('[SOLVE %i] Cannot use SolveAllEquations to solve for %r', \
-                                 self._solutionStackCounter, curvars)
-                        self._dec_solutionStackCounter()
+                                 self._solutionStackCounter-1, curvars)
+                    
                         
                     # solve all the unknowns now
-                    jointtrees3=[]
-                    treesecond = self.SolveAllEquations(AllEquations,curvars=unknownvars,othersolvedvars=self.freejointvars+[curvar,halfanglevar],solsubs=self.freevarsubs+curvarsubs+self.getVariable(halfanglevar).subs,endbranchtree=[AST.SolverSequence([jointtrees3])], canguessvars=False, currentcases=currentcases, currentcasesubs=currentcasesubs)
+                    jointtrees3 = []
+                    log.info('[SOLVE %i] solveLiWoernleHiller calls SolveAllEquations for %r', \
+                             self._solutionStackCounter-1, unknownvars)
+                    treesecond = self.SolveAllEquations(AllEquations, \
+                                                        curvars = unknownvars, \
+                                                        othersolvedvars = self.freejointvars+[curvar,halfanglevar], \
+                                                        solsubs = self.freevarsubs+curvarsubs+self.getVariable(halfanglevar).subs, \
+                                                        endbranchtree = [AST.SolverSequence([jointtrees3])], \
+                                                        canguessvars = False, \
+                                                        currentcases = currentcases, \
+                                                        currentcasesubs = currentcasesubs)
                     for t in treesecond:
                         # most likely t is a solution...
                         t.AddHalfTanValue = True
@@ -5977,7 +5989,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             jointname=symbols[i].name[1:]
                             try:
                                 # atan2(0,0) produces an invalid solution
-                                jointtrees3.append(AST.SolverSolution(jointname,jointeval=[atan2(X[indices[i+1]],X[indices[i]])],isHinge=self.IsHinge(jointname)))
+                                jointtrees3.append(AST.SolverSolution(jointname, \
+                                                                      jointeval = [atan2(X[indices[i+1]], \
+                                                                                         X[indices[i]])], \
+                                                                      isHinge = self.IsHinge(jointname)))
                                 usedvars.append(Symbol(jointname))
                             except Exception, e:
                                 log.warn(e)
@@ -5990,13 +6005,18 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                     eq *= symbols[isymbol]**ipower
                                 jointcheckeqs.append(eq-X[i])
                         # threshold can be a little more loose since just a sanity check
-                        jointtrees3.append(AST.SolverCheckZeros('sanitycheck',jointcheckeqs,zerobranch=endbranchtree,nonzerobranch=[AST.SolverBreak('sanitycheck for solveLiWoernleHiller')],anycondition=False,thresh=0.001))
-                        return preprocesssolutiontree+solutiontree+treefirst,usedvars
+                        jointtrees3.append(AST.SolverCheckZeros('sanitycheck', \
+                                                                jointcheckeqs, \
+                                                                zerobranch = endbranchtree, \
+                                                                nonzerobranch = [AST.SolverBreak('sanitycheck for solveLiWoernleHiller')], \
+                                                                anycondition = False, \
+                                                                thresh = 0.001))
+                        return preprocesssolutiontree + solutiontree + treefirst,usedvars
                     else:
                         log.warn('AUinv not initialized, perhaps missing important equations')
                         
-                except self.CannotSolveError,e:
-                    log.info(e)
+                except self.CannotSolveError, e:
+                    log.debug(e)
                 finally:
                     log.info('[SOLVE %i] Cannot use SolveAllEquations to solve for %r', \
                              self._solutionStackCounter, [curvar])
@@ -6006,31 +6026,62 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 log.info('try to solve first two variables pairwise')
                 
                 #solution = self.SolvePairVariables(AllEquations,usedvars[0],usedvars[1],self.freejointvars,maxcomplexity=50)
-                jointtrees=[]
+                jointtrees = []
                 unusedvars = [s for s in solvejointvars if not s in usedvars]
-                raweqns=[eq for eq in AllEquations if not eq.has(tvar, *unusedvars)]
+                raweqns = [eq for eq in AllEquations if not eq.has(tvar, *unusedvars)]
+                self._inc_solutionStackCounter()
                 if len(raweqns) > 1:
-                    halfanglesolution = self.SolvePairVariablesHalfAngle(raweqns=raweqns,var0=usedvars[0],var1=usedvars[1],othersolvedvars=self.freejointvars)[0]
-                    halfanglevar = usedvars[0] if halfanglesolution.jointname==usedvars[0].name else usedvars[1]
-                    unknownvar = usedvars[1] if halfanglesolution.jointname==usedvars[0].name else usedvars[0]
-                    nexttree = self.SolveAllEquations(raweqns,curvars=[unknownvar],othersolvedvars=self.freejointvars+[halfanglevar],solsubs=self.freevarsubs+self.getVariable(halfanglevar).subs,endbranchtree=[AST.SolverSequence([jointtrees])], canguessvars=False, currentcases=currentcases, currentcasesubs=currentcasesubs)
+                    log.info('[SOLVE %i] solveLiWoernleHiller calls SolvePairVariablesHalfAngle for %r, %r', \
+                             self._solutionStackCounter-1, usedvars[0], usedvars[1])
+                    halfanglesolution = self.SolvePairVariablesHalfAngle(raweqns = raweqns, \
+                                                                         var0 = usedvars[0], \
+                                                                         var1 = usedvars[1], \
+                                                                         othersolvedvars = self.freejointvars)[0]
+                    halfanglevar, unknownvar = (usedvars[0], usedvars[1]) if halfanglesolution.jointname==usedvars[0].name \
+                                               else (usedvars[1], usedvars[0])
+                    log.info('[SOLVE %i] solveLiWoernleHiller calls SolveAllEquations for %r', \
+                             self._solutionStackCounter-1, [unknownvar])
+                    nexttree = self.SolveAllEquations(raweqns, \
+                                                      curvars = [unknownvar], \
+                                                      othersolvedvars = self.freejointvars+[halfanglevar], \
+                                                      solsubs = self.freevarsubs+self.getVariable(halfanglevar).subs, \
+                                                      endbranchtree = [AST.SolverSequence([jointtrees])], \
+                                                      canguessvars = False, \
+                                                      currentcases = currentcases, \
+                                                      currentcasesubs = currentcasesubs)
                     #finalsolution = self.solveSingleVariable(AllEquations,usedvars[2],othersolvedvars=self.freejointvars+usedvars[0:2],maxsolutions=4,maxdegree=4)
                     try:
-                        finaltree = self.SolveAllEquations(AllEquations,curvars=usedvars[2:],othersolvedvars=self.freejointvars+usedvars[0:2],solsubs=self.freevarsubs+self.getVariable(usedvars[0]).subs+self.getVariable(usedvars[1]).subs,endbranchtree=endbranchtree, canguessvars=False, currentcases=currentcases, currentcasesubs=currentcasesubs)
+                        log.info('[SOLVE %i] solveLiWoernleHiller calls SolveAllEquations for %r', \
+                                 self._solutionStackCounter-1, usedvars[2:])
+                        finaltree = self.SolveAllEquations(AllEquations, \
+                                                           curvars = usedvars[2:], \
+                                                           othersolvedvars = self.freejointvars+usedvars[0:2], \
+                                                           solsubs = self.freevarsubs+self.getVariable(usedvars[0]).subs+self.getVariable(usedvars[1]).subs, \
+                                                           endbranchtree = endbranchtree, \
+                                                           canguessvars = False, \
+                                                           currentcases = currentcases, \
+                                                           currentcasesubs = currentcasesubs)
                         jointtrees += finaltree
-                        return preprocesssolutiontree+[halfanglesolution]+nexttree,usedvars
+                        log.info('[SOLVE %i] solveLiWoernleHiller returns solution for %r', \
+                                 self._solutionStackCounter-1, usedvars)
+                        return preprocesssolutiontree+[halfanglesolution]+nexttree, usedvars
                     
-                    except self.CannotSolveError,e:
-                        log.debug('failed to solve for final variable %s, so returning just two: %s'%(usedvars[2],str(usedvars[0:2])))
+                    except self.CannotSolveError, e:
+                        log.info('[SOLVE %i] Cannot use SolveAllEquations for %r; ' + \
+                                 'solveLiWoernleHiller returns solution for %r', \
+                                 self._solutionStackCounter-1, usedvars[2:], usedvars[0:2])
                         jointtrees += endbranchtree
-                        # sometimes the last variable cannot be solved, so returned the already solved variables and let the higher function take care of it 
-                        return preprocesssolutiontree+[halfanglesolution]+nexttree,usedvars[0:2]
+                        # sometimes the last variable cannot be solved,
+                        # so returned the already solved variables and let the higher function take care of it 
+                        return preprocesssolutiontree+[halfanglesolution]+nexttree, usedvars[0:2]
                 
-            except self.CannotSolveError,e:
+            except self.CannotSolveError, e:
                 log.debug(u'failed solving first two variables pairwise: %s', e)
+            finally:
+                self._dec_solutionStackCounter()
                 
         if len(reducedeqs) < 3:
-            raise self.CannotSolveError('have need at least 3 reducedeqs (%d)'%len(reducedeqs))
+            raise self.CannotSolveError('have need at least 3 reducedeqs (%d)' % len(reducedeqs))
         
         log.info('reducing %d equations', len(reducedeqs))
         newreducedeqs = []
@@ -6079,9 +6130,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 for i,ioffset in enumerate(htvarcossinoffsets):
                     maxdenom[i] = max(maxdenom[i],monoms[ioffset]+monoms[ioffset+1])
             eqnew = S.Zero
-            for monoms,c in peq.terms():
+            for monoms, c in peq.terms():
                 term = c
-                for i,ioffset in enumerate(htvarcossinoffsets):
+                for i, ioffset in enumerate(htvarcossinoffsets):
                     # for cos
                     num, denom = fraction(htvarsubs[2*i][1])
                     term *= num**monoms[ioffset]
@@ -6098,7 +6149,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         # handle non-sin/cos variables yet
                         term *= othersymbols[imonom]**monom
                 eqnew += term
-            newpeq = Poly(eqnew,htvars+nonhtvars)
+            newpeq = Poly(eqnew, htvars+nonhtvars)
             if newpeq != S.Zero:
                 newreducedeqs.append(newpeq)
                 hassinglevariable |= any([all([__builtin__.sum(monom)==monom[i] for monom in newpeq.monoms()]) for i in range(3)])
@@ -6129,13 +6180,28 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
             # first try to solve all the variables at once
             try:
-                solutiontree = self.SolveAllEquations(AllEquations,curvars=solvejointvars,othersolvedvars=self.freejointvars[:], solsubs=self.freevarsubs[:], endbranchtree=endbranchtree, canguessvars=False, currentcases=currentcases, currentcasesubs=currentcasesubs)
+                solutiontree = self.SolveAllEquations(AllEquations, \
+                                                      curvars = solvejointvars, \
+                                                      othersolvedvars = self.freejointvars[:], \
+                                                      solsubs = self.freevarsubs[:], \
+                                                      endbranchtree = endbranchtree, \
+                                                      canguessvars = False, \
+                                                      currentcases = currentcases, \
+                                                      currentcasesubs = currentcasesubs)
                 return solutiontree, solvejointvars
             except self.CannotSolveError, e:
                 log.debug(u'failed solving all variables: %s', e)
                 
             try:
-                solutiontree = self.SolveAllEquations(AllEquations,curvars=usedvars,othersolvedvars=self.freejointvars[:],solsubs=self.freevarsubs[:], unknownvars=unusedvars, endbranchtree=endbranchtree, canguessvars=False, currentcases=currentcases, currentcasesubs=currentcasesubs)
+                solutiontree = self.SolveAllEquations(AllEquations, \
+                                                      curvars = usedvars, \
+                                                      othersolvedvars = self.freejointvars[:], \
+                                                      solsubs = self.freevarsubs[:], \
+                                                      unknownvars = unusedvars, \
+                                                      endbranchtree = endbranchtree, \
+                                                      canguessvars = False, \
+                                                      currentcases = currentcases, \
+                                                      currentcasesubs = currentcasesubs)
                 return solutiontree, usedvars
             except self.CannotSolveError, e:
                 log.debug(u'failed solving used variables: %s', e)
@@ -8143,7 +8209,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             try:
                 log.info('[SOLVE %i] SolveAllEquations calls AddSolution for %r', \
                          self._solutionStackCounter, curvars)
-                exec(ipython_str, globals(), locals())
+                
+                if self._isUnderAnalysis:
+                    exec(ipython_str, globals(), locals())
+                    
                 self._inc_solutionStackCounter()
                 prevbranch = self.AddSolution(solutions, \
                                               AllEquations, \
@@ -8392,7 +8461,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             try:
                 log.info('[SOLVE %i] SolveAllEquations calls AddSolution for %r', \
                          self._solutionStackCounter, curvars)
-                exec(ipython_str, globals(), locals())
+                
+                if self._isUnderAnalysis:
+                    exec(ipython_str, globals(), locals())
+                    
                 self._inc_solutionStackCounter()
                 prevbranch = self.AddSolution(solutions, AllEquations, \
                                               curvars, othersolvedvars, \
@@ -8486,9 +8558,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 prevbranch = self.GuessValuesAndSolveEquations(AllEquations, \
                                                                curvars, othersolvedvars, solsubs, \
                                                                endbranchtree, \
-                                                               currentcases, \
-                                                               unknownvars, \
-                                                               currentcasesubs)
+                                                               currentcases = currentcases, \
+                                                               unknownvars = unknownvars, \
+                                                               currentcasesubs = currentcasesubs)
             except self.CannotSolveError, e:
                 raise self.CannotSolveError(e)
             finally:
@@ -8504,32 +8576,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         # TGN: so we cannot detect such aligning before?
         #
         raise self.CannotSolveError('SolveAllEquations failed to find a variable to solve')
-    
-    def _SubstituteGlobalSymbols(self, eq, globalsymbols = None):
-        if globalsymbols is None:
-            globalsymbols = self.globalsymbols
-        preveq = eq
-        while True:
-            neweq = preveq.subs(globalsymbols)
-            if preveq == neweq:
-                return neweq
-            elif self.isValidSolution(neweq):
-                preveq = neweq
-            else: # neweq is not valid
-                raise self.CannotSolveError('Equation %r is not valid' % neweq)
-    
-    def _AddToGlobalSymbols(self, var, eq):
-        """
-        Adds global symbols; returns True if we update an existing global symbol
 
-        Use dictionary {} for self.globalsymbols.
-
-        Called by AddSolution only.
-        """
-        # is_update = var in self.globalsymbols
-        self.globalsymbols[var] = eq
-        return # is_update
-        
     def AddSolution(self, solutions, \
                     AllEquations, \
                     curvars, othersolvedvars, \
@@ -9440,7 +9487,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                  ("\n"+" "*25).join(str(x) for x in list(newcases)))
                         
                         if len(NewEquationsClean) > 0:
+                            # ONLY place that updates currentcasesubs
                             newcasesubs = currentcasesubs + othervarsubs
+
                             # empty global symbols dictionary
                             self.globalsymbols = {}
                             for casesub in newcasesubs:
@@ -9539,7 +9588,32 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                               endbranchtree))
         if self._isUnderAnalysis:
             exec(ipython_str, globals(), locals())
-        return prevbranch
+        return prevbranch    
+    
+    def _SubstituteGlobalSymbols(self, eq, globalsymbols = None):
+        if globalsymbols is None:
+            globalsymbols = self.globalsymbols
+        preveq = eq
+        while True:
+            neweq = preveq.subs(globalsymbols)
+            if preveq == neweq:
+                return neweq
+            elif self.isValidSolution(neweq):
+                preveq = neweq
+            else: # neweq is not valid
+                raise self.CannotSolveError('Equation %r is not valid' % neweq)
+    
+    def _AddToGlobalSymbols(self, var, eq):
+        """
+        Adds global symbols; returns True if we update an existing global symbol
+
+        Use dictionary {} for self.globalsymbols.
+
+        Called by AddSolution only.
+        """
+        # is_update = var in self.globalsymbols
+        self.globalsymbols[var] = eq
+        return # is_update
     
     def GuessValuesAndSolveEquations(self, AllEquations, \
                                      curvars, \
@@ -10595,7 +10669,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         hasdividebyzero = any([len(self.checkForDivideByZero(self._SubstituteGlobalSymbols(s))) > 0 \
                                                for s in jointsolutions])
                         if not hasdividebyzero:
-                            log.info('solveSingleVariable returns a solution')
+                            log.info('[SOLVE %i] solveSingleVariable returns a solution for %r', \
+                                     self._solutionStackCounter, var)
                             return returnfirstsolutions
                         
                 except NotImplementedError, e:
@@ -10631,7 +10706,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         hasdividebyzero = any([len(self.checkForDivideByZero(self._SubstituteGlobalSymbols(s))) > 0 \
                                                for s in jointsolutions])
                         if not hasdividebyzero:
-                            log.info('solveSingleVariable returns a solution')
+                            log.info('[SOLVE %i] solveSingleVariable returns a solution for %r', \
+                                     self._solutionStackCounter, var)
                             return returnfirstsolutions
 
                 except NotImplementedError, e:
@@ -10641,7 +10717,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         if len(returnfirstsolutions) > 0:
             # already computed some solutions, so return them
             # note that this means that all solutions have a divide-by-zero condition
-            log.info('solveSingleVariable returns a solution')
+            log.info('[SOLVE %i] solveSingleVariable returns a solution for %r', \
+                     self._solutionStackCounter, var)
             return returnfirstsolutions
         
         solutions = []
@@ -10903,7 +10980,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
             if len(solutions) > 0 or hasgoodsolution:
                 # found a solution without any divides, necessary for pr2 head_torso lookat3d ik
-                log.info('[SOLVE %i] solveSingleVariable returns a solution', self._solutionStackCounter)
+                log.info('[SOLVE %i] solveSingleVariable returns a solution for ', \
+                         self._solutionStackCounter, var)
                 return solutions
 
         # solve one equation
@@ -11077,6 +11155,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             try:
                 log.info('[SOLVE %i] solveSingleVariable tries solveHighDegreeEquationsHalfAngle for %r', \
                          self._solutionStackCounter, var)
+                self._inc_solutionStackCounter()
                 solution = self.solveHighDegreeEquationsHalfAngle([eqnew], var, symbols)
                 solutions.append(solution.subs(symbols))
                 solutions[-1].equationsused = equationsused
@@ -11084,6 +11163,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 log.info('[SOLVE %i] Cannot use solveHighDegreeEquationsHalfAngle to solve for %r', \
                          self._solutionStackCounter, var)
                 log.debug(e)
+            finally:
+                self._dec_solutionStackCounter()
                 
         if len(solutions) > 0:
             log.info('[SOLVE %i] solveSingleVariable returns a solution for %r', \
@@ -11126,16 +11207,17 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             hingeSymbol = var0
             prismaticSymbol = var1
         else:
-            raise self.CannotSolveError('Need to have one hinge and one prismatic variable')
+            raise self.CannotSolveError('Need one hinge and one prismatic variable')
         
         prismaticVariable = self.getVariable(prismaticSymbol)
         hingeVariable = self.getVariable(hingeSymbol)
         chingeSymbol, shingeSymbol = hingeVariable.cvar, hingeVariable.svar
         varsubs = prismaticVariable.subs + hingeVariable.subs
         varsubsinv = prismaticVariable.subsinv + hingeVariable.subsinv
+        # unknowns are cos(h), sin(h), p
         unknownvars = [chingeSymbol, shingeSymbol, prismaticSymbol]
         reducesubs = [(shingeSymbol**2, 1-chingeSymbol**2)]
-        polyeqs = [Poly(eq.subs(varsubs).subs(reducesubs).expand(),unknownvars) \
+        polyeqs = [Poly(eq.subs(varsubs).subs(reducesubs).expand(), unknownvars) \
                    for eq in raweqns if eq.has(prismaticSymbol, hingeSymbol)]
         if len(polyeqs) <= 1:
             raise self.CannotSolveError('Need at least 2 equations; now there are %i' % len(polyeqs))
@@ -11144,20 +11226,24 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         solvevariables = []
         for polyeq in polyeqs:
             if polyeq.degree(0) == 1 and polyeq.degree(1) == 0:
-                chingeSolutions = solve(polyeq,chingeSymbol)
-                solvevariables.append((prismaticSymbol,[(chingeSymbol,chingeSolutions[0])]))
+                chingeSolutions = solve(polyeq, chingeSymbol) # solve for cos(h)
+                solvevariables.append((prismaticSymbol, \
+                                       [(chingeSymbol, chingeSolutions[0])]))
             elif polyeq.degree(0) == 0 and polyeq.degree(1) == 1:
-                shingeSolutions = solve(polyeq,shingeSymbol)
-                solvevariables.append((prismaticSymbol,[(shingeSymbol,shingeSolutions[0])]))
+                shingeSolutions = solve(polyeq, shingeSymbol) # solve for sin(h)
+                solvevariables.append((prismaticSymbol, \
+                                       [(shingeSymbol, shingeSolutions[0])]))
             elif polyeq.degree(2) == 1:
-                prismaticSolutions = solve(polyeq,prismaticSymbol)
-                solvevariables.append((hingeSymbol,[(prismaticSymbol,prismaticSolutions[0])]))
+                prismaticSolutions = solve(polyeq, prismaticSymbol) # solve for p
+                solvevariables.append((hingeSymbol,\
+                                       [(prismaticSymbol, prismaticSolutions[0])]))
         
         # prioritize solving the hingeSymbol out
         for solveSymbol in [hingeSymbol, prismaticSymbol]:
             for solveSymbol2, solvesubs in solvevariables:
                 if solveSymbol == solveSymbol2:
-                    # have a solution for one variable, so substitute it in and see if the equations become solvable with one variable
+                    # have a solution for one variable,
+                    # so substitute it in and see if the equations become solvable with one variable
                     reducedeqs = []
                     for polyeq2 in polyeqs:
                         eqnew = simplify(polyeq2.as_expr().subs(solvesubs))
