@@ -703,6 +703,7 @@ class IKFastSolver(AutoReloader):
 
         self._numsolutions = 6
 
+        self._isAnalyzingEquations = False # True # False
         self._isUnderAnalysis = False # True # False
         self._solutionStackCounter = 0
         # ================ End of TGN's addition ===============
@@ -7473,7 +7474,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             #
             # log.info("Formula unchanged: %r", eq)
             pass
-        else:
+        elif self._isAnalyzingEquations:
             log.info("%r\n --->   %r", origeq, eq)
             
         self.simplify_transform_dict[origeq] = eq
@@ -8203,15 +8204,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         # In the bertold robot case, the next possibility is a pair-wise solution involving two variables
         #
         # TGN: don't we check Abs(y)+Abs(x) for atan2?
-        
-        if any([s[0].numsolutions() == 1 for s in solutions]):
+
+        hasonesolution = any([s[0].numsolutions() == 1 for s in solutions])
+        if hasonesolution:
             try:
-                log.info('[SOLVE %i] SolveAllEquations calls AddSolution for %r', \
+                log.info('[SOLVE %i] hasonesolution = True, SolveAllEquations calls AddSolution for %r', \
                          self._solutionStackCounter, curvars)
-                
-                if self._isUnderAnalysis:
-                    exec(ipython_str, globals(), locals())
-                    
                 self._inc_solutionStackCounter()
                 prevbranch = self.AddSolution(solutions, \
                                               AllEquations, \
@@ -8222,17 +8220,20 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                               currentcases = currentcases, \
                                               currentcasesubs = currentcasesubs, \
                                               unknownvars = unknownvars)
+                if self._isUnderAnalysis:
+                    exec(ipython_str, globals(), locals())
+                log.info('[SOLVE %i] Exit SolveAllEquations', self._solutionStackCounter)
+                return prevbranch
+            
             except self.CannotSolveError, e:
                 raise self.CannotSolveError(e)
             finally:
                 self._dec_solutionStackCounter()
                 log.info('[SOLVE %i] SolveAllEquations finished calling AddSolution for %r', \
                          self._solutionStackCounter, curvars)
+        elif len(solutions)>0:
+            log.info('[SOLVE %i] hasonesolution = False', self._solutionStackCounter)
                 
-            if self._isUnderAnalysis:
-                exec(ipython_str, globals(), locals())
-            log.info('[SOLVE %i] Exit SolveAllEquations', self._solutionStackCounter)
-            return prevbranch
         
         curvarsubssol = []
         for var0, var1 in combinations(curvars,2):
@@ -8388,19 +8389,19 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                     currentcases = currentcases, \
                                                     currentcasesubs = currentcasesubs,
                                                     unknownvars = unknownvars)
+                            if tree is not None:
+                                prevbranch = [AST.SolverFreeParameter(curvars[1].name, tree)]
+                                if self._isUnderAnalysis:
+                                    exec(ipython_str, globals(), locals())
+                                log.info('[SOLVE %i] Exit SolveAllEquations', self._solutionStackCounter)
+                                return prevbranch
+                        
                         except self.CannotSolveError, e:
                             raise self.CannotSolveError(e)
                         finally:    
                             self._dec_solutionStackCounter()
                             log.info('[SOLVE %i] SolveAllEquations finished calling AddSolution for %r', \
                                      self._solutionStackCounter, curvars[0:1])
-                            
-                        if tree is not None:
-                            prevbranch = [AST.SolverFreeParameter(curvars[1].name, tree)]
-                            if self._isUnderAnalysis:
-                                exec(ipython_str, globals(), locals())
-                            log.info('[SOLVE %i] Exit SolveAllEquations', self._solutionStackCounter)
-                            return prevbranch
                 else:
                     log.warn('Almost found two axes, but number of solutions is %r', \
                              [s.numsolutions() == 1 for s in dummysolutions])
@@ -8472,17 +8473,16 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                               currentcases = currentcases, \
                                               currentcasesubs = currentcasesubs, \
                                               unknownvars = unknownvars)
+                if self._isUnderAnalysis:
+                    exec(ipython_str, globals(), locals())
+                log.info('[SOLVE %i] Exit SolveAllEquations', self._solutionStackCounter)
+                return prevbranch
             except self.CannotSolveError, e:
                 raise self.CannotSolveError(e)
             finally:
                 self._dec_solutionStackCounter()
                 log.info('[SOLVE %i] SolveAllEquations finished calling AddSolution for %r', \
                          self._solutionStackCounter, curvars)
-                
-            if self._isUnderAnalysis:
-                exec(ipython_str, globals(), locals())
-            log.info('[SOLVE %i] Exit SolveAllEquations', self._solutionStackCounter)
-            return prevbranch
         
         # test with higher degrees, necessary?
         for curvar in curvars:
@@ -8519,6 +8519,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                               currentcases = currentcases, \
                                               currentcasesubs = currentcasesubs, \
                                               unknownvars = unknownvars)
+                if self._isUnderAnalysis:
+                    exec(ipython_str, globals(), locals())
+                log.info('[SOLVE %i] Exit SolveAllEquations', self._solutionStackCounter)    
+                return prevbranch
+
             except self.CannotSolveError, e:
                 raise self.CannotSolveError(e)
             finally:
@@ -8526,10 +8531,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 log.info('[SOLVE %i] SolveAllEquations finished calling AddSolution for %r', \
                          self._solutionStackCounter, curvars)
                 
-            if self._isUnderAnalysis:
-                exec(ipython_str, globals(), locals())
-            log.info('[SOLVE %i] Exit SolveAllEquations', self._solutionStackCounter)    
-            return prevbranch
         # solve with all 3 variables together?
 #         htvars = [self.getVariable(varsym).htvar for varsym in curvars]
 #         reducedeqs = []
@@ -8560,15 +8561,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                currentcases = currentcases, \
                                                                unknownvars = unknownvars, \
                                                                currentcasesubs = currentcasesubs)
+                if self._isUnderAnalysis:
+                    exec(ipython_str, globals(), locals())
+                log.info('[SOLVE %i] Exit SolveAllEquations', self._solutionStackCounter)
+                return prevbranch
             except self.CannotSolveError, e:
                 raise self.CannotSolveError(e)
             finally:
                 self._dec_solutionStackCounter()
-                
-            if self._isUnderAnalysis:
-                exec(ipython_str, globals(), locals())
-            log.info('[SOLVE %i] Exit SolveAllEquations', self._solutionStackCounter)
-            return prevbranch
         
         # have got this far, so perhaps two axes are aligned?
         #
@@ -8589,16 +8589,18 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         Called by SolveAllEquations and also calls it recursively.
         """
 
+        assert(all(Symbol(sol[0].jointname)==sol[1] for sol in solutions))
+
         self._CheckPreemptFn()
         self._scopecounter += 1
         scopecounter = int(self._scopecounter)
 
-        log.info('depth = %d, c = %d, stackcounter = %d\n' + \
+        log.info('depth = %d, c = %d, nsol = %d, stackcounter = %d\n' + \
                  '         vars = %s\n' + \
                  '        known = %s\n' + \
                  '        cases = %s', \
                  len(currentcases), \
-                 self._scopecounter, self._solutionStackCounter,
+                 self._scopecounter, len(solutions), self._solutionStackCounter,
                  curvars, othersolvedvars, \
                  None if len(currentcases) is 0 else \
                  ("\n"+" "*16).join(str(x) for x in list(currentcases)))
@@ -8636,15 +8638,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                         currentcases = currentcases, \
                                                         currentcasesubs = currentcasesubs, \
                                                         unknownvars = unknownvars)
+                    prevbranch = [solution[0].subs(solsubs)] + prevbranch                    
+                    if self._isUnderAnalysis:
+                        exec(ipython_str, globals(), locals())
+                    return prevbranch
                 except self.CannotSolveError, e:
                     raise self.CannotSolveError(e)
                 finally:
                     self._dec_solutionStackCounter()
-                prevbranch = [solution[0].subs(solsubs)] + prevbranch
-                             
-                if self._isUnderAnalysis:
-                    exec(ipython_str, globals(), locals())
-                return prevbranch
             
         if not hasonesolution:
             # check again except without the number of solutions requirement
@@ -8667,14 +8668,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                             currentcases = currentcases, \
                                                             currentcasesubs = currentcasesubs, \
                                                             unknownvars = unknownvars)
+                        prevbranch = [solution[0].subs(solsubs)] + prevbranch
+                        if self._isUnderAnalysis:                    
+                            exec(ipython_str, globals(), locals())
+                        return prevbranch
                     except self.CannotSolveError, e:
                         raise self.CannotSolveError(e)
                     finally:
                         self._dec_solutionStackCounter()
-                    prevbranch = [solution[0].subs(solsubs)] + prevbranch
-                    if self._isUnderAnalysis:                    
-                        exec(ipython_str, globals(), locals())
-                    return prevbranch
 
         originalGlobalSymbols = self.globalsymbols
         # all solutions have check for zero equations
@@ -10902,7 +10903,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             cvarsolsimp = self.SimplifyTransform(self.trigsimp_new(cvarfrac[0]))#*denom)
                             solversolution.FeasibleIsZeros = False
                             solversolution.presetcheckforzeros.append(svarfracsimp_denom)
-                            # instead of doing atan2(sign(dummy)*s, sign(dummy)*c)
+                            # instead of doing atan2(sign(dummy)*s, sign(dummy)*c) with dummy!=0
                             # we do atan2(s,c) + pi/2*(1-1/sign(dummy)) so equations become simpler
                             #
                             # TGN: or just 1-sign(dummy)?
