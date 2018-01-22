@@ -1480,11 +1480,9 @@ class IKFastSolver(AutoReloader):
                     for monoms, coeff in peq.terms() )
 
     def sortComplexity(self, exprs):
-
         if len(exprs)>2:
             exprs.sort(lambda x, y: \
                        self.codeComplexity(x) - self.codeComplexity(y))
-            
         return exprs
 
     @staticmethod
@@ -6389,15 +6387,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                           poly = singlepolyequations[0], \
                                                                           jointeval = [jointsol], \
                                                                           isHinge = self.IsHinge(jointname))
-                                firstsolution.checkforzeros = []
-                                firstsolution.postcheckforzeros = []
-                                firstsolution.postcheckfornonzeros = []
-                                firstsolution.postcheckforrange = []
+                                firstsolution.AddHalfTanValue = True
                                 # in Ax=B, if A is 0 and B is non-zero, then equation is invalid
                                 # however if both A and B evaluate to 0, then equation is still valid
                                 # therefore equation is invalid only if A==0&&B!=0
                                 firstsolution.postcheckforNumDenom = [(A.as_expr(), B.as_expr())]
-                                firstsolution.AddHalfTanValue = True
 
                                 # actually both A and B can evaluate to zero, in which case we have to use a different method to solve them
                                 AllEquations = []
@@ -6602,10 +6596,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                               poly = det, \
                                                               jointeval = [jointsol], \
                                                               isHinge = self.IsHinge(usedvars[ileftvar].name))
-                    firstsolution.checkforzeros = []
-                    firstsolution.postcheckforzeros = []
-                    firstsolution.postcheckfornonzeros = []
-                    firstsolution.postcheckforrange = []
                     firstsolution.dictequations = dictequations2
                     firstsolution.AddHalfTanValue = True
                     
@@ -6620,10 +6610,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                poly = Poly(orderedequations[0], htvars[1-ileftvar]), \
                                                                jointeval = [jointsol], \
                                                                isHinge = self.IsHinge(usedvars[1-ileftvar].name))
-                    secondsolution.checkforzeros = []
-                    secondsolution.postcheckforzeros = []
-                    secondsolution.postcheckfornonzeros = []
-                    secondsolution.postcheckforrange = []
                     secondsolution.AddHalfTanValue = True
                     
                     thirdsolution = AST.SolverSolution(usedvars[2].name, \
@@ -8106,11 +8092,24 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                           currentcasesubs = [], \
                           canguessvars    = True):
         """
+        Use the following methods to attempt solving for 1 or 2 variables from curvars at a time.
+
+        (1) Solve (>=1) equations for one variable (involving jx, sjx, cjx, htjx) using solveSingleVariable.
+        (2) Solve (>=2) equations for a pair of aligned variables using solveSingleVariable with introduced variable dummy.
+        (3) Solve (>=2) equations for a pair of non-aligned variables using either
+        - [a] solvePrismaticHingePairVariables, if one prismatic and one hinge, or
+        - [b] solvePairVariables, if both are hinge.
+        (4) Solve 1 equation for one variable jx using solveHighDegreeEquationsHalfAngle.
+        (5) Conjecture there is a free variable and solve it using GuessValuesAndSolveEquations.
+
+        If one method finds a solution, use AddSolution ... (to add)
+
+        Primitive calls are by solveManochaCanny, solveLiWoernleHiller, solveKohliOsvatic, 
+        and those solveFullIK_* functions
+
+        Recursive calls are by AddSolution and GuessValuesAndSolveEquations.
+
         If canguessvars is True, then we can guess variable values, prodived they satisfy required conditions
-
-        Primitive calls are by GuessValuesAndSolveEquations, those solveFullIK_* functions.
-
-        Recursive calls are by AddSolution.
         """
 
         # range of progress is [0.15, 0.45].
@@ -8422,9 +8421,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 if len(rawsolutions) > 0: # solving a pair is rare, so any solution will do
                     # TGN: so we don't try others in the for-loop?
                     break
-            except self.CannotSolveError:
-                log.info('[SOLVE %i] Cannot use SolvePrismaticHingePairVariables to solve for %r, %r', \
-                         self._solutionStackCounter, var0, var1)
+            except self.CannotSolveError, e:
+                log.info('[SOLVE %i] Cannot use SolvePrismaticHingePairVariables to solve for %r, %r: %s', \
+                         self._solutionStackCounter, var0, var1, e)
                 pass
             finally:
                 self._dec_solutionStackCounter()
@@ -9632,8 +9631,18 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         """
         
         scopecounter = int(self._scopecounter)
-        hingevariables = [curvar for curvar in sorted(curvars,reverse=True) if self.IsHinge(curvar.name)]
-        if len(hingevariables) > 0 and len(curvars) >= 2:
+        hingevariables = [curvar for curvar in sorted(curvars, reverse = True) \
+                          if self.IsHinge(curvar.name)]
+        
+        if len(curvars) == 1:
+            log.info('Have only one remaining variable %r and it is likely not in equations %r', curvars[0], AllEquations)
+            solution = AST.SolverSolution(curvars[0].name, \
+                                          jointeval = [S.Zero], \
+                                          isHinge = self.IsHinge(curvars[0].name))
+            solution.FeasibleIsZeros = True
+            return [solution] + endbranchtree
+
+        elif len(curvars) >= 2 and len(hingevariables) > 0:
             curvar = hingevariables[0]
             leftovervars = list(curvars)
             leftovervars.remove(curvar)
@@ -9694,24 +9703,25 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 log.warn('c = %d; ' + \
                          'we conjecture there is a free variable, but cannot figure it out by maths so set variable %s', \
                          scopecounter, curvar)
-                newtree += self.SolveAllEquations(AllEquations, \
-                                                  leftovervars, \
-                                                  othersolvedvars+[curvar], \
-                                                  solsubs + self.getVariable(curvar).subs, \
-                                                  endbranchtree, \
-                                                  currentcases = currentcases, \
-                                                  currentcasesubs = currentcasesubs, \
-                                                  unknownvars = unknownvars)
-                return newtree
+                try:
+                    log.info('[SOLVE %i] GuessValuesAndSolveEquations calls SolveAllEquations for %r', \
+                             self._solutionStackCounter, leftovervars)
+                    self._inc_solutionStackCounter()
+                    newtree += self.SolveAllEquations(AllEquations, \
+                                                      leftovervars, \
+                                                      othersolvedvars + [curvar], \
+                                                      solsubs + self.getVariable(curvar).subs, \
+                                                      endbranchtree, \
+                                                      currentcases = currentcases, \
+                                                      currentcasesubs = currentcasesubs, \
+                                                      unknownvars = unknownvars)
+                    return newtree
+                except self.CannotSolveError, e:
+                    log.info('[SOLVE %i] Cannot use SolveAllEquations for %r: %s', \
+                            self._solutionStackCounter, leftovervars, e)
+                finally:
+                    self._dec_solutionStackCounter()                    
 
-        if len(curvars) == 1:
-            log.info('Have only one remaining variable %r and it is likely not in equations %r', curvars[0], AllEquations)
-            solution = AST.SolverSolution(curvars[0].name, \
-                                          jointeval = [S.Zero], \
-                                          isHinge = self.IsHinge(curvars[0].name))
-            solution.FeasibleIsZeros = True
-            return [solution]+endbranchtree
-        
         raise self.CannotSolveError('Cannot find a good variable to solve for')
     
     def SolvePairVariablesHalfAngle(self, raweqns, var0, var1, \
@@ -10125,8 +10135,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                              poly      = pfinals[0], \
                                              jointeval = [jointsol], \
                                              isHinge   = self.IsHinge(varsyms[ileftvar].name))
-        solution.checkforzeros = []
-        solution.postcheckforzeros = []
         if len(pfinals) > 1:
             # verify with at least one solution
             solution.postcheckfornonzeros = [peq.as_expr() for peq in pfinals[1:2]]
@@ -10331,20 +10339,25 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         """
         Solve a set of equations in one variable with half-angle substitution.
 
-        Called by SolvePairVariables, SolveAllEquations, solveSingleVariable.
+        Called by SolvePairVariables, solveSingleVariable, (not sure if necessary) SolveAllEquations.
         """
 
         log.info('[SOLVE %i] Starting solveHighDegreeEquationsHalfAngle for %r', \
                  self._solutionStackCounter, var)
 
         varsym = self.getVariable(var)
-        dummysubs = [(varsym.cvar, (1-varsym.htvar**2)/(1+varsym.htvar**2)), \
-                     (varsym.svar,      2*varsym.htvar/(1+varsym.htvar**2))]
+        denom  = 1 + varsym.htvar**2
+        cnum   = 1 - varsym.htvar**2
+        snum   = 2 * varsym.htvar
+        dummysubs = [(varsym.cvar, cnum/denom), \
+                     (varsym.svar, snum/denom)  ]
+
+        trigsubs = [(varsym.svar**2, 1-varsym.cvar**2), \
+                    (varsym.svar**3, varsym.svar*(1-varsym.cvar**2))]
+
         polyeqs = []
         
         for eq in lineareqs:
-            trigsubs = [(varsym.svar**2, 1-varsym.cvar**2), \
-                        (varsym.svar**3, varsym.svar*(1-varsym.cvar**2))]
             try:
                 peq = Poly(eq.subs(varsym.subs).subs(trigsubs), varsym.cvar, varsym.svar)
             except PolynomialError, e:
@@ -10357,23 +10370,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 continue
             
             # check if all terms are multiples of cos/sin
-            maxmonoms = [0, 0]
-            maxdenom = 0
-            for monoms in peq.monoms():
-                for i in range(2):
-                    maxmonoms[i] = max(maxmonoms[i], monoms[i])
-                maxdenom = max(maxdenom,monoms[0] + monoms[1])
-            eqnew = S.Zero
-            for monoms,c in peq.terms():
-                if c.evalf() != S.Zero: # big fractions might make this difficult to reduce to 0
-                    term = c
-                    for i in range(2):
-                        num,denom = fraction(dummysubs[i][1])
-                        term *= num**monoms[i]
-                    # the denoms for 0,1 and 2,3 are the same
-                    denom = fraction(dummysubs[0][1])[1]
-                    term *= denom**(maxdenom-monoms[0]-monoms[1])
-                    eqnew += simplify(term)
+            maxdenom = max(monoms[0]+monoms[1] for monoms in peq.monoms())
+            eqnew = sum(simplify(c*cnum**monoms[0]*snum**monoms[1]*denom**(maxdenom-monoms[0]-monoms[1])) \
+                        for monoms, c in peq.terms() if c.evalf()!=S.Zero )
+            # big fractions might make it difficult to reduce c to 0
             polyeqs.append(Poly(eqnew, varsym.htvar))
 
         for peq in polyeqs:
@@ -10389,10 +10389,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                      jointeval = [jointsol], \
                                                      isHinge = self.IsHinge(varsym.name))
                 solution.AddHalfTanValue      = True
-                solution.checkforzeros        = []
-                solution.postcheckforzeros    = []
-                solution.postcheckfornonzeros = []
-                solution.postcheckforrange    = []
                 log.info('solveHighDegreeEquationsHalfAngle returns a solution for %r', var)
                 return solution
 
@@ -10980,7 +10976,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
             if len(solutions) > 0 or hasgoodsolution:
                 # found a solution without any divides, necessary for pr2 head_torso lookat3d ik
-                log.info('[SOLVE %i] solveSingleVariable returns a solution for ', \
+                log.info('[SOLVE %i] solveSingleVariable returns a solution for %r', \
                          self._solutionStackCounter, var)
                 return solutions
 
@@ -11199,7 +11195,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         """
         log.info('[SOLVE %i] Starting SolvePrismaticHingePairVariables for %r, %r', \
                  self._solutionStackCounter, var0, var1)
-        
+
+        eqns = [eqn for eqn in raweqns if eqn.has(var0, var1)]
+        if len(eqns) < 2:
+            raise self.CannotSolveError('Need at least 2 equations; now there are %i' % len(eqns))
+
         if self.IsPrismatic(var0.name) and self.IsHinge(var1.name):
             prismaticSymbol = var0
             hingeSymbol = var1
@@ -11207,7 +11207,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             hingeSymbol = var0
             prismaticSymbol = var1
         else:
-            raise self.CannotSolveError('Need one hinge and one prismatic variable')
+            raise self.CannotSolveError('Need exactly one hinge variable and one prismatic variable')
         
         prismaticVariable = self.getVariable(prismaticSymbol)
         hingeVariable = self.getVariable(hingeSymbol)
@@ -11216,11 +11216,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         varsubsinv = prismaticVariable.subsinv + hingeVariable.subsinv
         # unknowns are cos(h), sin(h), p
         unknownvars = [chingeSymbol, shingeSymbol, prismaticSymbol]
-        reducesubs = [(shingeSymbol**2, 1-chingeSymbol**2)]
-        polyeqs = [Poly(eq.subs(varsubs).subs(reducesubs).expand(), unknownvars) \
-                   for eq in raweqns if eq.has(prismaticSymbol, hingeSymbol)]
-        if len(polyeqs) <= 1:
-            raise self.CannotSolveError('Need at least 2 equations; now there are %i' % len(polyeqs))
+        reducesubs = [(shingeSymbol**2, 1-chingeSymbol**2), \
+                      (shingeSymbol**3, shingeSymbol*(1-chingeSymbol**2))]
+        polyeqs = [Poly(eq.subs(varsubs).subs(reducesubs).expand(), unknownvars) for eq in eqns]
         
         # try to solve one variable in terms of the others
         solvevariables = []
@@ -11244,15 +11242,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 if solveSymbol == solveSymbol2:
                     # have a solution for one variable,
                     # so substitute it in and see if the equations become solvable with one variable
-                    reducedeqs = []
-                    for polyeq2 in polyeqs:
-                        eqnew = simplify(polyeq2.as_expr().subs(solvesubs))
-                        if eqnew != S.Zero:
-                            reducedeqs.append(eqnew)
+                    polyeqs2 = [simplify(polyeq.as_expr().subs(solvesubs)) for polyeq in polyeqs]
+                    reducedeqs = [eqnew for eqnew in polyeqs2 if eqnew != S.Zero]
                     self.sortComplexity(reducedeqs)
+                    
                     try:
                         log.info('[SOLVE %i] SolvePrismaticHingePairVariables tries solveSingleVariable for %r', \
                                  self._solutionStackCounter, solveSymbol)
+                        self._inc_solutionStackCounter()
                         rawsolutions = self.solveSingleVariable(reducedeqs, \
                                                                 solveSymbol, \
                                                                 othersolvedvars, \
@@ -11266,6 +11263,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         log.info('[SOLVE %i] Cannot use solveSingleVariable to solve for %r', \
                                  self._solutionStackCounter, solveSymbol)
                         pass
+                    finally:
+                        self._dec_solutionStackCounter()
                 
         raise self.CannotSolveError(u'SolvePrismaticHingePairVariables: failed to find variable with degree 1')
         
@@ -11285,19 +11284,24 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         # make sure both variables are hinges
         if not (self.IsHinge(var0.name) and self.IsHinge(var1.name)):
             raise self.CannotSolveError('pairwise variables only supports hinge joints')
+
+        eqns = [eq for eq in raweqns if eq.has(var0, var1)]
+        if len(eqns) < 2:
+            raise self.CannotSolveError('Need at least 2 equations; now there are %i' % len(eqns))
         
         varsym0 = self.getVariable(var0)
         varsym1 = self.getVariable(var1)
         cvar0, svar0 = varsym0.cvar, varsym0.svar
         cvar1, svar1 = varsym1.cvar, varsym1.svar
-        varsubs = varsym0.subs+varsym1.subs
+        varsubs = varsym0.subs + varsym1.subs
         varsubsinv = varsym0.subsinv + varsym1.subsinv
         unknownvars = [cvar0, svar0, cvar1, svar1]
-        reducesubs = [(svar0**2,1-cvar0**2), (svar1**2,1-cvar1**2)]
-        eqns = [eq.subs(varsubs).subs(reducesubs).expand() for eq in raweqns if eq.has(var0,var1)]
-        if len(eqns) <= 1:
-            raise self.CannotSolveError('not enough equation')
-        
+        reducesubs = [(svar0**2, 1-cvar0**2), \
+                      (svar0**3, svar0*(1-cvar0**2)), \
+                      (svar1**2, 1-cvar1**2), \
+                      (svar1**3, svar1*(1-cvar1**2)) ]
+        eqns = [eq.subs(varsubs).subs(reducesubs).expand() for eq in eqns]
+
         # group equations with single variables
         symbolgen = cse_main.numbered_symbols('const')
         orgeqns = []
@@ -11305,7 +11309,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         for eq in eqns:
             eqnew, symbols = self.groupTerms(eq, unknownvars, symbolgen)
             allsymbols += symbols
-            orgeqns.append([self.codeComplexity(eq),Poly(eqnew,*unknownvars)])
+            orgeqns.append([self.codeComplexity(eq), Poly(eqnew, *unknownvars)])
         orgeqns.sort(lambda x, y: x[0]-y[0])
         neweqns = orgeqns[:]
         
@@ -11349,20 +11353,20 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         # don't need such complex equations
                         continue
                     
-                    if not self.CheckExpressionUnique(eqns,eq):
+                    if not self.CheckExpressionUnique(eqns, eq):
                         continue
                     
                     if eq.has(*unknownvars): # be a little strict about new candidates
                         eqns.append(eq)
                         eqnew, symbols = self.groupTerms(eq, unknownvars, symbolgen)
                         allsymbols += symbols
-                        neweqns.append([self.codeComplexity(eq),Poly(eqnew,*unknownvars)])
+                        neweqns.append([self.codeComplexity(eq), Poly(eqnew,*unknownvars)])
 
         orgeqns = neweqns[:]
         # try to solve for all pairwise variables
         systemofequations = []
         for i in range(len(reduceeqns)):
-            if reduceeqns[i].has(pairwisevars[4],pairwisevars[5]):
+            if reduceeqns[i].has(pairwisevars[4], pairwisevars[5]):
                 continue
             if not all([__builtin__.sum(m) <= 1 for m in reduceeqns[i].monoms()]):
                 continue
@@ -11383,7 +11387,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     for j in range(4):
                         M[i,j] = arr[j]
                     B[i] = -arr[4]
-                det = self.det_bareis(M,*(self.pvars+unknownvars)).subs(allsymbols)
+                det = self.det_bareis(M, *(self.pvars+unknownvars)).subs(allsymbols)
                 if det.evalf() != S.Zero:
                     X = M.adjugate()*B
                     singleeqs = []
@@ -11391,7 +11395,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         eq = (pairwisesubs[i][0]*det - X[i]).subs(allsymbols)
                         eqnew, symbols = self.groupTerms(eq, unknownvars, symbolgen)
                         allsymbols += symbols
-                        singleeqs.append([self.codeComplexity(eq),Poly(eqnew,*unknownvars)])
+                        singleeqs.append([self.codeComplexity(eq), Poly(eqnew,*unknownvars)])
                     break
             if singleeqs is not None:
                 neweqns += singleeqs
@@ -11401,21 +11405,23 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         for ivar in range(2):
             polyunknown = []
             for rank,eq in orgeqns:
-                p = Poly(eq,unknownvars[2*ivar],unknownvars[2*ivar+1])
+                p = Poly(eq,unknownvars[2*ivar], unknownvars[2*ivar+1])
                 if sum(p.degree_list()) == 1 and __builtin__.sum(p.LM()) == 1:
-                    polyunknown.append((rank,p))
+                    polyunknown.append((rank, p))
             if len(polyunknown) > 0:
                 break
+            
         if len(polyunknown) == 0:
             addedeqs = eqns[:]
             polyeqs = []
             for ivar in range(2):
                 polyunknown = []
                 for rank,eq in orgeqns:
-                    p = Poly(eq,unknownvars[2*ivar],unknownvars[2*ivar+1])
-                    polyunknown.append(Poly(p.subs(unknownvars[2*ivar+1]**2,1-unknownvars[2*ivar]**2),unknownvars[2*ivar],unknownvars[2*ivar+1]))
+                    p = Poly(eq, unknownvars[2*ivar], unknownvars[2*ivar+1])
+                    polyunknown.append(Poly(p.subs(unknownvars[2*ivar+1]**2, 1-unknownvars[2*ivar]**2), \
+                                            unknownvars[2*ivar], unknownvars[2*ivar+1]))
                 if len(polyunknown) >= 2:
-                    monomtoremove = [[polyunknown,(2,0)],[polyunknown,(1,1)]]
+                    monomtoremove = [[polyunknown,(2,0)], [polyunknown,(1,1)]]
                     for curiter in range(2):
                         # remove the square
                         polyunknown,monom = monomtoremove[curiter]
@@ -11425,7 +11431,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         pbase = pbase[0]
                         pbasedict = pbase.as_dict()
                         for i in range(len(polyunknown)):
-                            eq = (polyunknown[i]*pbasedict.get(monom,S.Zero)-pbase*polyunknown[i].as_dict().get(monom,S.Zero)).as_expr().subs(allsymbols)
+                            eq = (polyunknown[i]*pbasedict.get(monom,S.Zero) - \
+                                  pbase*polyunknown[i].as_dict().get(monom,S.Zero)).as_expr().subs(allsymbols)
                             if self.codeComplexity(eq) > 4000:
                                 # .. way too complex
                                 continue
@@ -11500,7 +11507,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 return solutions
         
         groups = []
-        for i,unknownvar in enumerate(unknownvars):
+        for i, unknownvar in enumerate(unknownvars):
             listeqs = []
             listeqscmp = []
             for rank,eq in neweqns:
@@ -11551,7 +11558,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         eqcmp = self.removecommonexprs(eq.subs(allsymbols).as_expr(), \
                                                        onlygcd = True, \
                                                        onlynumbers = False)
-                        if self.CheckExpressionUnique(listeqscmp,eqcmp):
+                        if self.CheckExpressionUnique(listeqscmp, eqcmp):
                             listeqs.append(eq)
                             listeqscmp.append(eqcmp)
                 groups.append(listeqs)
@@ -11569,7 +11576,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 except self.CannotSolveError,e:
                     log.info('[SOLVE %i] Cannot use SolvePairVariablesHalfAngle to solve for %r, %r', \
                              self._solutionStackCounter, var0, var1)
-                    log.warn('%s',e)
+                    log.warn('%s', e)
                 finally:
                     self._dec_solutionStackCounter()
 
@@ -11591,7 +11598,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 if len(neweqs) > 0:
                     for ivar in range(2):
                         lineareqs = [eq for eq in neweqs if __builtin__.sum(eq[ivar].LM())==1]
-                        for paireq0,paireq1 in combinations(lineareqs,2):
+                        for paireq0, paireq1 in combinations(lineareqs, 2):
                             log.info('solving separated equations with linear terms')
                             eq0 = paireq0[ivar]
                             eq0dict = eq0.as_dict()
@@ -11610,13 +11617,16 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             if self.codeComplexity(totaleq) < 4000:
                                 log.info('simplifying final equation to %d', self.codeComplexity(totaleq))
                                 totaleq = simplify(totaleq)
-                            ptotal_cos = Poly(Poly(totaleq,*polysymbols).subs(polysymbols[0]**2, 1-polysymbols[1]**2).subs(polysymbols[1]**2,1-polysymbols[0]**2),*polysymbols)
+                            ptotal_cos = Poly(Poly(totaleq,*polysymbols).\
+                                              subs(polysymbols[0]**2, 1-polysymbols[1]**2).\
+                                              subs(polysymbols[1]**2, 1-polysymbols[0]**2), \
+                                              *polysymbols)
                             ptotal_sin = Poly(S.Zero,*polysymbols)
-                            for m,c in ptotal_cos.terms():
+                            for m, c in ptotal_cos.terms():
                                 if m[1] > 0:
                                     assert(m[1] == 1)
-                                    ptotal_sin = ptotal_sin.sub(Poly.from_dict({(m[0],0):c},*ptotal_sin.gens))
-                                    ptotal_cos = ptotal_cos.sub(Poly.from_dict({m:c},*ptotal_cos.gens))
+                                    ptotal_sin = ptotal_sin.sub(Poly.from_dict({(m[0],0):c}, *ptotal_sin.gens))
+                                    ptotal_cos = ptotal_cos.sub(Poly.from_dict({m:c}, *ptotal_cos.gens))
 
                             ptotalcomplexity = self.codeComplexity(ptotal_cos.as_expr()) + \
                                                self.codeComplexity(ptotal_sin.as_expr())
@@ -11635,21 +11645,28 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                          jointeval = [jointsol], \
                                                                          isHinge = self.IsHinge(var.name))
                                     solution.postcheckforzeros = [ptotal_sin.as_expr()]
-                                    solution.postcheckfornonzeros = []
-                                    solution.postcheckforrange = []
-                                    log.info('SolvePairVariables returns a solution')
+                                    log.info('[SOLVE %i] SolvePairVariables returns a solution for %r, %r', \
+                                             self._solutionStackCounter, var0, var1)
                                     return [solution]
-                                
+
+                log.info('[SOLVE %i] SolvePairVariables tries solveSingleVariableLinearly for %r', \
+                         self._solutionStackCounter, var0)
                 # if maxnumeqs is any less, it will miss linearly independent equations
                 lineareqs = self.solveSingleVariableLinearly(raweqns, var0, [var1], \
                                                              maxnumeqs = len(raweqns))
                 if len(lineareqs) > 0:
                     try:
-                        log.info('SolvePairVariables tries solveHighDegreeEquationsHalfAngle')
+                        log.info('[SOLVE %i] SolvePairVariables tries solveHighDegreeEquationsHalfAngle for %r', \
+                                self._solutionStackCounter, var1)
+                        self._inc_solutionStackCounter()
                         return [self.solveHighDegreeEquationsHalfAngle(lineareqs, var1)]
-                    except self.CannotSolveError,e:
-                        log.warn('%s',e)
-
+                    except self.CannotSolveError, e:
+                        log.warn('%s', e)
+                        log.info('[SOLVE %i] Cannot use solveHighDegreeEquationsHalfAngle for %r', \
+                                 self._solutionStackCounter, var1)
+                    finally:
+                        self._dec_solutionStackCounter()
+                        
                 raise self.CannotSolveError('cannot cleanly separate pair equations')
 
         varindex = goodgroup[0][0]
@@ -11672,13 +11689,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             else:
                 simpleterms.append(eqs[i].as_expr())
                 complexterms.append(S.Zero)
+                
         finaleq = None
         checkforzeros = []
         if domagicsquare:
-
             # TGN: ensure othersolvedvars+[var0,var1] is a subset of self.trigvars_subs
             assert(all([z in self.trigvars_subs for z in othersolvedvars + [var0, var1]]))
-
             # here is the magic transformation:
             finaleq = self.trigsimp_new(expand(((complexterms[0]**2+complexterms[1]**2) \
                                                 - simpleterms[0]**2 - simpleterms[1]**2).subs(varsubsinv))).subs(varsubs)
@@ -11697,13 +11713,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     checkforzeros.append(self.removecommonexprs(denom))
                     denomlcm = Poly(lcm(denomlcm,denom), *lcmvars)
             finaleq = simplify(finaleq*denomlcm.as_expr()**2)
-            complementvarindex = varindex-(varindex%2)+((varindex+1)%2)
+            complementvarindex = varindex - (varindex%2) + ((varindex+1)%2)
             complementvar = unknownvars[complementvarindex]
             finaleq = simplify(finaleq.subs(complementvar**2, 1-unknownvar**2)).subs(allsymbols).expand()
         else:
             # try to reduce finaleq
-            p0 = Poly(simpleterms[0],unknownvars[varindex], unknownvars[varindex+1])
-            p1 = Poly(simpleterms[1],unknownvars[varindex], unknownvars[varindex+1])
+            p0 = Poly(simpleterms[0], unknownvars[varindex], unknownvars[varindex+1])
+            p1 = Poly(simpleterms[1], unknownvars[varindex], unknownvars[varindex+1])
             if max(p0.degree_list()) > 1 \
                and max(p1.degree_list()) > 1 \
                and max(p0.degree_list()) == max(p1.degree_list()) \
@@ -11727,7 +11743,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         newunknownvars.remove(unknownvar)
         if finaleq.has(*newunknownvars):
             log.warn('equation relies on unsolved variables(%s):\n' + \
-                     '        %s',newunknownvars, finaleq)
+                     '        %s', newunknownvars, finaleq)
             log.info('SolvePairVariables tries SolvePairVariablesHalfAngle')
             return self.SolvePairVariablesHalfAngle(raweqns, var0, var1, othersolvedvars)
 
@@ -11746,7 +11762,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
         if useconic:
             # conic roots solver not as robust as half-angle transform!
-            #return [SolverConicRoots(var.name,[finaleq],isHinge=self.IsHinge(var.name))]
+            # return [SolverConicRoots(var.name, [finaleq], isHinge = self.IsHinge(var.name))]
             
             log.info('SolvePairVariables tries solveHighDegreeEquationsHalfAngle')
             solution = self.solveHighDegreeEquationsHalfAngle([finaleq], var)
@@ -11779,8 +11795,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             return [solversolution]
         
         log.info('SolvePairVariables tries SolvePairVariablesHalfAngle')
-        return self.SolvePairVariablesHalfAngle(raweqns,var0,var1,othersolvedvars)
-        #raise self.CannotSolveError('cannot solve pair equation')
+        return self.SolvePairVariablesHalfAngle(raweqns, var0, var1, othersolvedvars)
         
     ## SymPy helper routines
 
@@ -12598,11 +12613,11 @@ class AST:
         jointeval            = None
         jointevalcos         = None # not used
         jointevalsin         = None # not used
-        checkforzeros        = None
-        postcheckforzeros    = None # fail if any zero
-        postcheckfornonzeros = None # fail if any nonzero
+        checkforzeros        = []
+        postcheckforzeros    = [] # fail if any zero
+        postcheckfornonzeros = [] # fail if any nonzero
         postcheckforNumDenom = None # list of (A,B) pairs where Ax=B was used. Fail if A==0 && B!=0
-        postcheckforrange    = None # checks that value is within [-1,1]
+        postcheckforrange    = [] # checks that value is within [-1,1]
         dictequations        = None
         
         # threshold for checking postcheckforzeros.
@@ -12624,7 +12639,7 @@ class AST:
         score = None
         equationsused = None
         
-        def __init__(self, jointname, poly=None, jointeval=None,isHinge=True):
+        def __init__(self, jointname, poly = None, jointeval = None,isHinge = True):
             self.poly = poly
             assert(self.poly.degree(0)>0)
             self.jointname = jointname
