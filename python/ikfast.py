@@ -8145,7 +8145,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                  '        known = %s\n' + \
                  '        cases = %s', \
                  len(currentcases), \
-                 self._scopecounter, self._solutionStackCounter,
+                 self._scopecounter, self._solutionStackCounter, \
                  curvars, othersolvedvars, \
                  None if len(currentcases) is 0 else \
                  ("\n"+" "*16).join(str(x) for x in list(currentcases)))
@@ -9378,10 +9378,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         
         for iflatzerosubstitutioneqs, (cond, evalcond, othervarsubs, dictequations) in enumerate(flatzerosubstitutioneqs):
             # have to convert to fractions before substituting!
-            if not all([self.isValidSolution(v) for s,v in othervarsubs]):
+            if not all([self.isValidSolution(v) for s, v in othervarsubs]):
                 continue
+            othervarsubs = [(s, self.ConvertRealToRationalEquation(v)) for s, v in othervarsubs]
             
-            othervarsubs = [(s,self.ConvertRealToRationalEquation(v)) for s,v in othervarsubs]
             #NewEquations = [eq.subs(self.npxyzsubs + self.rxpsubs).subs(othervarsubs) for eq in AllEquations]
             NewEquations = [eq.subs(othervarsubs) for eq in AllEquations]
             NewEquationsClean = self.PropagateSolvedConstants(NewEquations, othersolvedvars, curvars)
@@ -9408,9 +9408,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         newcases.add(singlecond)
                         
                     if not self.degeneratecases.CheckCases(newcases):
-                        log.info('depth = %d, c = %d, iter = %d/%d\n' +\
+                        log.info('depth = %d, c = %d, stackcounter = %d, iter = %d/%d\n' +\
                                  '        start new cases: %s', \
-                                 len(currentcases), scopecounter, iflatzerosubstitutioneqs, len(flatzerosubstitutioneqs), \
+                                 len(currentcases), scopecounter, \
+                                 self._solutionStackCounter, \
+                                 iflatzerosubstitutioneqs, len(flatzerosubstitutioneqs), \
                                  ("\n"+" "*25).join(str(x) for x in list(newcases)))
                         
                         if len(NewEquationsClean) > 0:
@@ -9482,9 +9484,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                              dictequations)) # what about extradictequations?
 
                         # print flatzerosubstitutioneqs
-                        log.info('depth = %d, c = %d, iter = %d/%d\n' \
+                        log.info('depth = %d, c = %d, stackcounter = %d, iter = %d/%d\n' \
                                  + '        add new cases: %s', \
-                                 len(currentcases), scopecounter, iflatzerosubstitutioneqs, len(flatzerosubstitutioneqs), \
+                                 len(currentcases), scopecounter, \
+                                 self._solutionStackCounter, \
+                                 iflatzerosubstitutioneqs, len(flatzerosubstitutioneqs), \
                                  ("\n"+" "*23).join(str(x) for x in list(newcases)))
                         self.degeneratecases.AddCases(newcases)
                     else:
