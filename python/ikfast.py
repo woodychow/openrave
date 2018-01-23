@@ -8601,14 +8601,16 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         
         for solution in solutions:
             checkforzeros = solution[0].checkforzeros
-            hasonesolution |= solution[0].numsolutions() == 1
-            if len(checkforzeros) == 0 and solution[0].numsolutions() == 1:
+            hasonesolution = solution[0].numsolutions() == 1
+            if len(checkforzeros) == 0 and hasonesolution:
                 # did find a good solution, so take it. Make sure to check any zero branches
-                var = solution[1]
+                var     = solution[1]
                 newvars = curvars[:]
                 newvars.remove(var)
-                log.info('[SOLVE %i] AddSolution calls SolveAllEquations to solve for %r', \
-                         self._solutionStackCounter, newvars)
+                log.info('[SOLVE %i] hasonesolution = True \n' + \
+                         ' '*18 + 'Use solution for %r\n' + \
+                         ' '*18 + 'AddSolution calls SolveAllEquations to solve for %r', \
+                         self._solutionStackCounter, var, newvars)
                 try:
                     self._inc_solutionStackCounter()
                     prevbranch = self.SolveAllEquations(AllEquations, \
@@ -8624,7 +8626,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         exec(ipython_str, globals(), locals())
                     return prevbranch
                 except self.CannotSolveError, e:
-                    raise self.CannotSolveError(e)
+                    log.info(e)
+                    hasonesolution = False
+                    continue
+                    # raise self.CannotSolveError(e)
                 finally:
                     self._dec_solutionStackCounter()
             
@@ -8637,8 +8642,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     var = solution[1]
                     newvars = curvars[:]
                     newvars.remove(var)
-                    log.info('[SOLVE %i] AddSolution calls SolveAllEquations to solve for %r', \
-                             self._solutionStackCounter, newvars)
+                    log.info('[SOLVE %i] hasonesolution = False \n' + \
+                             ' '*18 + 'Use solution for %r\n' + \
+                             ' '*18 + 'AddSolution calls SolveAllEquations to solve for %r', \
+                             self._solutionStackCounter, var, newvars)
                     try:
                         self._inc_solutionStackCounter()
                         prevbranch = self.SolveAllEquations(AllEquations, \
@@ -8654,7 +8661,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             exec(ipython_str, globals(), locals())
                         return prevbranch
                     except self.CannotSolveError, e:
-                        raise self.CannotSolveError(e)
+                        continue
+                        # raise self.CannotSolveError(e)
                     finally:
                         self._dec_solutionStackCounter()
 
@@ -8746,14 +8754,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     if not checkzero.has(*allothersolvedvars):
                         
                         sumsquaresexprs = self._GetSumSquares(checkzero)
-                        
-                        if sumsquaresexprs is not None:
+                        if len(sumsquaresexprs)>0:
+                            exec(ipython_str, globals(), locals())
                             checksimplezeroexprs += sumsquaresexprs
                             sumsquaresexprstozero = []
-                            #sumsquaresexprstozero = [sumsquaresexpr \
-                            #                         for sumsquaresexpr in sumsquaresexprs \
-                            #                         if sumsquaresexpr.is_Symbol]
-                            
                             for sumsquaresexpr in sumsquaresexprs:
                                 if sumsquaresexpr.is_Symbol:
                                     sumsquaresexprstozero.append(sumsquaresexpr)
@@ -8763,15 +8767,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             sumsquaresexprstozero.append(arg)
                             
                             if len(sumsquaresexprstozero) > 0:
-                               log.info('%r', [sumsquaresexprstozero,checkzero, \
-                                               [(sumsquaresexpr,S.Zero) \
-                                                for sumsquaresexpr in sumsquaresexprstozero], []])
-
                                toappend = [sumsquaresexprstozero, \
                                            checkzero, \
                                            [(sumsquaresexpr, S.Zero) \
-                                            for sumsquaresexpr in sumsquaresexprstozero], []]
-                               log.info('%r', toappend)
+                                            for sumsquaresexpr in sumsquaresexprstozero], \
+                                           []]
+                               log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
                                localsubstitutioneqs.append(toappend)
                                handledconds += sumsquaresexprstozero
                                 
@@ -8789,14 +8790,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                 for value in [S.Zero, pi/2, pi, -pi/2]:
                                     try:
                                         # doing (1/x).subs(x,0) produces a RuntimeError (infinite recursion...)
-                                        # TGN: may not need that many digits (used to be n=30)
                                         checkzerosub = checksimplezeroexpr.subs([(othervar,  value), \
-                                                                                 (sothervar, sin(value).evalf(n=2)), \
-                                                                                 (cothervar, cos(value).evalf(n=2))])
+                                                                                 (sothervar, sin(value).evalf(n=30)), \
+                                                                                 (cothervar, cos(value).evalf(n=30))])
                                         
                                         if self.isValidSolution(checkzerosub) and \
                                            checkzerosub.evalf(n=30) == S.Zero:
                                             if s.jointeval is None:
+                                                assert(0)
                                                 s.jointeval = []
                                             s.jointeval.append(S.One*value)
                                     except (RuntimeError, AssertionError),e: # 
@@ -8809,11 +8810,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                     # checksimplezeroexpr can be simple like -cj4*r21 - r20*sj4
                                     # in which case the solutions would be
                                     # [-atan2(-r21, -r20), -atan2(-r21, -r20) + 3.14159265358979]
-                                    log.info('[SOLVE %i] AddSolution calls solveSingleVariable to solve for %r', \
-                                             self._solutionStackCounter, othervar)
+                                    eq = checksimplezeroexpr.subs([(sothervar, sin(othervar)), \
+                                                                   (cothervar, cos(othervar))])
+                                    log.info('[SOLVE %i] AddSolution calls solveSingleVariable to solve %r for %r', \
+                                             self._solutionStackCounter, eq, othervar)
                                     self._inc_solutionStackCounter()
-                                    newsol = self.solveSingleVariable([checksimplezeroexpr.subs([(sothervar, sin(othervar)), \
-                                                                                                 (cothervar, cos(othervar))])], \
+                                    newsol = self.solveSingleVariable([eq], \
                                                                       othervar, \
                                                                       othersolvedvars)
                                     ss += newsol
@@ -8835,7 +8837,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                 
                                 finally:
                                     self._dec_solutionStackCounter()
-                                
+                                    
                                 for s in ss:
                                     # can actually simplify Positions and possibly get a new solution!
                                     if s.jointeval is not None:
@@ -9198,12 +9200,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                 sothervar = othervarobj.svar
                                 cothervar = othervarobj.cvar
                                 for value in [S.Zero, pi/2, pi, -pi/2]:
-                                    # TGN: may not need that many digits (used to be n=30)
                                     possiblesubs.append([(othervar,      value), \
-                                                         (sothervar,     sin(value).evalf(n=2)), \
-                                                         (sin(othervar), sin(value).evalf(n=2)), \
-                                                         (cothervar,     cos(value).evalf(n=2)), \
-                                                         (cos(othervar), cos(value).evalf(n=2))])
+                                                         (sothervar,     sin(value).evalf(n=30)), \
+                                                         (sin(othervar), sin(value).evalf(n=30)), \
+                                                         (cothervar,     cos(value).evalf(n=30)), \
+                                                         (cos(othervar), cos(value).evalf(n=30))])
                                     ishinge.append(True)
                                     
                     # all possiblesubs are present in checkzero
@@ -9318,12 +9319,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                                   (row1+2)%3, col3)), S.Zero))
                                             # furthermore can defer that the left over 4 values are
                                             # [cos(ang), sin(ang), cos(ang), -sin(ang)] = abcd
-                                            if row1 == 1:
-                                                minrow = 0
-                                                maxrow = 2
-                                            else:
-                                                minrow = (row1+1)%3
-                                                maxrow = (row1+2)%3
+                                            minrow, maxrow = tuple([row for row in (0,1,2) if row!=row1])
 
                                             ra = Symbol('%s%d%d'%(possiblevarname, minrow, col1))
                                             rb = Symbol('%s%d%d'%(possiblevarname, minrow, col2))
@@ -9345,13 +9341,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                                   row3, (col1+2)%3)), S.Zero))
                                             # furthermore can defer that the left over 4 values are
                                             # [cos(ang), sin(ang), cos(ang), -sin(ang)] = abcd
-                                            if col1 == 1:
-                                                mincol = 0
-                                                maxcol = 2
-                                            else:
-                                                mincol = (col1+1)%3
-                                                maxcol = (col1+2)%3
-                                                
+                                            mincol, maxcol = tuple([col for col in (0,1,2) if col!=col1])
+
                                             ra = Symbol('%s%d%d'%(possiblevarname, row1, mincol))
                                             rb = Symbol('%s%d%d'%(possiblevarname, row2, mincol))
                                             rc = Symbol('%s%d%d'%(possiblevarname, row1, maxcol))
@@ -9384,10 +9375,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 zerosubstitutioneqs[isolution] += localsubstitutioneqs
         # test the solutions
         
-        # PREV: have to take the cross product of all the zerosubstitutioneqs in order to form stronger constraints on the equations because the following condition will be executed only if all SolverCheckZeros evalute to 0
-        # NEW: not sure why cross product is necessary anymore....
+        # PREV: have to take cross products of all zerosubstitutioneqs to form stronger constraints
+        #       because the following condition will be executed only if all SolverCheckZeros evaluate to 0
+        #
+        # NEW:  not sure whether cross product is necessary anymore
+        
         zerobranches = []
         accumequations = []
+        
 #         # since sequence_cross_product requires all lists to be non-empty, insert None for empty lists
 #         for conditioneqs in zerosubstitutioneqs:
 #             if len(conditioneqs) == 0:
@@ -9437,14 +9432,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 # forcing a value, so have to check if all equations in NewEquations that do not contain
                 # unknown variables are really 0
                 extrazerochecks = []
-                for i in range(len(NewEquations)):
-                    expr = NewEquations[i]
+                for expr in NewEquations:
                     if not self.isValidSolution(expr):
-                        log.warn('not valid: %s',expr)
+                        log.warn('not valid: %s', expr)
                         extrazerochecks = None
                         break
                     if not expr.has(*allvars) and \
-                       self.CheckExpressionUnique(extrazerochecks,expr):
+                       self.CheckExpressionUnique(extrazerochecks, expr):
                         if expr.is_Symbol:
                             # can set that symbol to zero and create a new set of equations!
                             extrazerochecks.append(expr.subs(solsubs).evalf(n=30))
@@ -9494,6 +9488,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                 # have to re-substitute since some equations evaluated to zero
                                 NewEquationsClean = [eq.subs(extradictequations).expand() for eq in NewEquationsClean]
                             try:
+                                log.info('[SOLVE %i] AddSolution calls SolveAllEquations to solve for %r', \
+                                         self._solutionStackCounter, curvars)
                                 self._inc_solutionStackCounter()
                                 newtree = self.SolveAllEquations(NewEquationsClean, \
                                                                  curvars, \
@@ -9504,6 +9500,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                  currentcasesubs = newcasesubs, \
                                                                  unknownvars = unknownvars)
                             except self.CannotSolveError, e:
+                                log.info('[SOLVE %i] Cannot use SolveAllEquations for %r', \
+                                         self._solutionStackCounter, curvars)
                                 raise self.CannotSolveError(e)
                             finally:
                                 self._dec_solutionStackCounter()
@@ -11803,7 +11801,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             for arg in expr.args:
                 if arg.is_Pow:
                     if arg.exp.is_number and arg.exp > 0 and (arg.exp%2) == 0:
-                        values.append(arg.base)
+                        values.append(arg.base**(arg.exp/2))
                     else:
                         values = []
                         break
@@ -11841,7 +11839,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 #      expected result should be []? I modified this function
 
         elif expr.is_Pow and expr.exp.is_number and expr.exp > 0 and (expr.exp%2) == 0:
-            values.append(expr.base)
+            values.append(expr.base**(expr.exp/2))
 
         elif expr.is_number and expr>0:
             values.append(S.One)
