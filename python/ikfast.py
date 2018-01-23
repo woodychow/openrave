@@ -908,6 +908,12 @@ class IKFastSolver(AutoReloader):
     @staticmethod
     def jointlists(lists):
         return list(chain.from_iterable(lists))
+    @staticmethod
+    def mapvaluepmpi(cond):
+        # TGN: the original fmod(cond+pi,2*pi)-pi maps cond to [-pi, pi)
+        #      however return value of atan2 is in (-pi, pi]
+        #      so we change to pi-fmod(pi-cond,2*pi)
+        return pi-fmod(pi-cond,2*pi)
     
     @staticmethod
     def rodrigues(axis, angle):
@@ -6672,9 +6678,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             possiblevar,possiblevalue = possiblesub[0]
             possiblevar2,possiblevalue2 = possiblesub2[0]
             cond = Abs(possiblevar-possiblevalue.evalf(n=30))
-            evalcond = Abs(fmod(possiblevar-possiblevalue+pi,2*pi)-pi)# + evalcond
+            evalcond = Abs(self.mapvaluepmpi(possiblevar-possiblevalue))# + evalcond
             cond2 = Abs(possiblevar2-possiblevalue2.evalf(n=30))
-            evalcond2 = Abs(fmod(possiblevar2-possiblevalue2+pi,2*pi)-pi)# + evalcond
+            evalcond2 = Abs(self.mapvaluepmpi(possiblevar2-possiblevalue2))# + evalcond
             if self._iktype == 'transform6d' and \
                possiblevar in rotsymbols and \
                possiblevalue == S.Zero and \
@@ -8872,7 +8878,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                     
                                                 cond = Abs(othervar-eq.evalf(n=30))
                                                 if self.CheckExpressionUnique(handledconds, cond):
-                                                    evalcond = fmod(cond+pi,2*pi)-pi if self.IsHinge(othervar.name) else cond
+                                                    evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
                                                     toappend = [[cond], \
                                                                 evalcond, \
                                                                 [(sothervar    , sineq),  \
@@ -8914,28 +8920,21 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                     cond = abs(sothervar-eq.evalf(n=30)) + abs(sign(cothervar)-1)
                                                     
                                                 if self.CheckExpressionUnique(handledconds, cond):
-                                                    evalcond = fmod(cond+pi, 2*pi) - pi if self.IsHinge(othervar.name) else cond
-                                                        
-                                                    if isimaginary:
-                                                        toappend = [[cond], \
-                                                                    evalcond, \
-                                                                    [(sothervar,     S.Zero), \
-                                                                     (sin(othervar), S.Zero), \
-                                                                     (cothervar,     S.One),  \
-                                                                     (cos(othervar), S.One),  \
-                                                                     (othervar,      S.One)], \
-                                                                    dictequations]
-                                                    else:
-                                                        # exec(ipython_str, globals(), locals())
-                                                        coseq = sqrt(1-eq*eq).evalf(n=30)
-                                                        toappend = [[cond], \
-                                                                    evalcond, \
-                                                                    [(sothervar    ,    eq), \
-                                                                     (sin(othervar),    eq), \
-                                                                     (cothervar    , coseq), \
-                                                                     (cos(othervar), coseq), \
-                                                                     (othervar, asin(eq).evalf(n=30))], \
-                                                                    dictequations]
+                                                    evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
+
+                                                    # case: angle = 0
+                                                    sineq   = S.Zero if isimaginary else eq
+                                                    coseq   = S.One  if isimaginary else sqrt(S.One-eq*eq).evalf(n=30)
+                                                    othereq = (S.Zero if isimaginary else asin(eq)).evalf(n=30)
+                                                    toappend = [[cond], \
+                                                                evalcond, \
+                                                                [(sothervar    ,   sineq), \
+                                                                 (sin(othervar),   sineq), \
+                                                                 (cothervar    ,   coseq), \
+                                                                 (cos(othervar),   coseq), \
+                                                                 (othervar     , othereq)], \
+                                                                dictequations]
+                                                    
                                                     log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
                                                     localsubstitutioneqs.append(toappend)
                                                     handledconds.append(cond)
@@ -8944,30 +8943,23 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                 cond = abs(sign(cothervar)+1) + (abs(sothervar) + abs((eq**2).evalf(n=30)) \
                                                                                  if isimaginary else \
                                                                                  abs(sothervar-eq.evalf(n=30)))
-                                                    
                                                 # cond = othervar-(pi-asin(eq).evalf(n=30))
                                                 if self.CheckExpressionUnique(handledconds, cond):
-                                                    evalcond = fmod(cond+pi, 2*pi) - pi if self.IsHinge(othervar.name) else cond
-                                                    if isimaginary:
-                                                        toappend = [[cond], \
-                                                                    evalcond, \
-                                                                    [(sothervar    ,  S.Zero), \
-                                                                     (sin(othervar),  S.Zero), \
-                                                                     (cothervar    , -S.One),  \
-                                                                     (cos(othervar), -S.One),  \
-                                                                     (othervar, pi.evalf(n=30))], \
-                                                                    dictequations]
+                                                    evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
 
-                                                    else:
-                                                        coseq = -sqrt(1-eq*eq).evalf(n=30)
-                                                        toappend = [[cond], \
-                                                                    evalcond, \
-                                                                    [(sothervar    ,    eq), \
-                                                                     (sin(othervar),    eq), \
-                                                                     (cothervar    , coseq), \
-                                                                     (cos(othervar), coseq), \
-                                                                     (othervar, (pi-asin(eq)).evalf(n=30))], \
-                                                                    dictequations]
+                                                    # case: angle = pi
+                                                    sineq   =  S.Zero if isimaginary else eq
+                                                    coseq   = -S.One  if isimaginary else -sqrt(S.One-eq*eq).evalf(n=30)
+                                                    othereq = (pi if isimaginary else pi-asin(eq)).evalf(n=30)
+                                                    toappend = [[cond], \
+                                                                evalcond, \
+                                                                [(sothervar    ,   sineq), \
+                                                                 (sin(othervar),   sineq), \
+                                                                 (cothervar    ,   coseq), \
+                                                                 (cos(othervar),   coseq), \
+                                                                 (othervar     , othereq)], \
+                                                                dictequations]
+
                                                     log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
                                                     localsubstitutioneqs.append(toappend)
                                                     handledconds.append(cond)
@@ -9001,64 +8993,48 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                     cond = abs(cothervar-eq.evalf(n=30)) + abs(sign(sothervar)-1)
                                                     
                                                 if self.CheckExpressionUnique(handledconds, cond):
+                                                    evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
+
+                                                    # case: angle = pi/2
+                                                    sineq   = S.One  if isimaginary else sqrt(S.One-eq*eq).evalf(n=30)
+                                                    coseq   = S.Zero if isimaginary else eq
+                                                    othereq = (pi/2 if isimaginary else acos(eq)).evalf(n=30)
+                                                    toappend = [[cond], \
+                                                                evalcond, \
+                                                                [(sothervar    ,   sineq), \
+                                                                 (sin(othervar),   sineq), \
+                                                                 (cothervar    ,   coseq), \
+                                                                 (cos(othervar),   coseq), \
+                                                                 (othervar     , othereq)], \
+                                                                dictequations]
                                                     
-                                                    evalcond = fmod(cond+pi,2*pi)-pi if self.IsHinge(othervar.name) else cond
-                                                        
-                                                    if isimaginary:
-                                                        toappend = [[cond], \
-                                                                    evalcond, \
-                                                                    [(sothervar    , S.One),  \
-                                                                     (sin(othervar), S.One),  \
-                                                                     (cothervar    , S.Zero), \
-                                                                     (cos(othervar), S.Zero), \
-                                                                     (othervar, (pi/2).evalf(n=30))], \
-                                                                    dictequations]
-                                                    else:
-                                                        sineq = sqrt(1-eq*eq).evalf(n=30)
-                                                        toappend = [[cond], \
-                                                                    evalcond, \
-                                                                    [(sothervar    , sineq), \
-                                                                     (sin(othervar), sineq), \
-                                                                     (cothervar    ,    eq), \
-                                                                     (cos(othervar),    eq), \
-                                                                     (othervar, acos(eq).evalf(n=30))], \
-                                                                    dictequations]
-                                                        
                                                     log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
                                                     localsubstitutioneqs.append(toappend)
                                                     handledconds.append(cond)
+                                                    
                                                 # cond = othervar + acos(eq).evalf(n=30)
                                                 cond = abs(sign(sothervar)+1) + (abs(cothervar) + abs((eq**2).evalf(n=30)) \
                                                                                  if isimaginary else \
                                                                                  abs(cothervar-eq.evalf(n=30)))
-
                                                 if self.CheckExpressionUnique(handledconds, cond):
-                                                    evalcond = fmod(cond+pi,2*pi)-pi if self.IsHinge(othervar.name) else cond
-                                                    if isimaginary:
-                                                        toappend = [[cond], \
-                                                                    evalcond, \
-                                                                    [(sothervar,    -S.One),  \
-                                                                     (sin(othervar),-S.One),  \
-                                                                     (cothervar,     S.Zero), \
-                                                                     (cos(othervar), S.Zero), \
-                                                                     (othervar, (-pi/2).evalf(n=30))], \
-                                                                    dictequations]
-                                                    else:
-                                                        sineq = -sqrt(1-eq*eq).evalf(n=30)
-                                                        toappend = [[cond], \
-                                                                    evalcond, \
-                                                                    [(sothervar    , sineq), \
-                                                                     (sin(othervar), sineq), \
-                                                                     (cothervar    ,    eq), \
-                                                                     (cos(othervar),    eq), \
-                                                                     (othervar, -acos(eq).evalf(n=30))], \
-                                                                    dictequations]
+                                                    evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
+
+                                                    # case: angle = -pi/2
+                                                    sineq   = -S.One  if isimaginary else -sqrt(S.One-eq*eq).evalf(n=30)
+                                                    coseq   =  S.Zero if isimaginary else eq
+                                                    othereq = (-pi/2 if isimaginary else -acos(eq)).evalf(n=30)
+                                                    toappend = [[cond], \
+                                                                evalcond, \
+                                                                [(sothervar    ,   sineq), \
+                                                                 (sin(othervar),   sineq), \
+                                                                 (cothervar    ,   coseq), \
+                                                                 (cos(othervar),   coseq), \
+                                                                 (othervar     , othereq)], \
+                                                                dictequations]
                                                     log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
                                                     localsubstitutioneqs.append(toappend)
                                                     handledconds.append(cond)
 
-            # if len(localsubstitutioneqs)>0:
-            #     log.info('%r', localsubstitutioneqs)
             flatzerosubstitutioneqs += localsubstitutioneqs
             zerosubstitutioneqs.append(localsubstitutioneqs)
             
@@ -9134,17 +9110,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         # fill the last branch with all the zero conditions
         if hascheckzeros:
             # count the number of rotation symbols seen in the current cases
-            numRotSymbolsInCases = 0
             if self._iktype == 'transform6d' or \
                self._iktype == 'rotation3d':
-                rotsymbols = set(self.Tee[:3,:3]).union([Symbol('new_r00'), Symbol('new_r01'), Symbol('new_r02'), \
-                                                         Symbol('new_r10'), Symbol('new_r11'), Symbol('new_r12'), \
-                                                         Symbol('new_r20'), Symbol('new_r21'), Symbol('new_r22')])
-                for var, eq in currentcasesubs:
-                    if var in rotsymbols:
-                        numRotSymbolsInCases += 1
+                rotsymbols = [ Symbol('new_r%d%d'%(i,j)) for i in range(3) for j in range(3) ] + \
+                             list(self.Tee[:3,:3])
+                numRotSymbolsInCases = len([var for var, eq in currentcasesubs if var in rotsymbols])
             else:
                 rotsymbols = []
+                numRotSymbolsInCases = 0
                 
             # if not equations found, try setting two variables at once
             # also try setting px, py, or pz to 0 (barrettwam4 lookat)
@@ -9222,8 +9195,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             # already present, so don't use it for double expressions
                             continue
                         
-                        evalcond = Abs(fmod(possiblevar-possiblevalue+pi, 2*pi)-pi) \
-                                   if ishinge[ipossiblesub] else cond
+                        evalcond = Abs(self.mapvaluepmpi(possiblevar-possiblevalue)) if ishinge[ipossiblesub] else cond
                             
                         if eq == S.Zero:
                             log.info('c = %d, adding case %s = %s in %s', \
@@ -9233,11 +9205,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             if possiblevar in rotsymbols and (possiblevalue == S.One or possiblevalue == -S.One):
                                 row1 = int(possiblevar.name[-2])
                                 col1 = int(possiblevar.name[-1])
+                                otherrows = othercols = [0, 1, 2]
+                                otherrows.remove(row1)
+                                othercols.remove(col1)
                                 possiblevarname = possiblevar.name[:-2]
-                                possiblesub.append((Symbol('%s%d%d'%(possiblevarname, row1, (col1+1)%3)), S.Zero))
-                                possiblesub.append((Symbol('%s%d%d'%(possiblevarname, row1, (col1+2)%3)), S.Zero))
-                                possiblesub.append((Symbol('%s%d%d'%(possiblevarname, (row1+1)%3, col1)), S.Zero))
-                                possiblesub.append((Symbol('%s%d%d'%(possiblevarname, (row1+2)%3, col1)), S.Zero))
+                                for row, col in product(otherrows, othercols):
+                                    possiblesub.append((Symbol('%s%d%d'%(possiblevarname, row, col)), S.Zero))
                                 
                             checkexpr = [[cond], evalcond, possiblesub, []]
                             log.info('%r', flatzerosubstitutioneqs)
@@ -9274,7 +9247,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                 # don't combine the conditions like cond+cond2
                                 # instead test them individually so we can reduce the solution tree
                                 
-                                evalcond2 = Abs(fmod(possiblevar2-possiblevalue2+pi,2*pi)-pi) \
+                                evalcond2 = Abs(self.mapvaluepmpi(possiblevar2-possiblevalue2)) \
                                             if ishinge[ipossiblesub+ipossiblesub2+1] else cond2 # + evalcond
                                 #cond2 += cond
                                 
@@ -9293,62 +9266,51 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                      []]
                                         log.info('%r', flatzerosubstitutioneqs)
                                         log.info('%r', checkexpr)
-                                        # exec(ipython_str, globals(), locals())
                                         flatzerosubstitutioneqs.append(checkexpr)
                                         localsubstitutioneqs.append(checkexpr)
-                                        handledconds.append(cond+cond2)
+                                        handledconds.append(cond + cond2)
+                                        
                                         row1 = int(possiblevar. name[-2])
                                         col1 = int(possiblevar. name[-1])
                                         row2 = int(possiblevar2.name[-2])
                                         col2 = int(possiblevar2.name[-1])
-                                        row3 = 3 - row1 - row2
-                                        col3 = 3 - col1 - col2
-
                                         possiblevarname = possiblevar.name[:-2]
-                                        
-                                        if row1 == row2:
-                                            # (row1, col3) is either 1 or -1, but don't know which.
-                                            # know that (row1+1,col3) and (row1+2,col3) are zero though...
-                                            checkexpr[2].append((Symbol('%s%d%d'%(possiblevarname, \
-                                                                                  (row2+1)%3, col3)), S.Zero))
-                                            checkexpr[2].append((Symbol('%s%d%d'%(possiblevarname, \
-                                                                                  (row1+2)%3, col3)), S.Zero))
-                                            # furthermore can defer that the left over 4 values are
-                                            # [cos(ang), sin(ang), cos(ang), -sin(ang)] = abcd
-                                            minrow, maxrow = tuple([row for row in (0,1,2) if row!=row1])
 
-                                            ra = Symbol('%s%d%d'%(possiblevarname, minrow, col1))
-                                            rb = Symbol('%s%d%d'%(possiblevarname, minrow, col2))
-                                            rc = Symbol('%s%d%d'%(possiblevarname, maxrow, col1))
-                                            rd = Symbol('%s%d%d'%(possiblevarname, maxrow, col2))
+                                        # add constraints new_r02 = new_r12 = 0
+                                        # if we see new_r20 = new_r21 = 0 in constraints, and vice versa
+                                        if row1 == row2:
+                                            assert(col1 != col2)
+                                            col3 = 3 - col1 - col2
+                                            otherrows = [0, 1, 2]
+                                            otherrows.remove(row1)
+                                            for row in otherrows:
+                                                checkexpr[2].append((Symbol('%s%d%d' % \
+                                                                            (possiblevarname, row, col3)), \
+                                                                     S.Zero))
+                                            ra, rb, rc, rd = [Symbol('%s%d%d'%(possiblevarname, row, col)) \
+                                                              for row, col in \
+                                                              product(otherrows, [col1, col2])]
+
                                             checkexpr[2].append((rb**2, S.One-ra**2))
-                                            # need 3rd power since sympy cannot divide out the square
                                             checkexpr[2].append((rb**3, rb-rb*ra**2)) 
                                             checkexpr[2].append((rc**2, S.One-ra**2))
-                                            #checkexpr[2].append((rc, -rb)) # not true
-                                            #checkexpr[2].append((rd, ra))  # not true
                                             
                                         elif col1 == col2:
-                                            # (row3, col1) is either 1 or -1, but don't know which.
-                                            # know that (row3,col1+1) and (row3,col1+2) are zero though...
-                                            checkexpr[2].append((Symbol('%s%d%d'%(possiblevarname, \
-                                                                                  row3, (col1+1)%3)), S.Zero))
-                                            checkexpr[2].append((Symbol('%s%d%d'%(possiblevarname, \
-                                                                                  row3, (col1+2)%3)), S.Zero))
-                                            # furthermore can defer that the left over 4 values are
-                                            # [cos(ang), sin(ang), cos(ang), -sin(ang)] = abcd
-                                            mincol, maxcol = tuple([col for col in (0,1,2) if col!=col1])
-
-                                            ra = Symbol('%s%d%d'%(possiblevarname, row1, mincol))
-                                            rb = Symbol('%s%d%d'%(possiblevarname, row2, mincol))
-                                            rc = Symbol('%s%d%d'%(possiblevarname, row1, maxcol))
-                                            rd = Symbol('%s%d%d'%(possiblevarname, row2, maxcol))
+                                            assert(row1 != row2)
+                                            row3 = 3 - row1 - row2
+                                            othercols = [0, 1, 2]
+                                            othercols.remove(col1)
+                                            for col in othercols:
+                                                checkexpr[2].append((Symbol('%s%d%d' % \
+                                                                            (possiblevarname, row3, col)), \
+                                                                            S.Zero))
+                                            ra, rb, rc, rd = [Symbol('%s%d%d'%(possiblevarname, row, col))
+                                                              for col, row in \
+                                                              product(othercols, [row1, row2])]
+                                            
                                             checkexpr[2].append((rb**2, S.One-ra**2))
-                                            # need 3rd power since sympy cannot divide out the square
                                             checkexpr[2].append((rb**3, rb-rb*ra**2)) 
                                             checkexpr[2].append((rc**2, S.One-ra**2))
-                                            #checkexpr[2].append((rc, -rb)) # not true
-                                            #checkexpr[2].append((rd, ra))  # not true
                                             
                                         log.info('dual constraint %s\n' + \
                                                  '	in %s', \
