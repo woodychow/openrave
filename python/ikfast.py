@@ -8144,13 +8144,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         if self._isUnderAnalysis:
             exec(ipython_str, globals(), locals())
 
-        # Do it here only once
         freevar_sol_subs = set().union(*[self.freevarsubs, solsubs])
-        freevar = [f[0] for f in freevar_sol_subs] 
-        # LocalAllEquations = [eq.subs(freevar_sol_subs) for eq in AllEquations]
+        solutions = []
 
         ## (1) Solve (>=1) equations for one variable (involving jx, sjx, cjx, htjx) using solveSingleVariable
-        solutions = []
         for curvar in curvars:
             othervars = unknownvars + [var for var in curvars if var != curvar]
             curvarsym = self.getVariable(curvar)
@@ -8159,8 +8156,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 if (len(othervars) == 0 or \
                     not eq.has(*othervars)) and \
                     eq.has(curvar, curvarsym.htvar, curvarsym.cvar, curvarsym.svar):
-                    if eq.has(*freevar):
-                        eq = eq.subs(freevar_sol_subs)
+                    eq = eq.subs(freevar_sol_subs)
                     if self.CheckExpressionUnique(raweqns, eq):
                         raweqns.append(eq)
 
@@ -8269,7 +8265,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 # TGN: ensure curvars is a subset of self.trigvars_subs
                 assert(all([z in self.trigvars_subs for z in curvars]))
                 neweq = self.trigsimp_new(eq.subs(var0, dummyvar-var1).expand(trig = True))
-                eq = neweq.subs(freevar_sol_subs) 
+                eq = neweq.subs(freevar_sol_subs)
                 if self.CheckExpressionUnique(NewEquationsAll, eq):
                     NewEquationsAll.append(eq)
                     
