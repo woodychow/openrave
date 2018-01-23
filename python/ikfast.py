@@ -262,11 +262,6 @@ from operator import itemgetter, mul
 # mul for reduce(mul, [...], 1), same as prod([...]) in Matlab 
 from itertools import izip, chain, product
 
-def prod(m):
-    return reduce(mul, m, 1)
-def jointlists(lists):
-    return list(chain.from_iterable(lists))
-
 try:
     from itertools import combinations, permutations
 except ImportError:
@@ -739,7 +734,7 @@ class IKFastSolver(AutoReloader):
         if eq.is_Add:
             neweq = sum(self.ConvertRealToRationalEquation(subeq, precision) for subeq in eq.args)
         elif eq.is_Mul:
-            neweq = prod(self.ConvertRealToRationalEquation(subeq, precision) for subeq in eq.args)
+            neweq = self.prod(self.ConvertRealToRationalEquation(subeq, precision) for subeq in eq.args)
         elif eq.is_Function:
             newargs = [self.ConvertRealToRationalEquation(subeq, precision) for subeq in eq.args]
             neweq = eq.func(*newargs)
@@ -906,6 +901,13 @@ class IKFastSolver(AutoReloader):
     def numpyVectorToSympy(self, v, precision = None):
         return Matrix(len(v), 1, \
                       [self.convertRealToRational(x, precision) for x in v])
+
+    @staticmethod
+    def prod(m):
+        return reduce(mul, m, 1)
+    @staticmethod
+    def jointlists(lists):
+        return list(chain.from_iterable(lists))
     
     @staticmethod
     def rodrigues(axis, angle):
@@ -968,7 +970,7 @@ class IKFastSolver(AutoReloader):
 
     @staticmethod
     def multiplyMatrix(Ts):
-        return eye(4) if len(Ts)==0 else prod(Ts)
+        return eye(4) if len(Ts)==0 else IKFastSolver.prod(Ts)
     
     @staticmethod
     def equal(eq0, eq1):
@@ -1379,7 +1381,7 @@ class IKFastSolver(AutoReloader):
                     processed = True 
                         
             if not processed:
-                neweq = prod(arg if arg.is_number or arg.is_Symbol \
+                neweq = self.prod(arg if arg.is_number or arg.is_Symbol \
                              else self.SimplifyAtan2(arg) \
                              for arg in eq.args)
                 # neweq = self.SimplifyAtan2(eq.args[0])
@@ -1518,7 +1520,7 @@ class IKFastSolver(AutoReloader):
 
         if s0.is_Mul and s1.is_Mul:
             #exec(ipython_str, globals(), locals())
-            c1 = prod(arg for arg in s1.args if arg.is_number)
+            c1 = IKFastSolver.prod(arg for arg in s1.args if arg.is_number)
             #print 'c1 = ', c1
             g_const *= c1
             s0 = cancel(s0/c1)
@@ -1636,7 +1638,7 @@ class IKFastSolver(AutoReloader):
                         """
 
             # originally, is_Mul, is_Add, is_Pow
-            checkforzeros += jointlists([self.checkForDivideByZero(arg) \
+            checkforzeros += self.jointlists([self.checkForDivideByZero(arg) \
                                          for arg in eq.args \
                                          if not (arg.is_number or arg.is_Symbol)])
             # TGN: if eq.is_number, then the list is []; can eq.is_Poly???
@@ -2245,7 +2247,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         possibleanglescos = [S.One, S.Zero, Rational(4,5), Rational(3,5), Rational(12,13), Rational(5,13)]
         possibleanglessin = [S.Zero, S.One, Rational(3,5), Rational(4,5), Rational(5,13), Rational(12,13)]
         testconsistentvalues = []
-        varsubs = jointlists([self.getVariable(jointvar).subs for jointvar in jointvars])
+        varsubs = self.jointlists([self.getVariable(jointvar).subs for jointvar in jointvars])
 
         njointvars = len(jointvars)
         npossibleangles = len(possibleangles)
@@ -3527,7 +3529,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             neweq = sum(self.RoundEquationTerms(subeq, epsilon) for subeq in eq.args)
                 
         elif eq.is_Mul: # ..*../..*..
-            neweq = prod(self.RoundEquationTerms(subeq, epsilon) for subeq in eq.args)
+            neweq = self.prod(self.RoundEquationTerms(subeq, epsilon) for subeq in eq.args)
                 
         elif eq.is_Function: # for sin, cos, etc.
             newargs = [self.RoundEquationTerms(subeq, epsilon) for subeq in eq.args]
@@ -8333,8 +8335,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                            dummysolution.jointevalcos is not None:
                             log.warn('dummy solution should not have sin/cos parts!')
 
-                        sindummyvarsols = jointlists([solve(eq, sin(dummyvar)) for eq in NewEquations])
-                        cosdummyvarsols = jointlists([solve(eq, cos(dummyvar)) for eq in NewEquations])
+                        sindummyvarsols = self.jointlists([solve(eq, sin(dummyvar)) for eq in NewEquations])
+                        cosdummyvarsols = self.jointlists([solve(eq, cos(dummyvar)) for eq in NewEquations])
                         # double check with NewEquationsAll that everything evaluates to 0
                         newsubs = [( value,  sin(dummyvar)) for value in sindummyvarsols] + \
                                   [( value,  cos(dummyvar)) for value in cosdummyvarsols] + \
@@ -8689,14 +8691,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 if not match:
                     usedsolutions.append((solution, var))
                     if len(usedsolutions) >= 3:
-                        # don't need more than three alternatives (used to be two, but then lookat barrettwam4 proved that wrong)
+                        # don't need more than 3 solutions (used to be 2, but lookat barrettwam4 proved that wrong)
                         break
 
-        allvars            = jointlists([self.getVariable(v).vars for v in curvars])
-        allothersolvedvars = jointlists([self.getVariable(v).vars for v in othersolvedvars])
+        allvars            = self.jointlists([self.getVariable(v).vars for v in curvars])
+        allothersolvedvars = self.jointlists([self.getVariable(v).vars for v in othersolvedvars])
         
         prevbranch = lastbranch = []
-        nextsolutions = dict()
+        nextsolutions = {}
             
         if self.degeneratecases is None:
             self.degeneratecases = self.DegenerateCases()
@@ -8755,7 +8757,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     if not checkzero.has(*allothersolvedvars):
                         
                         sumsquaresexprs = self._GetSumSquares(checkzero)
-                        if len(sumsquaresexprs)>0:
+                        if len(sumsquaresexprs) > 0:
                             checksimplezeroexprs += sumsquaresexprs
                             sumsquaresexprstozero = []
                             for sumsquaresexpr in sumsquaresexprs:
@@ -8782,8 +8784,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             sothervar = self.getVariable(othervar).svar
                             cothervar = self.getVariable(othervar).cvar
                             if checksimplezeroexpr.has(othervar, sothervar, cothervar):
-                                # the easiest thing to check first is if the equation evaluates to zero on boundaries
-                                # 0, pi/2, pi, -pi/2
+                                # easy to check if the equation evaluates to zero on angles 0, pi/2, pi, -pi/2
                                 s = AST.SolverSolution(othervar.name, \
                                                        jointeval = [], \
                                                        isHinge = self.IsHinge(othervar.name))
@@ -8796,9 +8797,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                         
                                         if self.isValidSolution(checkzerosub) and \
                                            checkzerosub.evalf(n=30) == S.Zero:
-                                            if s.jointeval is None:
-                                                assert(0)
-                                                s.jointeval = []
                                             s.jointeval.append(S.One*value)
                                     except (RuntimeError, AssertionError),e: # 
                                         log.warn('othervar %s = %f: %s', str(othervar), value, e)
@@ -8815,9 +8813,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                     log.info('[SOLVE %i] AddSolution calls solveSingleVariable to solve %r for %r', \
                                              self._solutionStackCounter, eq, othervar)
                                     self._inc_solutionStackCounter()
-                                    newsol = self.solveSingleVariable([eq], \
-                                                                      othervar, \
-                                                                      othersolvedvars)
+                                    newsol = self.solveSingleVariable([eq], othervar, othersolvedvars)
                                     ss += newsol
                                     
                                 except PolynomialError:
@@ -9735,7 +9731,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                        
 
         dummyvars = [self.getVariable(othervar) for othervar in othersolvedvars]
-        dummyvars = jointlists([[v.cvar, v.svar, v.var, v.htvar] for v in dummyvars])
+        dummyvars = self.jointlists([[v.cvar, v.svar, v.var, v.htvar] for v in dummyvars])
 
         trigsubs = [(varsym0.svar**2,               1-varsym0.cvar**2),  \
                     (varsym0.svar**3, varsym0.svar*(1-varsym0.cvar**2)), \
@@ -10152,9 +10148,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         #polyeqs = [peq[1] for peq in complexity]
         
         v = [self.getVariable(othervar) for othervar in othersolvedvars]
-        trigsubs            = jointlists([var.subs    for var in v])
-        trigsubsinv         = jointlists([var.subsinv for var in v])
-        othersolvedvarssyms = jointlists([var.vars    for var in v])
+        trigsubs            = self.jointlists([var.subs    for var in v])
+        trigsubsinv         = self.jointlists([var.subsinv for var in v])
+        othersolvedvarssyms = self.jointlists([var.vars    for var in v])
 
         symbolscheck = []
         for i,solvevar in enumerate(polyeqs[0].gens):
@@ -10983,9 +10979,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
             equationsused = None
             if unknownvars is not None:
-                unsolvedsymbols = jointlists([self.getVariable(unknownvar).vars \
-                                              for unknownvar in unknownvars \
-                                              if unknownvar != var])
+                unsolvedsymbols = self.jointlists([self.getVariable(unknownvar).vars \
+                                                   for unknownvar in unknownvars \
+                                                   if unknownvar != var])
                 if len(unsolvedsymbols) > 0:
                     equationsused = [eq2 for ieq2, eq2 in enumerate(eqns) \
                                      if ieq2 != ieq and not eq2.has(*unsolvedsymbols)]
@@ -11841,7 +11837,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         if expr.is_Add:
             allpoly = [IKFastSolver.recursiveFraction(arg) for arg in expr.args]
             all_d = [d for n, d in allpoly]
-            finaldenom = prod(all_d)
+            finaldenom = self.prod(all_d)
             finalnum = sum(n*(finaldenom/d) for n, d in allpoly)
             """
             allpoly = []
@@ -11860,8 +11856,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             allpoly = [IKFastSolver.recursiveFraction(arg) for arg in expr.args]
             all_num = [n for n, d in allpoly]
             all_denom = [d for n, d in allpoly]
-            finalnum = prod(all_num)
-            finaldenom = prod(all_denom)
+            finalnum = self.prod(all_num)
+            finaldenom = self.prod(all_denom)
             """
             finalnum = S.One
             finaldenom = S.One
@@ -11916,7 +11912,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 symbols.append((sym, c))
                 c = sym
             newexpr += c if sum(m) == 0 else \
-                       c * prod(vars[i]**degree for i, degree in enumerate(m))
+                       c * IKFastSolver.prod(vars[i]**degree for i, degree in enumerate(m))
         return newexpr, symbols
 
     @staticmethod
@@ -11933,7 +11929,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             
         elif expr.is_Mul:
             res_sym = [IKFastSolver.replaceNumbers(arg, symbolgen) for arg in expr.args]
-            result = prod(res for (res, sym) in res_sym)
+            result = self.prod(res for (res, sym) in res_sym)
             symbols = [sym for (res, sym) in res_sym]
             """
             result = S.One
@@ -12060,7 +12056,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             common = S.One
             if onlynumbers: # default
                 for expri in exprs:
-                    denom = prod(IKFastSolver.frontnumbers(fraction(expri)[1]))
+                    denom = IKFastSolver.prod(IKFastSolver.frontnumbers(fraction(expri)[1]))
                     if denom != S.One:
                         exprs = [expr*denom for expr in exprs]
                         totaldenom *= denom
@@ -12068,7 +12064,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 if onlygcd: # not default
                     common = None
                     for expri in exprs:
-                        coeff = prod(IKFastSolver.frontnumbers(expri))
+                        coeff = self.prod(IKFastSolver.frontnumbers(expri))
                         common = coeff if common == None else igcd(common, coeff)
                         if common == S.One:
                             break
@@ -12095,7 +12091,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         smallestnumber = Abs(expr)
 
                     elif expr.is_Mul:
-                        n = prod(arg for arg in expr.args if arg.is_number)
+                        n = IKFastSolver.prod(arg for arg in expr.args if arg.is_number)
                         if smallestnumber > Abs(n):
                             smallestnumber = Abs(n)
                             
@@ -12107,7 +12103,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             return (eq, common/totaldenom) if returncommon else eq
             
         elif eq.is_Mul:
-            coeff = prod(IKFastSolver.frontnumbers(eq))
+            coeff = IKFastSolver.prod(IKFastSolver.frontnumbers(eq))
 
             return (eq/coeff, coeff) if returncommon else eq/coeff
 
@@ -12646,7 +12642,7 @@ class AST:
         def clearConstantsForAbs(expr):
             expr = factor(expr)
             if expr.is_Mul:
-                c = prod(arg for arg in expr.args if arg.is_number)
+                c = IKFastSolver.prod(arg for arg in expr.args if arg.is_number)
                 expr = S.Zero if c==S.Zero else expr/c
             return expr
         
@@ -12660,28 +12656,13 @@ class AST:
                     else:
                         expr = coeff
                     new_expr = self.clearConstantsForAbs(expr)
-                    """
-                    if expr != new_expr:
-                        print expr
-                        print new_expr
-                        exec(ipython_str, globals(), locals())
-                    """
                     zeroeq += abs(new_expr)
-                        
+
             if self.polybackup is not None:
-                for monom, coeff in self.polybackup.terms():
-                    if len(self.dictequations) > 0: # bug with sympy?
-                        expr = coeff.subs(self.dictequations)
-                    else:
-                        expr = coeff
-                    new_expr = self.clearConstantsForAbs(expr)
-                    """
-                    if expr != new_expr:
-                        print expr
-                        print new_expr
-                        exec(ipython_str, globals(), locals())
-                    """
-                    zeroeq += abs(new_expr)
+                # bug with sympy?
+                zeroeq += sum(abs(self.clearConstantsForAbs(coeff if len(self.dictequations)==0 \
+                                                            else coeff.subs(self.dictequations))) \
+                              for monom, coeff in self.polybackup.terms())
 
             return [zeroeq]#self.poly.LC()]
         
