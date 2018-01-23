@@ -2132,7 +2132,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 LinksLeftInv = [self.affineInverse(T) for T in LinksLeft]
         self.testconsistentvalues = None
 
+        # generator that generates Symbols gconst0, gconst1, ...
+        # usage: gconstx = self.gsymbolgen.next()
         self.gsymbolgen = cse_main.numbered_symbols('gconst')
+        # scope counter that gets incremented only during each call of SolveAllEquations and AddSolution
         self._scopecounter = 0
 
 # before passing to the solver, set big numbers to constant variables, this will greatly reduce computation times
@@ -8140,17 +8143,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         if self._isUnderAnalysis:
             exec(ipython_str, globals(), locals())
 
-        # solsubs = solsubs[:]
-
-        # inverse substitutions
-        # inv_freevarsubs = [(f[1],f[0]) for f in self.freevarsubs]
-        # inv_solsubs     = [(f[1],f[0]) for f in solsubs         ]
-
-        # single variable solutions
+        ## (1) Solve (>=1) equations for one variable (involving jx, sjx, cjx, htjx) using solveSingleVariable
         solutions = []
         freevar_sol_subs = set().union(*[solsubs, self.freevarsubs])
-        # equivalent to
-        # self.freevarsubs + [solsub for solsub in solsubs if not solsub in self.freevarsubs]
         freevar = [f[0] for f in freevar_sol_subs]
         
         for curvar in curvars:
@@ -8164,9 +8159,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     eq.has(curvar, curvarsym.htvar, curvarsym.cvar, curvarsym.svar):
 
                     if eq.has(*freevar):
-                        # neweq = eq.subs(freevar_sol_subs)
-                        # log.info('\n        %s\n\n-->     %s', eq, neweq)
-                        # eq = neweq
                         eq = eq.subs(freevar_sol_subs)
 
                     if self.CheckExpressionUnique(raweqns, eq):
@@ -8195,6 +8187,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 finally:
                     self._dec_solutionStackCounter()
 
+        # (RD's comments)
         # Only return here if a solution was found that perfectly determines the unknown.
         # Otherwise, the pairwise solver could come up with something.
         #
@@ -8202,9 +8195,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         # Sometimes an equation like atan2(y,x) evaluates to atan2(0,0) during runtime.
         # This cannot be known at compile time, so the equation is selected and any other possibilities are rejected.
         # In the bertold robot case, the next possibility is a pair-wise solution involving two variables
-        #
-        # TGN: don't we check Abs(y)+Abs(x) for atan2?
+        # ----------------------------------------------------------------------------------------------------------
 
+        # (TGN's comments)
+        # If a single-variable solution has exactly 1 solution, perfectly determining the unknown,
+        # then we call AddSolution and return prevbranch; otherwise continue on other methods.
         hasonesolution = any([s[0].numsolutions() == 1 for s in solutions])
         if hasonesolution:
             try:
@@ -8234,7 +8229,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         elif len(solutions)>0:
             log.info('[SOLVE %i] hasonesolution = False', self._solutionStackCounter)
                 
-        
+        # CURVARSUBSSOL is a collection of sets of equations that contain exactly 2 variables in CURVARS.
+        # We consider two cases where these two axes are aligning and where they are not.
         curvarsubssol = []
         for var0, var1 in combinations(curvars,2):
             othervars = unknownvars + \
@@ -8252,32 +8248,28 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         
             if len(raweqns) > 1:
                 curvarsubssol.append((var0, var1, raweqns, complexity))
-                
         curvarsubssol.sort(lambda x, y: x[3]-y[3])
-        
+
+        # (2) Solve (>=2) equations for a pair of aligned variables using solveSingleVariable
+        #     with introduced variable dummy.
         if len(curvars) == 2 and \
            self.IsHinge(curvars[0].name) and \
            self.IsHinge(curvars[1].name) and \
            len(curvarsubssol) > 0:
-            # There are only two variables left, so two possibilities:
-            #
-            # EITHER two axes are aligning, OR these two variables depend on each other.
-            #
-            # Note that the axes' anchors also have to be along the direction!
             
             var0, var1, raweqns, complexity = curvarsubssol[0]
             dummyvar = Symbol('dummy')
-            dummyvalue = var0 + var1
+
+            # Case (1) dummyvar = var0 + var1
             NewEquations = []
             NewEquationsAll = []
             hasExtraConstraints = False
+            dummyvalue = var0 + var1
             for eq in raweqns:
-
                 # TGN: ensure curvars is a subset of self.trigvars_subs
                 assert(all([z in self.trigvars_subs for z in curvars]))
-
-                # try dummyvar = var0 + var1
                 neweq = self.trigsimp_new(eq.subs(var0, dummyvar-var1).expand(trig = True))
+                
                 eq = neweq.subs(self.freevarsubs+solsubs)
                 if self.CheckExpressionUnique(NewEquationsAll, eq):
                     NewEquationsAll.append(eq)
@@ -8677,7 +8669,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     finally:
                         self._dec_solutionStackCounter()
 
+        # back up global symbols, restored at the end
         originalGlobalSymbols = self.globalsymbols
+        
         # all solutions have check for zero equations
         # choose the variable with the shortest solution and compute (this is a conservative approach)
         usedsolutions = []
@@ -8881,29 +8875,26 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                     # so we convert to a global symbol since it never changes
                                                     sym = self.gsymbolgen.next()
                                                     dictequations.append((sym, eq))
-                                                    #eq = sym
                                                     sineq = self.gsymbolgen.next()
-                                                    dictequations.append((sineq,self.SimplifyAtan2(sin(eq))))
+                                                    dictequations.append((sineq, self.SimplifyAtan2(sin(eq))))
                                                     coseq = self.gsymbolgen.next()
-                                                    dictequations.append((coseq,self.SimplifyAtan2(cos(eq))))
+                                                    dictequations.append((coseq, self.SimplifyAtan2(cos(eq))))
                                                 else:
                                                     sineq = sin(eq).evalf(n=30)
                                                     coseq = cos(eq).evalf(n=30)
                                                     
                                                 cond = Abs(othervar-eq.evalf(n=30))
-                                                
                                                 if self.CheckExpressionUnique(handledconds, cond):
                                                     evalcond = fmod(cond+pi,2*pi)-pi if self.IsHinge(othervar.name) else cond
                                                     toappend = [[cond], \
                                                                 evalcond, \
-                                                                [(sothervar, sineq), \
-                                                                 (sin(othervar), sineq), \
-                                                                 (cothervar,coseq), \
-                                                                 (cos(othervar),coseq), \
-                                                                 (othervar,eq)], \
+                                                                [(sothervar    , sineq),  \
+                                                                 (sin(othervar), sineq),  \
+                                                                 (cothervar    , coseq),  \
+                                                                 (cos(othervar), coseq),  \
+                                                                 (othervar     ,    eq)], \
                                                                 dictequations]
-                                                    log.info('%r', toappend)
-                                                    # exec(ipython_str,globals(),locals())
+                                                    log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
                                                     localsubstitutioneqs.append(toappend)
                                                     handledconds.append(cond)
                                                     
@@ -8949,15 +8940,16 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                     dictequations]
                                                     else:
                                                         # exec(ipython_str, globals(), locals())
+                                                        coseq = sqrt(1-eq*eq).evalf(n=30)
                                                         toappend = [[cond], \
                                                                     evalcond, \
-                                                                    [(sothervar,     eq), \
-                                                                     (sin(othervar), eq), \
-                                                                     (cothervar,    sqrt(1-eq*eq).evalf(n=30)), \
-                                                                     (cos(othervar),sqrt(1-eq*eq).evalf(n=30)), \
+                                                                    [(sothervar    ,    eq), \
+                                                                     (sin(othervar),    eq), \
+                                                                     (cothervar    , coseq), \
+                                                                     (cos(othervar), coseq), \
                                                                      (othervar, asin(eq).evalf(n=30))], \
                                                                     dictequations]
-                                                        
+                                                    log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
                                                     localsubstitutioneqs.append(toappend)
                                                     handledconds.append(cond)
                                                     
@@ -8966,32 +8958,30 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                                  if isimaginary else \
                                                                                  abs(sothervar-eq.evalf(n=30)))
                                                     
-                                                #cond=othervar-(pi-asin(eq).evalf(n=30))
+                                                # cond = othervar-(pi-asin(eq).evalf(n=30))
                                                 if self.CheckExpressionUnique(handledconds, cond):
-                                                    
-                                                    evalcond = fmod(cond+pi,2*pi)-pi if self.IsHinge(othervar.name) else cond
-                                                        
+                                                    evalcond = fmod(cond+pi, 2*pi) - pi if self.IsHinge(othervar.name) else cond
                                                     if isimaginary:
                                                         toappend = [[cond], \
                                                                     evalcond, \
-                                                                    [(sothervar,      S.Zero), \
+                                                                    [(sothervar    ,  S.Zero), \
                                                                      (sin(othervar),  S.Zero), \
-                                                                     (cothervar,     -S.One),  \
+                                                                     (cothervar    , -S.One),  \
                                                                      (cos(othervar), -S.One),  \
                                                                      (othervar, pi.evalf(n=30))], \
                                                                     dictequations]
 
                                                     else:
+                                                        coseq = -sqrt(1-eq*eq).evalf(n=30)
                                                         toappend = [[cond], \
                                                                     evalcond, \
-                                                                    [(sothervar,     eq), \
-                                                                     (sin(othervar), eq), \
-                                                                     (cothervar,    -sqrt(1-eq*eq).evalf(n=30)), \
-                                                                     (cos(othervar),-sqrt(1-eq*eq).evalf(n=30)), \
-                                                                     (othervar, \
-                                                                      (pi-asin(eq)).evalf(n=30))], \
+                                                                    [(sothervar    ,    eq), \
+                                                                     (sin(othervar),    eq), \
+                                                                     (cothervar    , coseq), \
+                                                                     (cos(othervar), coseq), \
+                                                                     (othervar, (pi-asin(eq)).evalf(n=30))], \
                                                                     dictequations]
-                                                        
+                                                    log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
                                                     localsubstitutioneqs.append(toappend)
                                                     handledconds.append(cond)
                                                     
@@ -9030,36 +9020,33 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                     if isimaginary:
                                                         toappend = [[cond], \
                                                                     evalcond, \
-                                                                    [(sothervar,     S.One),  \
+                                                                    [(sothervar    , S.One),  \
                                                                      (sin(othervar), S.One),  \
-                                                                     (cothervar,     S.Zero), \
+                                                                     (cothervar    , S.Zero), \
                                                                      (cos(othervar), S.Zero), \
                                                                      (othervar, (pi/2).evalf(n=30))], \
                                                                     dictequations]
                                                     else:
+                                                        sineq = sqrt(1-eq*eq).evalf(n=30)
                                                         toappend = [[cond], \
                                                                     evalcond, \
-                                                                    [(sothervar,     sqrt(1-eq*eq).evalf(n=30)), \
-                                                                     (sin(othervar), sqrt(1-eq*eq).evalf(n=30)), \
-                                                                     (cothervar,     eq), \
-                                                                     (cos(othervar), eq), \
+                                                                    [(sothervar    , sineq), \
+                                                                     (sin(othervar), sineq), \
+                                                                     (cothervar    ,    eq), \
+                                                                     (cos(othervar),    eq), \
                                                                      (othervar, acos(eq).evalf(n=30))], \
                                                                     dictequations]
                                                         
-                                                    log.info('%r', toappend)
-                                                    # exec(ipython_str,globals(),locals())
+                                                    log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
                                                     localsubstitutioneqs.append(toappend)
                                                     handledconds.append(cond)
-                                                    
-                                                #cond=othervar+acos(eq).evalf(n=30)
+                                                # cond = othervar + acos(eq).evalf(n=30)
                                                 cond = abs(sign(sothervar)+1) + (abs(cothervar) + abs((eq**2).evalf(n=30)) \
                                                                                  if isimaginary else \
                                                                                  abs(cothervar-eq.evalf(n=30)))
 
                                                 if self.CheckExpressionUnique(handledconds, cond):
-
                                                     evalcond = fmod(cond+pi,2*pi)-pi if self.IsHinge(othervar.name) else cond
-                                                        
                                                     if isimaginary:
                                                         toappend = [[cond], \
                                                                     evalcond, \
@@ -9070,22 +9057,21 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                      (othervar, (-pi/2).evalf(n=30))], \
                                                                     dictequations]
                                                     else:
+                                                        sineq = -sqrt(1-eq*eq).evalf(n=30)
                                                         toappend = [[cond], \
                                                                     evalcond, \
-                                                                    [(sothervar,     -sqrt(1-eq*eq).evalf(n=30)), \
-                                                                     (sin(othervar), -sqrt(1-eq*eq).evalf(n=30)), \
-                                                                     (cothervar,     eq), \
-                                                                     (cos(othervar), eq), \
+                                                                    [(sothervar    , sineq), \
+                                                                     (sin(othervar), sineq), \
+                                                                     (cothervar    ,    eq), \
+                                                                     (cos(othervar),    eq), \
                                                                      (othervar, -acos(eq).evalf(n=30))], \
                                                                     dictequations]
-                                                        
-                                                    log.info('%r', toappend)
+                                                    log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
                                                     localsubstitutioneqs.append(toappend)
                                                     handledconds.append(cond)
 
-            if len(localsubstitutioneqs)>0:
-                log.info('%r', localsubstitutioneqs)
-                #exec(ipython_str, globals(), locals())
+            # if len(localsubstitutioneqs)>0:
+            #     log.info('%r', localsubstitutioneqs)
             flatzerosubstitutioneqs += localsubstitutioneqs
             zerosubstitutioneqs.append(localsubstitutioneqs)
             
