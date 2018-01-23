@@ -264,6 +264,8 @@ from itertools import izip, chain, product
 
 def prod(m):
     return reduce(mul, m, 1)
+def jointlists(lists):
+    return list(chain.from_iterable(lists))
 
 try:
     from itertools import combinations, permutations
@@ -1634,10 +1636,9 @@ class IKFastSolver(AutoReloader):
                         """
 
             # originally, is_Mul, is_Add, is_Pow
-            checkforzeros += list(chain.from_iterable \
-                                  ([self.checkForDivideByZero(arg) \
-                                    for arg in eq.args \
-                                    if not (arg.is_number or arg.is_Symbol)]))
+            checkforzeros += jointlists([self.checkForDivideByZero(arg) \
+                                         for arg in eq.args \
+                                         if not (arg.is_number or arg.is_Symbol)])
             # TGN: if eq.is_number, then the list is []; can eq.is_Poly???
                     
             if eq.is_Pow and eq.exp.is_number and eq.exp < 0:
@@ -2244,7 +2245,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         possibleanglescos = [S.One, S.Zero, Rational(4,5), Rational(3,5), Rational(12,13), Rational(5,13)]
         possibleanglessin = [S.Zero, S.One, Rational(3,5), Rational(4,5), Rational(5,13), Rational(12,13)]
         testconsistentvalues = []
-        varsubs = list(chain.from_iterable([self.getVariable(jointvar).subs for jointvar in jointvars]))
+        varsubs = jointlists([self.getVariable(jointvar).subs for jointvar in jointvars])
 
         njointvars = len(jointvars)
         npossibleangles = len(possibleangles)
@@ -8332,8 +8333,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                            dummysolution.jointevalcos is not None:
                             log.warn('dummy solution should not have sin/cos parts!')
 
-                        sindummyvarsols = list(chain.from_iterable([solve(eq, sin(dummyvar)) for eq in NewEquations]))
-                        cosdummyvarsols = list(chain.from_iterable([solve(eq, cos(dummyvar)) for eq in NewEquations]))
+                        sindummyvarsols = jointlists([solve(eq, sin(dummyvar)) for eq in NewEquations])
+                        cosdummyvarsols = jointlists([solve(eq, cos(dummyvar)) for eq in NewEquations])
                         # double check with NewEquationsAll that everything evaluates to 0
                         newsubs = [( value,  sin(dummyvar)) for value in sindummyvarsols] + \
                                   [( value,  cos(dummyvar)) for value in cosdummyvarsols] + \
@@ -8691,8 +8692,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         # don't need more than three alternatives (used to be two, but then lookat barrettwam4 proved that wrong)
                         break
 
-        allvars            = list(chain.from_iterable([self.getVariable(v).vars for v in curvars]))
-        allothersolvedvars = list(chain.from_iterable([self.getVariable(v).vars for v in othersolvedvars]))
+        allvars            = jointlists([self.getVariable(v).vars for v in curvars])
+        allothersolvedvars = jointlists([self.getVariable(v).vars for v in othersolvedvars])
         
         prevbranch = lastbranch = []
         nextsolutions = dict()
@@ -8755,7 +8756,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         
                         sumsquaresexprs = self._GetSumSquares(checkzero)
                         if len(sumsquaresexprs)>0:
-                            exec(ipython_str, globals(), locals())
                             checksimplezeroexprs += sumsquaresexprs
                             sumsquaresexprstozero = []
                             for sumsquaresexpr in sumsquaresexprs:
@@ -9735,8 +9735,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                        
 
         dummyvars = [self.getVariable(othervar) for othervar in othersolvedvars]
-        dummyvars = list(chain.from_iterable([[v.cvar, v.svar, v.var, v.htvar] \
-                                              for v in dummyvars]))
+        dummyvars = jointlists([[v.cvar, v.svar, v.var, v.htvar] for v in dummyvars])
 
         trigsubs = [(varsym0.svar**2,               1-varsym0.cvar**2),  \
                     (varsym0.svar**3, varsym0.svar*(1-varsym0.cvar**2)), \
@@ -10153,9 +10152,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         #polyeqs = [peq[1] for peq in complexity]
         
         v = [self.getVariable(othervar) for othervar in othersolvedvars]
-        trigsubs            = list(chain.from_iterable([var.subs    for var in v]))
-        trigsubsinv         = list(chain.from_iterable([var.subsinv for var in v]))
-        othersolvedvarssyms = list(chain.from_iterable([var.vars    for var in v]))
+        trigsubs            = jointlists([var.subs    for var in v])
+        trigsubsinv         = jointlists([var.subsinv for var in v])
+        othersolvedvarssyms = jointlists([var.vars    for var in v])
 
         symbolscheck = []
         for i,solvevar in enumerate(polyeqs[0].gens):
@@ -10966,7 +10965,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 pc = Poly(eqnew, varsym.cvar)
                 if max(ps.degree_list()) > maxdegree or \
                    max(pc.degree_list()) > maxdegree:
-                    log.debug('Cannot solve equation with high degree: %s', str(eqnew))
+                    log.debug('Cannot solve equation with degree higher than %i: %r', \
+                              maxdegree, eqnew)
                     continue
                 
                 if ps.TC() == S.Zero and len(ps.monoms()) > 0:
@@ -10983,10 +10983,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
             equationsused = None
             if unknownvars is not None:
-                unsolvedsymbols = []
-                for unknownvar in unknownvars:
-                    if unknownvar != var:
-                        unsolvedsymbols += self.getVariable(unknownvar).vars
+                unsolvedsymbols = jointlists([self.getVariable(unknownvar).vars \
+                                              for unknownvar in unknownvars \
+                                              if unknownvar != var])
                 if len(unsolvedsymbols) > 0:
                     equationsused = [eq2 for ieq2, eq2 in enumerate(eqns) \
                                      if ieq2 != ieq and not eq2.has(*unsolvedsymbols)]
@@ -11022,32 +11021,25 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                             isHinge = self.IsHinge(var.name)))
                         solutions[-1].equationsused = equationsused
                     continue
+
+            # TGN: ensure othersolvedvars is a subset of self.trigvars_subs
+            assert(all([z in self.trigvars_subs for z in othersolvedvars]))
+
+            # substitute cvar for svar and solve for cvar
             if numcvar > 0:
                 try:
-                    # substitute cos
-
-                    # TGN: the following condition seems weird to me
-                    # if  self.countVariables(eqnew, varsym.svar) <= 1 or \
-                    #    (self.countVariables(eqnew, varsym.cvar) <= 2 and \
-                    #     self.countVariables(eqnew, varsym.svar) == 0):
-
-                    if self.countVariables(eqnew, varsym.svar) <= 1:
+                    if  self.countVariables(eqnew, varsym.cvar) <= 1 or \
+                       (self.countVariables(eqnew, varsym.cvar) == 2 and \
+                        self.countVariables(eqnew, varsym.svar) == 0):
                         # anything more than 1 implies quartic equation
-                        tempsolutions = solve(eqnew.subs(varsym.svar, sqrt(1-varsym.cvar**2)).expand(), \
+                        tempsolutions = solve(eqnew.subs(varsym.svar, \
+                                                         sqrt(1-varsym.cvar**2)).expand(), \
                                               varsym.cvar)
-                        jointsolutions = []
+                        jointsolutions = [self.SimplifyTransform(self.trigsimp_new(s.subs(symbols+varsym.subsinv))) \
+                                          for s in tempsolutions]
+                        jointsolutions = [s for s in jointsolutions if self.isValidSolution(s)]
                         
-                        for s in tempsolutions:
-                            # TGN: ensure othersolvedvars is a subset of self.trigvars_subs
-                            assert(all([z in self.trigvars_subs for z in othersolvedvars]))
-                            
-                            s2 = self.trigsimp_new(s.subs(symbols+varsym.subsinv))
-                            if self.isValidSolution(s2):
-                                jointsolutions.append(self.SimplifyTransform(s2))
-                        if len(jointsolutions) > 0 and \
-                           all([self.isValidSolution(s) \
-                                and self.isValidSolution(s) \
-                                for s in jointsolutions]):
+                        if len(jointsolutions) > 0:
                             solutions.append(AST.SolverSolution(var.name, \
                                                                 jointevalcos = jointsolutions, \
                                                                 isHinge = self.IsHinge(var.name)))
@@ -11058,13 +11050,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 except NotImplementedError, e:
                     # when solve cannot solve an equation
                     log.warn(e)
+
+            # substitute svar for cvar and solve for svar
             if numsvar > 0:
-                # substitute sin
                 try:
-                    # TGN: the following condition seems weird to me
-                    # if  self.countVariables(eqnew, varsym.svar) <= 1 or \
-                    #    (self.countVariables(eqnew, varsym.svar) <= 2 and \
-                    #     self.countVariables(eqnew, varsym.cvar) == 0):
                     if  self.countVariables(eqnew, varsym.svar) <= 1 or \
                        (self.countVariables(eqnew, varsym.svar) == 2 and \
                         self.countVariables(eqnew, varsym.cvar) == 0):
@@ -11072,25 +11061,18 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         tempsolutions = solve(eqnew.subs(varsym.cvar, \
                                                          sqrt(1-varsym.svar**2)).expand(), \
                                               varsym.svar)
-
-                        # TGN: ensure othersolvedvars is a subset of self.trigvars_subs
-                        assert(all([z in self.trigvars_subs for z in othersolvedvars]))
-                        
-                        jointsolutions = [self.SimplifyTransform(self.trigsimp_new(s.subs(symbols+varsym.subsinv), \
-                                                                               )) \
+                        jointsolutions = [self.SimplifyTransform(self.trigsimp_new(s.subs(symbols+varsym.subsinv))) \
                                           for s in tempsolutions]
+                        jointsolutions = [s for s in jointsolutions if self.isValidSolution(s)]
                         
-                        if all([self.isValidSolution(s) for s in jointsolutions]) and \
-                           len(jointsolutions) > 0:
+                        if len(jointsolutions) > 0:
                             solutions.append(AST.SolverSolution(var.name,
                                                                 jointevalsin = jointsolutions, \
                                                                 isHinge = self.IsHinge(var.name)))
                             solutions[-1].equationsused = equationsused
                         continue
-                    
                 except self.CannotSolveError, e:
                     log.debug(e)
-                    
                 except NotImplementedError, e:
                     # when solve cannot solve an equation
                     log.warn(e)
@@ -11907,12 +11889,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
     @staticmethod
     def groupTerms(expr, vars, symbolgen = None):
         """
-        Separates all terms that do have var in them
+        Returns 
+        - a new expression NEWEXPR that appears a polynomial in VARS, and
+        - a list of substitutions pairs SYMBOLS (generated by SYMBOLGEN) that indicates how the trailing coefficient 
+        (power 0) and other complicated coefficients are replaced.
         """
         
         if symbolgen is None:
             symbolgen = cse_main.numbered_symbols('const')
-            
         symbols = []
         try:
             p = Poly(expr, *vars)
@@ -11920,27 +11904,19 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             return expr, []
         
         newexpr = S.Zero
+        # If c is a symbol, a not-that-huge number, or a product of symbols and numbers, then do nothing;
+        # otherwise generate a "constx" symbol to replace it in EXPR.
         for m, c in p.terms():
-            # also convert huge numbers into constants
-            if (c.is_number and len(str(c)) > 40) or \
-               not (c.is_number or c.is_Symbol):
-                if c.is_Mul and all([e.is_number or e.is_Symbol for e in c.args]):
-                    # if c is a product of symbols and numbers, then pass
-                    pass
-                else:
-                    sym = symbolgen.next()
-                    symbols.append((sym, c))
-                    c = sym
-            if __builtin__.sum(m) == 0:
-                # TC is S.Zero
-                newexpr += c
+            if (c.is_number and len(str(c))<=40) or \
+               c.is_Symbol or \
+               (c.is_Mul and all([e.is_number or e.is_Symbol for e in c.args])):
+                pass
             else:
-                """
-                for i, degree in enumerate(m): 
-                c = c*vars[i]**degree 
-                newexpr += c 
-                """
-                newexpr += c * prod(vars[i]**degree for i, degree in enumerate(m))
+                sym = symbolgen.next()
+                symbols.append((sym, c))
+                c = sym
+            newexpr += c if sum(m) == 0 else \
+                       c * prod(vars[i]**degree for i, degree in enumerate(m))
         return newexpr, symbols
 
     @staticmethod

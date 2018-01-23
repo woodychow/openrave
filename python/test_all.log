@@ -38,3 +38,6 @@
 18/01/23-14:00:20, --robot=robotfiles/barrettsegway.robot.xml, 1000, 1000, 0, 100.0, 0.000, 0.000, 25.700, runtime = 31.3s
 18/01/23-14:02:23, --robot=robotfiles/barrettsegway.robot.xml, 1000, 999, 0, 99.9, 0.000, 0.100, 28.300, runtime = 31.2s
 18/01/23-14:07:08, --robot=robotfiles/barrettsegway.robot.xml, 1000, 1000, 0, 100.0, 0.000, 0.000, 25.300, runtime = 31.7s
+18/01/23-14:46:17, --robot=robotfiles/barrettsegway.robot.xml, 1000, 1000, 0, 100.0, 0.000, 0.000, 25.500, runtime = 31.7s
+18/01/23-14:52:05, --robot=robotfiles/barrettsegway.robot.xml, 1000, 1000, 0, 100.0, 0.000, 0.000, 26.500, runtime = 31.5s
+18/01/23-15:26:33, --robot=robotfiles/barrettsegway.robot.xml, 1000, 999, 0, 99.9, 0.000, 0.100, 27.100, runtime = 31.3s
