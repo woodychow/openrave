@@ -8702,11 +8702,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             else:
                 match = False
                 for usedsolution, usedvar in usedsolutions:
-                    if len(solution.checkforzeros) == len(usedsolution.checkforzeros):
-                        if not any([self.CheckExpressionUnique(usedsolution.checkforzeros, eq) \
-                                    for eq in solution.checkforzeros]):
-                            match = True
-                            break
+                    # test if both sets of checkforzeros are exactly the same
+                    if len(solution.checkforzeros) == len(usedsolution.checkforzeros) and \
+                       not any([self.CheckExpressionUnique(usedsolution.checkforzeros, eq) \
+                                for eq in solution.checkforzeros]):
+                        match = True
+                        break
                 if not match:
                     usedsolutions.append((solution, var))
                     if len(usedsolutions) >= 3:
@@ -8801,7 +8802,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         cothervar = self.getVariable(othervar).cvar
                         if not checksimplezeroexpr.has(othervar, sothervar, cothervar):
                             continue
-                        # easy to check if the equation evaluates to zero on angles 0, pi/2, pi, -pi/2
+                        # easy to check if the equation evaluates to zero at angles 0, pi/2, pi, -pi/2
                         s = AST.SolverSolution(othervar.name, \
                                                jointeval = [], \
                                                isHinge = self.IsHinge(othervar.name))
@@ -8818,8 +8819,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             except (RuntimeError, AssertionError), e:
                                 log.warn('othervar %s = %f: %s', str(othervar), value, e)
 
-
-                        ss = [s] if s.jointeval is not None and len(s.jointeval) > 0 else []
+                        ss = [s] if len(s.jointeval) > 0 else []
 
                         try:
                             # checksimplezeroexpr can be simple like -cj4*r21 - r20*sj4
@@ -8834,13 +8834,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             ss += newsol
 
                         except PolynomialError:
-                            log.info('Cannot use solveSingleVariable to solve for %r', othervar)
+                            log.info('[SOLVE %i] Cannot use solveSingleVariable to solve for %r: PolynomialError', \
+                                     self._solutionStackCounter, othervar)
                             # checksimplezeroexpr was too complex
                             pass
 
                         except self.CannotSolveError, e:
-                            log.info('[SOLVE %i] Cannot use solveSingleVariable to solve for %r', \
-                                     self._solutionStackCounter, othervar)
+                            log.info('[SOLVE %i] Cannot use solveSingleVariable to solve for %r: %s', \
+                                     self._solutionStackCounter, othervar, e)
                             # this is actually a little tricky
                             # sometimes really good solutions can have a divide that looks like:
                             # ((0.405 + 0.331*cj2)**2 + 0.109561*sj2**2 (manusarm_left)
@@ -8852,6 +8853,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             self._dec_solutionStackCounter()
 
                         for s in ss:
+                            exec(ipython_str, globals(), locals())
+                            
                             # can actually simplify Positions and possibly get a new solution!
                             if s.jointeval is not None:
                                 for eq in s.jointeval:
@@ -9216,9 +9219,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             if possiblevar in rotsymbols and (possiblevalue == S.One or possiblevalue == -S.One):
                                 row1 = int(possiblevar.name[-2])
                                 col1 = int(possiblevar.name[-1])
-                                otherrows = othercols = [0, 1, 2]
-                                otherrows.remove(row1)
-                                othercols.remove(col1)
+                                otherrows = [row for row in [0,1,2] if row!=row1]
+                                othercols = [col for col in [0,1,2] if col!=col1]
                                 possiblevarname = possiblevar.name[:-2]
                                 for row, col in product(otherrows, othercols):
                                     possiblesub.append((Symbol('%s%d%d'%(possiblevarname, row, col)), S.Zero))
@@ -9292,12 +9294,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                         if row1 == row2:
                                             assert(col1 != col2)
                                             col3 = 3 - col1 - col2
-                                            otherrows = [0, 1, 2]
-                                            otherrows.remove(row1)
-                                            for row in otherrows:
-                                                checkexpr[2].append((Symbol('%s%d%d' % \
-                                                                            (possiblevarname, row, col3)), \
-                                                                     S.Zero))
+                                            otherrows = [row for row in [0, 1, 2] if row!=row1]
+                                            checkexpr[2] += [(Symbol('%s%d%d' % \
+                                                                     (possiblevarname, row, col3)), \
+                                                              S.Zero) for row in otherrows]
                                             ra, rb, rc, rd = [Symbol('%s%d%d'%(possiblevarname, row, col)) \
                                                               for row, col in \
                                                               product(otherrows, [col1, col2])]
@@ -9311,10 +9311,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             row3 = 3 - row1 - row2
                                             othercols = [0, 1, 2]
                                             othercols.remove(col1)
-                                            for col in othercols:
-                                                checkexpr[2].append((Symbol('%s%d%d' % \
-                                                                            (possiblevarname, row3, col)), \
-                                                                            S.Zero))
+                                            checkexpr[2] += [(Symbol('%s%d%d' % \
+                                                                     (possiblevarname, row3, col)), \
+                                                              S.Zero) for col in othercols]
                                             ra, rb, rc, rd = [Symbol('%s%d%d'%(possiblevarname, row, col))
                                                               for col, row in \
                                                               product(othercols, [row1, row2])]
@@ -9336,7 +9335,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                          []]
                                             log.info('%r', flatzerosubstitutioneqs)
                                             log.info('%r', checkexpr)
-                                            #exec(ipython_str, globals(), locals())
+                                            # exec(ipython_str, globals(), locals())
                                             flatzerosubstitutioneqs.append(checkexpr)
                                             localsubstitutioneqs.append(checkexpr)
                                             handledconds.append(cond + cond2)
