@@ -8898,6 +8898,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             dictequations = [(sym, eq), \
                                                              (sineq, self.SimplifyAtan2(sin(eq))), \
                                                              (coseq, self.SimplifyAtan2(cos(eq)))]
+                                            eq = sym
                                             # exec(ipython_str, globals(), locals())
 
                                         cond = Abs(othervar-eq.evalf(n=30))
@@ -8936,7 +8937,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             if not (eq.is_number or eq.has(*allothersolvedvars)):
                                                 sym = self.gsymbolgen.next()
                                                 dictequations.append((sym, eq))
-                                                exec(ipython_str, globals(), locals())
+                                                eq = sym
+                                                # exec(ipython_str, globals(), locals())
                                             cond = abs(sothervar-eq.evalf(n=30)) + abs(sign(cothervar)-1)
 
                                         if self.CheckExpressionUnique(handledconds, cond):
@@ -9004,6 +9006,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             if not (eq.is_number or eq.has(*allothersolvedvars)):
                                                 sym = self.gsymbolgen.next()
                                                 dictequations.append((sym, eq))
+                                                eq = sym
                                                 # exec(ipython_str, globals(), locals())
                                             cond = abs(cothervar-eq.evalf(n=30)) + abs(sign(sothervar)-1)
 
