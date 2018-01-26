@@ -1546,7 +1546,6 @@ class IKFastSolver(AutoReloader):
         """
 
         if eq.is_number or eq.is_Symbol:
-            # exec(ipython_str)
             return []
         elif eq in self.check_div_zero_dict:
             self.check_div_zero_use += 1
@@ -1593,7 +1592,6 @@ class IKFastSolver(AutoReloader):
                         # print 'g_const = ', g_const
                         # print 'new s0  = ', s0
                         # print 'new s1  = ', s1
-
                         #if not(g_const==S.One and g_expr==S.One):
                         #    exec(ipython_str, globals(), locals())
 
@@ -1639,7 +1637,6 @@ class IKFastSolver(AutoReloader):
                     
             if eq.is_Pow and eq.exp.is_number and eq.exp < 0:
                 checkforzeros.append(eq.base)
-                    
         except AssertionError, e:
             log.warn('%s', e)
 
@@ -1653,19 +1650,22 @@ class IKFastSolver(AutoReloader):
                 while eqtemp.is_Pow:
                     eqtemp = eqtemp.base
                     
-                #self.codeComplexity(eqtemp)
                 if self.codeComplexity(eqtemp) < 500:
                     checkeq = self.removecommonexprs(eqtemp)
                     if self.CheckExpressionUnique(newcheckforzeros, checkeq):
                         newcheckforzeros.append(checkeq)
                 else:
-                    # not even worth checking since the equation is so big...
                     newcheckforzeros.append(eqtemp)
-                    
             checkforzeros = newcheckforzeros
-
             
         self.check_div_zero_dict[eq] = checkforzeros
+
+        """
+        if len(checkforzeros)>0:
+            print eq
+            print checkforzeros
+            exec(ipython_str, globals(), locals())
+        """
         return checkforzeros
 
     def checkpow(self, expr, sexprs, unsolvedvars):
@@ -8170,6 +8170,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         self.ComputeSolutionComplexity(solution, othersolvedvars, curvars)
                         if solution.numsolutions() > 0:
                             solutions.append((solution, curvar))
+                            solution.show()
+                            # exec(ipython_str, globals(), locals())
                         else:
                             log.warn('solution did not have any equations')
 
@@ -8311,6 +8313,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     for solution in rawsolutions:
                         self.ComputeSolutionComplexity(solution, othersolvedvars, curvars)
                         dummysolutions.append(solution)
+                        solution.show()
+                        # exec(ipython_str, globals(), locals())
                         
                 except self.CannotSolveError, e:
                     log.info('[SOLVE %i] Cannot use solveSingleVariables for %r: %s', \
@@ -8393,6 +8397,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         # solution.subs(inv_freevarsubs)
                         self.ComputeSolutionComplexity(solution, othersolvedvars, curvars)
                         solutions.append((solution, Symbol(solution.jointname)))
+                        solution.show()
+                        # exec(ipython_str, globals(), locals())
                     
                     if len(rawsolutions) > 0: # solving a pair is rare, so any solution will do; TGN may try others
                         break
@@ -8425,6 +8431,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 try:
                     self.ComputeSolutionComplexity(solution, othersolvedvars, curvars)
                     solutions.append((solution, Symbol(solution.jointname)))
+                    solution.show()
+                    # exec(ipython_str, globals(), locals())
                 except self.CannotSolveError, e:
                     log.warn(u'equation failed to compute solution complexity: %s', solution.jointeval)
             if len(rawsolutions) > 0: # solving a pair is rare, so any solution will do; TGN may try others
@@ -8434,6 +8442,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         # otherwise try to (4) solve one equation for one variable using solveHighDegreeEquationsHalfAngle, or
         #                  (5) guess one variable is free and solve it using GuessValuesAndSolveEquations
         if len(solutions) > 0:
+            for solution in solutions:
+                if solution[0].jointeval is not None:
+                    solution[0].jointeval = [self.trigsimp_new(eq) for eq in solution[0].jointeval]
+                if solution[0].jointevalcos is not None:
+                    solution[0].jointevalcos = [self.trigsimp_new(eq) for eq in solution[0].jointevalcos]
+                if solution[0].jointevalsin is not None:
+                    solution[0].jointevalsin = [self.trigsimp_new(eq) for eq in solution[0].jointevalsin]
             try:
                 log.info('[SOLVE %i] SolveAllEquations calls AddSolution for %r', \
                          self._solutionStackCounter, curvars)
@@ -8625,18 +8640,23 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     return prevbranch
                 except self.CannotSolveError, e:
                     log.info(e)
+                    log.info('[SOLVE %i] Cannot use SolveAllEquations for %r', \
+                             self._solutionStackCounter, newvars)
                     hasonesolution = False # did not solve, reset
                     continue
                     # raise self.CannotSolveError(e)
                 finally:
                     self._dec_solutionStackCounter()
 
-        exec(ipython_str, globals(), locals())
-        assert(hasonesolution is False)
-        
-        # TGN: need not this "if" as we would have either returned if hasonesolution is True,
-        #      or reset it to False if CannotSolveError
-        if not hasonesolution:
+        # TGN: The logic of hasonesolution in original code seems wrong to me
+        #
+        #      Assume len(solutions[0][0].checkforzeros) = 2, len(solutions[0][0].numsolutions() == 1
+        #             len(solutions[1][0].checkforzeros) = 0, len(solutions[1][0].numsolutions() == 2
+        #
+        #      Then hasonesolution is True, and we skip the below "if" block and can no longer
+        #      "check again except without the number of solutions requirement" to find solutions[1].
+
+        if True: #not hasonesolution:
             # search for a solution that (1) has no checkforzeros equation
             for solution in solutions:
                 checkforzeros = solution[0].checkforzeros
@@ -8671,8 +8691,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
         # back up global symbols, restored at the end
         originalGlobalSymbols = self.globalsymbols
-        
-        # all solutions have check for zero equations
+        # from here on, all solutions have checkforzeros equations
         # choose the variable with the shortest solution and compute (this is a conservative approach)
         usedsolutions = []
         # remove any solutions with similar checkforzero constraints (because they are essentially the same)
@@ -8694,7 +8713,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         # don't need more than 3 solutions (used to be 2, but lookat barrettwam4 proved that wrong)
                         break
         
-        allvars            = self.jointlists([self.getVariable(v).vars for v in curvars])
+        allcurvars         = self.jointlists([self.getVariable(v).vars for v in curvars])
         allothersolvedvars = self.jointlists([self.getVariable(v).vars for v in othersolvedvars])
         
         prevbranch = lastbranch = []
@@ -8725,9 +8744,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             checkforzeros = []
             localsubstitutioneqs = []
             for checkzero in solution.checkforzeros:
-                if checkzero.has(*allvars):
+                if checkzero.has(*allcurvars):
                     log.info('Ignore special check for zero since it has symbols %s: %s', \
-                             str(allvars), str(checkzero))
+                             str(allcurvars), str(checkzero))
                     continue
 
                 exec(ipython_str, globals(), locals())
@@ -8741,6 +8760,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     if checkzeroComplexity < 500:
                         checkforzeros.append(checkzero)
                         #self.removecommonexprs(checkzero.evalf())
+                    continue
                 else:
                     checkzero2 = self._SubstituteGlobalSymbols(checkzero, originalGlobalSymbols)
                     checkzero2Complexity = self.codeComplexity(checkzero2)
@@ -8756,7 +8776,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             
                     checksimplezeroexprs = [checkzero]
                     if not checkzero.has(*allothersolvedvars):
-                        
                         sumsquaresexprs = self._GetSumSquares(checkzero)
                         if len(sumsquaresexprs) > 0:
                             checksimplezeroexprs += sumsquaresexprs
@@ -9124,9 +9143,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     continue
                 localsubstitutioneqs = []
                 for checkzero in solution.checkforzeros:
-                    if checkzero.has(*allvars):
+                    if checkzero.has(*allcurvars):
                         log.info('ignoring special check for zero 2 since it has symbols %s: %s', \
-                                 str(allvars), str(checkzero))
+                                 str(allcurvars), str(checkzero))
                         continue
                     
                     # don't bother trying to extract something if too complex
@@ -9389,7 +9408,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         log.warn('not valid: %s', expr)
                         extrazerochecks = None
                         break
-                    if not expr.has(*allvars) and \
+                    if not expr.has(*allcurvars) and \
                        self.CheckExpressionUnique(extrazerochecks, expr):
                         if expr.is_Symbol:
                             # can set that symbol to zero and create a new set of equations!
@@ -10963,7 +10982,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                        deep = True)
 
                     # need m[a]*m[a]+m[b]*m[b]>0 and >= m[c]*m[c]
-                    # ComputeSolutionComplexity will add Abs(m[a])+Abs(m[b]) in checkforzeros
                     
                     # can't use atan2().evalf()... maybe only when m[a] or m[b] is complex?
                     if m[a].has(I) or m[b].has(I):
@@ -10971,7 +10989,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     constsol = (-atan2(m[a], m[b]).subs(symbols)).evalf()
                     jointsolutions = [constsol + asinsol, \
                                       constsol + pi.evalf() - asinsol]
+                    
                     assert(len(jointsolutions)==2)
+
+                    # function checkForDivideByZero will add in checkforzeros
+                    # Abs(m[a])+Abs(m[b]) for constsol, and
+                    # m[a]**2+m[b]**2     for asinsol
                     
                     if self.isValidSolution(constsol) and \
                        self.isValidSolution(asinsol):
