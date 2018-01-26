@@ -1149,7 +1149,7 @@ class IKFastSolver(AutoReloader):
     
     def countVariables(self, expr, var):
         """
-        Counts the number of terms in expr in which var appears
+        Counts the number of terms in EXPR in which VAR appears
         """
         if expr.is_Add or expr.is_Mul: # TGN added expr.is_Mul
             return sum(1 for term in expr.args if term.has(var))
@@ -1587,7 +1587,7 @@ class IKFastSolver(AutoReloader):
                         testeq2 = abs(s0) + abs(s1)
                         """
 
-                        s0, s1, g_const, g_expr = self.mygcd(s0, s1)
+                        news0, news1, g_const, g_expr = self.mygcd(s0, s1)
                         
                         # print 'g_expr  = ', g_expr
                         # print 'g_const = ', g_const
@@ -1599,14 +1599,13 @@ class IKFastSolver(AutoReloader):
 
 
                         if g_expr.is_number:
-                            assert(g_expr !=S.Zero)
-                            assert(g_const!=S.Zero)
-                            sumeq   = s0**2 + s1**2
-                            testeq2 = abs(s0) + abs(s1)
+                            assert(g_expr  != S.Zero)
+                            assert(g_const != S.Zero)
+                            sumeq   = news0**2 + news1**2
+                            testeq2 = abs(news0) + abs(news1)
                         else:
-                            #sumeq   = (s0***2 + s1**2) * g_expr**2
-                            sumeq   = (s0*g_expr)**2 + (s1*g_expr)**2
-                            testeq2 = abs(s0*g_expr) + abs(s1*g_expr) #(abs(s0)+abs(s1)) * abs(g_cum)
+                            sumeq   = (news0*g_expr)**2 + (news1*g_expr)**2
+                            testeq2 = abs(news0*g_expr) + abs(news1*g_expr)
                         #"""
 
                         testeq = sumeq if self.codeComplexity(sumeq) >= 400 \
@@ -1622,26 +1621,15 @@ class IKFastSolver(AutoReloader):
                         else:
                             checkforzeros.append(testeqmin)
                                     
-                        if checkforzeros[-1].evalf() == S.Zero:
-                            raise self.CannotSolveError('Nonzero condition evaluates to 0. Never OK!!!')
+                        if any([checkforzero.evalf() == S.Zero for checkforzero in checkforzeros]):
+                            raise self.CannotSolveError('Some nonzero condition evaluates to 0. Never OK!!!')
 
-                        """
-                        if g_cum.is_number:
-                            g_cum = Abs(g_cum)
-                            log.info('add atan2( %r, \n                   %r ) \n' \
-                                     + '        check zero ' \
-                                     #+ ': %r' \
-                                     , substitutedargs[0]/g_cum, substitutedargs[1]/g_cum \
-                                     #, checkforzeros[-1]
-                            )
-                        else:
-                            log.info('add atan2( %r, \n                   %r ) \n' \
-                                     + '        check zero ' \
-                                     #+ ': %r' \
-                                     , substitutedargs[0], substitutedargs[1] \
-                                     #, checkforzeros[-1]
-                            )
-                        """
+                        log.info('add atan2( %r, \n                   %r ) \n' \
+                                 + '        check zero ' \
+                                 + ': %r' \
+                                 , news0*g_expr, news1*g_expr \
+                                 , checkforzeros
+                        )
 
             # originally, is_Mul, is_Add, is_Pow
             checkforzeros += self.jointlists([self.checkForDivideByZero(arg) \
@@ -1712,9 +1700,9 @@ class IKFastSolver(AutoReloader):
 
     def ComputeSolutionComplexity(self, sol, solvedvars, unsolvedvars):
         """
-        For all solutions, check if there is a divide by zero
+        For all solutions, check if there are divide-by-zero situations.
         
-        Fills checkforzeros for the solution
+        Fills checkforzeros for the solution.
 
         TGN: This function only derives values for 
 
@@ -8264,7 +8252,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             var0, var1, raweqns, complexity = curvarsubssol[0]
             dummyvar = Symbol('dummy')
 
-            # Case (1) dummyvar = var0 + var1
+            # Case <1> dummyvar = var0 + var1
             NewEquations        = []
             NewEquationsAll     = []
             hasExtraConstraints = False
@@ -8287,7 +8275,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         if self.CheckExpressionUnique(NewEquations, eq):
                             NewEquations.append(eq)
 
-            # Case (2) dummyvar = var0 - var1
+            # Case <2> dummyvar = var0 - var1
             if len(NewEquations) < 2 and hasExtraConstraints:
                 NewEquations        = []
                 NewEquationsAll     = []
@@ -8611,12 +8599,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         for solution in solutions:
             checkforzeros = solution[0].checkforzeros
             hasonesolution = solution[0].numsolutions() == 1
+            # search for a solution that (1) has no checkforzeros equation (2) solves uniquely a variable
             if len(checkforzeros) == 0 and hasonesolution:
                 # did find a good solution, so take it. Make sure to check any zero branches
                 var     = solution[1]
                 newvars = curvars[:]
                 newvars.remove(var)
-                log.info('[SOLVE %i] hasonesolution = True \n' + \
+                log.info('[SOLVE %i] hasonesolution = True, len(checkforzeros) = 0\n' + \
                          ' '*18 + 'Use solution for %r\n' + \
                          ' '*18 + 'AddSolution calls SolveAllEquations to solve for %r', \
                          self._solutionStackCounter, var, newvars)
@@ -8625,7 +8614,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     prevbranch = self.SolveAllEquations(AllEquations, \
                                                         curvars = newvars, \
                                                         othersolvedvars = othersolvedvars+[var], \
-                                                        solsubs = solsubs+self.getVariable(var).subs, \
+                                                        solsubs = solsubs + self.getVariable(var).subs, \
                                                         endbranchtree = endbranchtree, \
                                                         currentcases = currentcases, \
                                                         currentcasesubs = currentcasesubs, \
@@ -8636,14 +8625,19 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     return prevbranch
                 except self.CannotSolveError, e:
                     log.info(e)
-                    hasonesolution = False
+                    hasonesolution = False # did not solve, reset
                     continue
                     # raise self.CannotSolveError(e)
                 finally:
                     self._dec_solutionStackCounter()
-            
+
+        exec(ipython_str, globals(), locals())
+        assert(hasonesolution is False)
+        
+        # TGN: need not this "if" as we would have either returned if hasonesolution is True,
+        #      or reset it to False if CannotSolveError
         if not hasonesolution:
-            # check again except without the number of solutions requirement
+            # search for a solution that (1) has no checkforzeros equation
             for solution in solutions:
                 checkforzeros = solution[0].checkforzeros
                 if len(checkforzeros) == 0:
@@ -8651,7 +8645,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     var = solution[1]
                     newvars = curvars[:]
                     newvars.remove(var)
-                    log.info('[SOLVE %i] hasonesolution = False \n' + \
+                    log.info('[SOLVE %i] hasonesolution = False, len(checkforzeros) = 0\n' + \
                              ' '*18 + 'Use solution for %r\n' + \
                              ' '*18 + 'AddSolution calls SolveAllEquations to solve for %r', \
                              self._solutionStackCounter, var, newvars)
@@ -8659,8 +8653,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         self._inc_solutionStackCounter()
                         prevbranch = self.SolveAllEquations(AllEquations, \
                                                             curvars = newvars, \
-                                                            othersolvedvars = othersolvedvars+[var], \
-                                                            solsubs = solsubs+self.getVariable(var).subs, \
+                                                            othersolvedvars = othersolvedvars + [var], \
+                                                            solsubs = solsubs + self.getVariable(var).subs, \
                                                             endbranchtree = endbranchtree, \
                                                             currentcases = currentcases, \
                                                             currentcasesubs = currentcasesubs, \
@@ -8699,7 +8693,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     if len(usedsolutions) >= 3:
                         # don't need more than 3 solutions (used to be 2, but lookat barrettwam4 proved that wrong)
                         break
-
+        
         allvars            = self.jointlists([self.getVariable(v).vars for v in curvars])
         allothersolvedvars = self.jointlists([self.getVariable(v).vars for v in othersolvedvars])
         
@@ -8735,7 +8729,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     log.info('Ignore special check for zero since it has symbols %s: %s', \
                              str(allvars), str(checkzero))
                     continue
-                
+
+                exec(ipython_str, globals(), locals())
                 # Don't bother trying to extract something if too complex
                 # (takes a lot of time to check and most likely nothing will be extracted).
                 # 120 is from heuristics
@@ -8770,9 +8765,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                 if sumsquaresexpr.is_Symbol:
                                     sumsquaresexprstozero.append(sumsquaresexpr)
                                 elif sumsquaresexpr.is_Mul:
-                                    for arg in sumsquaresexpr.args:
-                                        if arg.is_Symbol:
-                                            sumsquaresexprstozero.append(arg)
+                                    sumsquaresexprstozero += [arg for arg in sumsquaresexpr.args if arg.is_Symbol]
                             
                             if len(sumsquaresexprstozero) > 0:
                                toappend = [sumsquaresexprstozero, \
@@ -8781,6 +8774,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             for sumsquaresexpr in sumsquaresexprstozero], \
                                            []]
                                log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
+                               exec(ipython_str, globals(), locals())
                                localsubstitutioneqs.append(toappend)
                                handledconds += sumsquaresexprstozero
                                 
@@ -10529,7 +10523,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             maxsolutions = 4, \
                             maxdegree = 2, \
                             subs = None, \
-                            unknownvars = None):
+                            unknownvars = []):
         """
         Called by 
 
@@ -10543,7 +10537,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
         log.info('[SOLVE %i] Starting solveSingleVariable for %r', \
                  self._solutionStackCounter, var)
-        # exec(ipython_str, globals(), locals())
         
         varsym = self.getVariable(var)
         vars = [varsym.cvar, varsym.svar, varsym.htvar, var]
@@ -10944,7 +10937,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 continue
 
             equationsused = None
-            if unknownvars is not None:
+            if len(unknownvars) > 0:
                 unsolvedsymbols = self.jointlists([self.getVariable(unknownvar).vars \
                                                    for unknownvar in unknownvars \
                                                    if unknownvar != var])
@@ -10962,21 +10955,26 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 b = Wild('b', exclude = [varsym.svar, varsym.cvar])
                 c = Wild('c', exclude = [varsym.svar, varsym.cvar])
                 m = eqnew.match(a*varsym.cvar + b*varsym.svar + c)
+
                 if m is not None:
                     symbols += [(varsym.svar, sin(var)), \
                                 (varsym.cvar, cos(var))]
                     asinsol = trigsimp(asin(-m[c]/Abs(sqrt(m[a]*m[a]+m[b]*m[b]))).subs(symbols), \
                                        deep = True)
+
+                    # need m[a]*m[a]+m[b]*m[b]>0 and >= m[c]*m[c]
+                    # ComputeSolutionComplexity will add Abs(m[a])+Abs(m[b]) in checkforzeros
+                    
                     # can't use atan2().evalf()... maybe only when m[a] or m[b] is complex?
                     if m[a].has(I) or m[b].has(I):
                         continue
                     constsol = (-atan2(m[a], m[b]).subs(symbols)).evalf()
                     jointsolutions = [constsol + asinsol, \
                                       constsol + pi.evalf() - asinsol]
+                    assert(len(jointsolutions)==2)
                     
-                    if not constsol.has(I) and \
-                       all([self.isValidSolution(s) for s in jointsolutions]) and \
-                       len(jointsolutions) > 0:
+                    if self.isValidSolution(constsol) and \
+                       self.isValidSolution(asinsol):
                         #self.checkForDivideByZero(expandedsol)
                         solutions.append(AST.SolverSolution(var.name, \
                                                             jointeval = jointsolutions, \
@@ -11038,7 +11036,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 except NotImplementedError, e:
                     # when solve cannot solve an equation
                     log.warn(e)
-
+                    
             if numcvar == 0 and numsvar == 0:
                 try:
                     tempsolutions = solve(eqnew, var)
@@ -11079,7 +11077,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 log.debug(e)
             finally:
                 self._dec_solutionStackCounter()
-                
+
         if len(solutions) > 0:
             log.info('[SOLVE %i] solveSingleVariable returns a solution for %r', \
                      self._solutionStackCounter, var)
@@ -12514,6 +12512,8 @@ class AST:
             if self.jointevalsin is not None:
                 print('sin(%s) = %s' % (self.jointname, \
                                         ('\n'+' '*10).join(str(x) for x in self.jointevalsin)))
+            if self.checkforzeros is not None:
+                print('checkforzeros = %s' % ('\n'+' '*16).join(str(x) for x in self.checkforzeros))
             
     class SolverPolynomialRoots(SolverBase):
         """
