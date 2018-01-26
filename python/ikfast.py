@@ -8799,251 +8799,252 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     for othervar in othersolvedvars:
                         sothervar = self.getVariable(othervar).svar
                         cothervar = self.getVariable(othervar).cvar
-                        if checksimplezeroexpr.has(othervar, sothervar, cothervar):
-                            # easy to check if the equation evaluates to zero on angles 0, pi/2, pi, -pi/2
-                            s = AST.SolverSolution(othervar.name, \
-                                                   jointeval = [], \
-                                                   isHinge = self.IsHinge(othervar.name))
-                            for value in [S.Zero, pi/2, pi, -pi/2]:
-                                try:
-                                    # doing (1/x).subs(x,0) produces a RuntimeError (infinite recursion...)
-                                    checkzerosub = checksimplezeroexpr.subs([(othervar,  value), \
-                                                                             (sothervar, sin(value).evalf(n=30)), \
-                                                                             (cothervar, cos(value).evalf(n=30))])
-
-                                    if self.isValidSolution(checkzerosub) and \
-                                       checkzerosub.evalf(n=30) == S.Zero:
-                                        s.jointeval.append(S.One*value)
-                                except (RuntimeError, AssertionError), e:
-                                    log.warn('othervar %s = %f: %s', str(othervar), value, e)
-
-
-                            ss = [s] if s.jointeval is not None and len(s.jointeval) > 0 else []
-
+                        if not checksimplezeroexpr.has(othervar, sothervar, cothervar):
+                            continue
+                        # easy to check if the equation evaluates to zero on angles 0, pi/2, pi, -pi/2
+                        s = AST.SolverSolution(othervar.name, \
+                                               jointeval = [], \
+                                               isHinge = self.IsHinge(othervar.name))
+                        for value in [S.Zero, pi/2, pi, -pi/2]:
                             try:
-                                # checksimplezeroexpr can be simple like -cj4*r21 - r20*sj4
-                                # in which case the solutions would be
-                                # [-atan2(-r21, -r20), -atan2(-r21, -r20) + 3.14159265358979]
-                                eq = checksimplezeroexpr.subs([(sothervar, sin(othervar)), \
-                                                               (cothervar, cos(othervar))])
-                                log.info('[SOLVE %i] AddSolution calls solveSingleVariable to solve %r for %r', \
-                                         self._solutionStackCounter, eq, othervar)
-                                self._inc_solutionStackCounter()
-                                newsol = self.solveSingleVariable([eq], othervar, othersolvedvars)
-                                ss += newsol
+                                # doing (1/x).subs(x,0) produces a RuntimeError (infinite recursion...)
+                                checkzerosub = checksimplezeroexpr.subs([(othervar,  value), \
+                                                                         (sothervar, sin(value).evalf(n=30)), \
+                                                                         (cothervar, cos(value).evalf(n=30))])
 
-                            except PolynomialError:
-                                log.info('Cannot use solveSingleVariable to solve for %r', othervar)
-                                # checksimplezeroexpr was too complex
-                                pass
+                                if self.isValidSolution(checkzerosub) and \
+                                   checkzerosub.evalf(n=30) == S.Zero:
+                                    s.jointeval.append(S.One*value)
+                            except (RuntimeError, AssertionError), e:
+                                log.warn('othervar %s = %f: %s', str(othervar), value, e)
 
-                            except self.CannotSolveError, e:
-                                log.info('[SOLVE %i] Cannot use solveSingleVariable to solve for %r', \
-                                         self._solutionStackCounter, othervar)
-                                # this is actually a little tricky
-                                # sometimes really good solutions can have a divide that looks like:
-                                # ((0.405 + 0.331*cj2)**2 + 0.109561*sj2**2 (manusarm_left)
-                                # This will never be 0, but the solution cannot be solved.
-                                # Instead of rejecting, add a condition to check if checksimplezeroexpr itself is 0 or not
-                                pass
 
-                            finally:
-                                self._dec_solutionStackCounter()
+                        ss = [s] if s.jointeval is not None and len(s.jointeval) > 0 else []
 
-                            for s in ss:
-                                # can actually simplify Positions and possibly get a new solution!
-                                if s.jointeval is not None:
-                                    for eq in s.jointeval:
-                                        eq = self._SubstituteGlobalSymbols(eq, originalGlobalSymbols)
-                                        # why checking for just number?
-                                        # ok to check if solution doesn't contain any other variables?
-                                        # if the equation is non-numerical, make sure it isn't deep in the degenerate cases
-                                        if eq.is_number \
-                                           or (len(currentcases) <= 1 and \
-                                               not eq.has(*allothersolvedvars) and \
-                                               self.codeComplexity(eq) < 100):
+                        try:
+                            # checksimplezeroexpr can be simple like -cj4*r21 - r20*sj4
+                            # in which case the solutions would be
+                            # [-atan2(-r21, -r20), -atan2(-r21, -r20) + 3.14159265358979]
+                            eq = checksimplezeroexpr.subs([(sothervar, sin(othervar)), \
+                                                           (cothervar, cos(othervar))])
+                            log.info('[SOLVE %i] AddSolution calls solveSingleVariable to solve %r for %r', \
+                                     self._solutionStackCounter, eq, othervar)
+                            self._inc_solutionStackCounter()
+                            newsol = self.solveSingleVariable([eq], othervar, othersolvedvars)
+                            ss += newsol
 
-                                            isimaginary = self.AreAllImaginaryByEval(eq) \
-                                                          or eq.evalf().has(I)
+                        except PolynomialError:
+                            log.info('Cannot use solveSingleVariable to solve for %r', othervar)
+                            # checksimplezeroexpr was too complex
+                            pass
 
-                                            # TODO should use the fact that eq is imaginary
-                                            if isimaginary:
-                                                log.warn('eq %s is imaginary, but currently do not support this', eq)
-                                                continue
+                        except self.CannotSolveError, e:
+                            log.info('[SOLVE %i] Cannot use solveSingleVariable to solve for %r', \
+                                     self._solutionStackCounter, othervar)
+                            # this is actually a little tricky
+                            # sometimes really good solutions can have a divide that looks like:
+                            # ((0.405 + 0.331*cj2)**2 + 0.109561*sj2**2 (manusarm_left)
+                            # This will never be 0, but the solution cannot be solved.
+                            # Instead of rejecting, add a condition to check if checksimplezeroexpr itself is 0 or not
+                            pass
 
+                        finally:
+                            self._dec_solutionStackCounter()
+
+                        for s in ss:
+                            # can actually simplify Positions and possibly get a new solution!
+                            if s.jointeval is not None:
+                                for eq in s.jointeval:
+                                    eq = self._SubstituteGlobalSymbols(eq, originalGlobalSymbols)
+                                    # why checking for just number?
+                                    # ok to check if solution doesn't contain any other variables?
+                                    # if the equation is non-numerical, make sure it isn't deep in the degenerate cases
+                                    if eq.is_number \
+                                       or (len(currentcases) <= 1 and \
+                                           not eq.has(*allothersolvedvars) and \
+                                           self.codeComplexity(eq) < 100):
+
+                                        isimaginary = self.AreAllImaginaryByEval(eq) \
+                                                      or eq.evalf().has(I)
+
+                                        # TODO should use the fact that eq is imaginary
+                                        if isimaginary:
+                                            log.warn('eq %s is imaginary, but currently do not support this', eq)
+                                            continue
+
+                                        if not eq.is_number and not eq.has(*allothersolvedvars):
+                                            # not dependent on variables
+                                            # so it could be in the form of atan(px,py),
+                                            # so we convert to a global symbol since it never changes
+                                            sym   = self.gsymbolgen.next()
+                                            sineq = self.gsymbolgen.next()
+                                            coseq = self.gsymbolgen.next()
+                                            dictequations = [(sym, eq), \
+                                                             (sineq, self.SimplifyAtan2(sin(eq))), \
+                                                             (coseq, self.SimplifyAtan2(cos(eq)))]
+                                        else:
+                                            sineq = sin(eq).evalf(n=30)
+                                            coseq = cos(eq).evalf(n=30)
+                                            dictequations = []
+
+                                        cond = Abs(othervar-eq.evalf(n=30))
+                                        if self.CheckExpressionUnique(handledconds, cond):
+                                            evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
+                                            toappend = [[cond], \
+                                                        evalcond, \
+                                                        [(sothervar    , sineq),  \
+                                                         (sin(othervar), sineq),  \
+                                                         (cothervar    , coseq),  \
+                                                         (cos(othervar), coseq),  \
+                                                         (othervar     ,    eq)], \
+                                                        dictequations]
+                                            log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
+                                            localsubstitutioneqs.append(toappend)
+                                            handledconds.append(cond)
+
+                            elif s.jointevalsin is not None:
+                                for eq in s.jointevalsin:
+                                    eq = self.SimplifyAtan2(self._SubstituteGlobalSymbols(eq, originalGlobalSymbols))
+                                    if eq.is_number or (len(currentcases) <= 1 and \
+                                                        not eq.has(*allothersolvedvars) and \
+                                                        self.codeComplexity(eq) < 100):
+                                        dictequations = []
+                                        # test when cos(othervar) > 0
+                                        # DO NOT use asin(eq)
+                                        # because eq = (-pz**2/py**2)**(1/2) would produce imaginary numbers
+                                        #
+                                        # cond = othervar-asin(eq).evalf(n=30)
+                                        # test if eq is imaginary
+                                        # If so, then only solution is when sothervar==0 and eq==0
+                                        isimaginary = self.AreAllImaginaryByEval(eq) \
+                                                      or eq.evalf().has(I)
+                                        if isimaginary:
+                                            cond = abs(sothervar) + abs((eq**2).evalf(n=30)) + abs(sign(cothervar)-1)
+                                        else:
                                             if not eq.is_number and not eq.has(*allothersolvedvars):
                                                 # not dependent on variables
                                                 # so it could be in the form of atan(px,py),
                                                 # so we convert to a global symbol since it never changes
-                                                sym   = self.gsymbolgen.next()
-                                                sineq = self.gsymbolgen.next()
-                                                coseq = self.gsymbolgen.next()
-                                                dictequations = [(sym, eq), \
-                                                                 (sineq, self.SimplifyAtan2(sin(eq))), \
-                                                                 (coseq, self.SimplifyAtan2(cos(eq)))]
-                                            else:
-                                                sineq = sin(eq).evalf(n=30)
-                                                coseq = cos(eq).evalf(n=30)
-                                                dictequations = []
+                                                sym = self.gsymbolgen.next()
+                                                dictequations.append((sym,eq))
+                                                #eq = sym
+                                            cond = abs(sothervar-eq.evalf(n=30)) + abs(sign(cothervar)-1)
 
-                                            cond = Abs(othervar-eq.evalf(n=30))
-                                            if self.CheckExpressionUnique(handledconds, cond):
-                                                evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
-                                                toappend = [[cond], \
-                                                            evalcond, \
-                                                            [(sothervar    , sineq),  \
-                                                             (sin(othervar), sineq),  \
-                                                             (cothervar    , coseq),  \
-                                                             (cos(othervar), coseq),  \
-                                                             (othervar     ,    eq)], \
-                                                            dictequations]
-                                                log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
-                                                localsubstitutioneqs.append(toappend)
-                                                handledconds.append(cond)
+                                        if self.CheckExpressionUnique(handledconds, cond):
+                                            evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
 
-                                elif s.jointevalsin is not None:
-                                    for eq in s.jointevalsin:
-                                        eq = self.SimplifyAtan2(self._SubstituteGlobalSymbols(eq, originalGlobalSymbols))
-                                        if eq.is_number or (len(currentcases) <= 1 and \
-                                                            not eq.has(*allothersolvedvars) and \
-                                                            self.codeComplexity(eq) < 100):
-                                            dictequations = []
-                                            # test when cos(othervar) > 0
-                                            # DO NOT use asin(eq)
-                                            # because eq = (-pz**2/py**2)**(1/2) would produce imaginary numbers
-                                            #
-                                            # cond = othervar-asin(eq).evalf(n=30)
-                                            # test if eq is imaginary
-                                            # If so, then only solution is when sothervar==0 and eq==0
-                                            isimaginary = self.AreAllImaginaryByEval(eq) \
-                                                          or eq.evalf().has(I)
-                                            if isimaginary:
-                                                cond = abs(sothervar) + abs((eq**2).evalf(n=30)) + abs(sign(cothervar)-1)
-                                            else:
-                                                if not eq.is_number and not eq.has(*allothersolvedvars):
-                                                    # not dependent on variables
-                                                    # so it could be in the form of atan(px,py)
-                                                    # so we convert to a global symbol since it never changes
-                                                    sym = self.gsymbolgen.next()
-                                                    dictequations.append((sym,eq))
-                                                    #eq = sym
-                                                cond = abs(sothervar-eq.evalf(n=30)) + abs(sign(cothervar)-1)
+                                            # case: angle = 0
+                                            sineq, coseq, othereq = (S.Zero, S.One, S.Zero) if isimaginary \
+                                                                    else (eq, sqrt(S.One-eq*eq).evalf(n=30), \
+                                                                          asin(eq).evalf(n=30))
+                                            toappend = [[cond], \
+                                                        evalcond, \
+                                                        [(sothervar    ,   sineq), \
+                                                         (sin(othervar),   sineq), \
+                                                         (cothervar    ,   coseq), \
+                                                         (cos(othervar),   coseq), \
+                                                         (othervar     , othereq)], \
+                                                        dictequations]
 
-                                            if self.CheckExpressionUnique(handledconds, cond):
-                                                evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
+                                            log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
+                                            localsubstitutioneqs.append(toappend)
+                                            handledconds.append(cond)
 
-                                                # case: angle = 0
-                                                sineq, coseq, othereq = (S.Zero, S.One, S.Zero) if isimaginary \
-                                                                        else (eq, sqrt(S.One-eq*eq).evalf(n=30), \
-                                                                              asin(eq).evalf(n=30))
-                                                toappend = [[cond], \
-                                                            evalcond, \
-                                                            [(sothervar    ,   sineq), \
-                                                             (sin(othervar),   sineq), \
-                                                             (cothervar    ,   coseq), \
-                                                             (cos(othervar),   coseq), \
-                                                             (othervar     , othereq)], \
-                                                            dictequations]
+                                        # test when cos(othervar) < 0
+                                        cond = abs(sign(cothervar)+1) + (abs(sothervar) + abs((eq**2).evalf(n=30)) \
+                                                                         if isimaginary else \
+                                                                         abs(sothervar-eq.evalf(n=30)))
+                                        # cond = othervar-(pi-asin(eq).evalf(n=30))
+                                        if self.CheckExpressionUnique(handledconds, cond):
+                                            evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
 
-                                                log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
-                                                localsubstitutioneqs.append(toappend)
-                                                handledconds.append(cond)
+                                            # case: angle = pi
+                                            sineq, coseq, othereq = (S.Zero, -S.One, pi.evalf(n=30)) if isimaginary \
+                                                                    else (eq, -sqrt(S.One-eq*eq).evalf(n=30), \
+                                                                          (pi-asin(eq)).evalf(n=30))
+                                            toappend = [[cond], \
+                                                        evalcond, \
+                                                        [(sothervar    ,   sineq), \
+                                                         (sin(othervar),   sineq), \
+                                                         (cothervar    ,   coseq), \
+                                                         (cos(othervar),   coseq), \
+                                                         (othervar     , othereq)], \
+                                                        dictequations]
 
-                                            # test when cos(othervar) < 0
-                                            cond = abs(sign(cothervar)+1) + (abs(sothervar) + abs((eq**2).evalf(n=30)) \
-                                                                             if isimaginary else \
-                                                                             abs(sothervar-eq.evalf(n=30)))
-                                            # cond = othervar-(pi-asin(eq).evalf(n=30))
-                                            if self.CheckExpressionUnique(handledconds, cond):
-                                                evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
+                                            log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
+                                            localsubstitutioneqs.append(toappend)
+                                            handledconds.append(cond)
 
-                                                # case: angle = pi
-                                                sineq, coseq, othereq = (S.Zero, -S.One, pi.evalf(n=30)) if isimaginary \
-                                                                        else (eq, -sqrt(S.One-eq*eq).evalf(n=30), \
-                                                                              (pi-asin(eq)).evalf(n=30))
-                                                toappend = [[cond], \
-                                                            evalcond, \
-                                                            [(sothervar    ,   sineq), \
-                                                             (sin(othervar),   sineq), \
-                                                             (cothervar    ,   coseq), \
-                                                             (cos(othervar),   coseq), \
-                                                             (othervar     , othereq)], \
-                                                            dictequations]
+                            elif s.jointevalcos is not None:
+                                for eq in s.jointevalcos:
+                                    eq = self.SimplifyAtan2(self._SubstituteGlobalSymbols(eq, originalGlobalSymbols))
+                                    if eq.is_number or (len(currentcases) <= 1 and \
+                                                        not eq.has(*allothersolvedvars) and \
+                                                        self.codeComplexity(eq) < 100):
 
-                                                log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
-                                                localsubstitutioneqs.append(toappend)
-                                                handledconds.append(cond)
+                                        dictequations = []
+                                        # test when sin(othervar) > 0
+                                        # DO NOT use acos(eq) because eq = (-pz**2/px**2)**(1/2),
+                                        # which would produce imaginary numbers
+                                        # that's why check eq.evalf().has(I)
+                                        # cond = othervar-acos(eq).evalf(n=30)
+                                        isimaginary = self.AreAllImaginaryByEval(eq) or \
+                                                      eq.evalf().has(I)
 
-                                elif s.jointevalcos is not None:
-                                    for eq in s.jointevalcos:
-                                        eq = self.SimplifyAtan2(self._SubstituteGlobalSymbols(eq, originalGlobalSymbols))
-                                        if eq.is_number or (len(currentcases) <= 1 and \
-                                                            not eq.has(*allothersolvedvars) and \
-                                                            self.codeComplexity(eq) < 100):
+                                        if isimaginary:
+                                            cond = abs(cothervar) + abs((eq**2).evalf(n=30)) + abs(sign(sothervar)-1)
+                                        else:
+                                            if not (eq.is_number or eq.has(*allothersolvedvars)):
+                                                # not dependent on variables
+                                                # so it could be in the form of atan(px,py),
+                                                # so convert to a global symbol since it never changes
+                                                sym = self.gsymbolgen.next()
+                                                dictequations.append((sym, eq))
+                                                eq = sym
+                                            cond = abs(cothervar-eq.evalf(n=30)) + abs(sign(sothervar)-1)
 
-                                            dictequations = []
-                                            # test when sin(othervar) > 0
-                                            # DO NOT use acos(eq) because eq = (-pz**2/px**2)**(1/2),
-                                            # which would produce imaginary numbers
-                                            # that's why check eq.evalf().has(I)
-                                            # cond = othervar-acos(eq).evalf(n=30)
-                                            isimaginary = self.AreAllImaginaryByEval(eq) or \
-                                                          eq.evalf().has(I)
+                                        if self.CheckExpressionUnique(handledconds, cond):
+                                            evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
 
-                                            if isimaginary:
-                                                cond = abs(cothervar) + abs((eq**2).evalf(n=30)) + abs(sign(sothervar)-1)
-                                            else:
-                                                if not (eq.is_number or eq.has(*allothersolvedvars)):
-                                                    # not dependent on variables
-                                                    # so it could be in the form of atan(px,py),
-                                                    # so convert to a global symbol since it never changes
-                                                    sym = self.gsymbolgen.next()
-                                                    dictequations.append((sym, eq))
-                                                    eq = sym
-                                                cond = abs(cothervar-eq.evalf(n=30)) + abs(sign(sothervar)-1)
+                                            # case: angle = pi/2
+                                            sineq, coseq, othereq = (S.One, S.Zero, (pi/2).evalf(n=30)) if isimaginary \
+                                                                    else (sqrt(S.One-eq*eq).evalf(n=30), eq, \
+                                                                          acos(eq).evalf(n=30))
+                                            toappend = [[cond], \
+                                                        evalcond, \
+                                                        [(sothervar    ,   sineq), \
+                                                         (sin(othervar),   sineq), \
+                                                         (cothervar    ,   coseq), \
+                                                         (cos(othervar),   coseq), \
+                                                         (othervar     , othereq)], \
+                                                        dictequations]
 
-                                            if self.CheckExpressionUnique(handledconds, cond):
-                                                evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
+                                            log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
+                                            localsubstitutioneqs.append(toappend)
+                                            handledconds.append(cond)
 
-                                                # case: angle = pi/2
-                                                sineq, coseq, othereq = (S.One, S.Zero, (pi/2).evalf(n=30)) if isimaginary \
-                                                                        else (sqrt(S.One-eq*eq).evalf(n=30), eq, \
-                                                                              acos(eq).evalf(n=30))
-                                                toappend = [[cond], \
-                                                            evalcond, \
-                                                            [(sothervar    ,   sineq), \
-                                                             (sin(othervar),   sineq), \
-                                                             (cothervar    ,   coseq), \
-                                                             (cos(othervar),   coseq), \
-                                                             (othervar     , othereq)], \
-                                                            dictequations]
+                                        # cond = othervar + acos(eq).evalf(n=30)
+                                        cond = abs(sign(sothervar)+1) + (abs(cothervar) + abs((eq**2).evalf(n=30)) \
+                                                                         if isimaginary else \
+                                                                         abs(cothervar-eq.evalf(n=30)))
+                                        if self.CheckExpressionUnique(handledconds, cond):
+                                            evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
 
-                                                log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
-                                                localsubstitutioneqs.append(toappend)
-                                                handledconds.append(cond)
-
-                                            # cond = othervar + acos(eq).evalf(n=30)
-                                            cond = abs(sign(sothervar)+1) + (abs(cothervar) + abs((eq**2).evalf(n=30)) \
-                                                                             if isimaginary else \
-                                                                             abs(cothervar-eq.evalf(n=30)))
-                                            if self.CheckExpressionUnique(handledconds, cond):
-                                                evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
-
-                                                # case: angle = -pi/2
-                                                sineq, coseq, othereq = (-S.One, S.Zero, (-pi/2).evalf(n=30)) if isimaginary \
-                                                                        else (-sqrt(S.One-eq*eq).evalf(n=30), eq, \
-                                                                              (-acos(eq)).evalf(n=30))
-                                                toappend = [[cond], \
-                                                            evalcond, \
-                                                            [(sothervar    ,   sineq), \
-                                                             (sin(othervar),   sineq), \
-                                                             (cothervar    ,   coseq), \
-                                                             (cos(othervar),   coseq), \
-                                                             (othervar     , othereq)], \
-                                                            dictequations]
-                                                log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
-                                                localsubstitutioneqs.append(toappend)
-                                                handledconds.append(cond)
+                                            # case: angle = -pi/2
+                                            sineq, coseq, othereq = (-S.One, S.Zero, (-pi/2).evalf(n=30)) if isimaginary \
+                                                                    else (-sqrt(S.One-eq*eq).evalf(n=30), eq, \
+                                                                          (-acos(eq)).evalf(n=30))
+                                            toappend = [[cond], \
+                                                        evalcond, \
+                                                        [(sothervar    ,   sineq), \
+                                                         (sin(othervar),   sineq), \
+                                                         (cothervar    ,   coseq), \
+                                                         (cos(othervar),   coseq), \
+                                                         (othervar     , othereq)], \
+                                                        dictequations]
+                                            log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
+                                            localsubstitutioneqs.append(toappend)
+                                            handledconds.append(cond)
 
             flatzerosubstitutioneqs += localsubstitutioneqs
             zerosubstitutioneqs.append(localsubstitutioneqs)
