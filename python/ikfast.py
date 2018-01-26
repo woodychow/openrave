@@ -1149,10 +1149,12 @@ class IKFastSolver(AutoReloader):
     
     def countVariables(self, expr, var):
         """
-        Counts the number of terms in EXPR in which VAR appears
+        Counts the number of addends of EXPR in which VAR appears.
+        
+        If expr.is_Add is False, returns 1 it EXPR has VAR and 0 otherwise.
         """
-        if expr.is_Add or expr.is_Mul: # TGN added expr.is_Mul
-            return sum(1 for term in expr.args if term.has(var))
+        if expr.is_Add: #or expr.is_Mul: # TGN added expr.is_Mul
+            return len([term for term in expr.args if term.has(var)])
         else:
             return 1 if expr.has(var) else 0
     
@@ -8750,7 +8752,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                              str(allcurvars), str(checkzero))
                     continue
 
-                # exec(ipython_str, globals(), locals())
                 # Don't bother trying to extract something if too complex
                 # (takes a lot of time to check and most likely nothing will be extracted).
                 # 120 is from heuristics
@@ -8796,31 +8797,30 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                            handledconds += sumsquaresexprstozero
 
                 for checksimplezeroexpr in checksimplezeroexprs:
-                    #if checksimplezeroexpr.has(*othersolvedvars): # cannot do this check since sjX,cjX might be used
+                    # if checksimplezeroexpr.has(*othersolvedvars): # cannot do this check since sjX, cjX might be used
                     for othervar in othersolvedvars:
                         sothervar = self.getVariable(othervar).svar
                         cothervar = self.getVariable(othervar).cvar
                         if not checksimplezeroexpr.has(othervar, sothervar, cothervar):
                             continue
                         # easy to check if the equation evaluates to zero at angles 0, pi/2, pi, -pi/2
-                        s = AST.SolverSolution(othervar.name, \
-                                               jointeval = [], \
-                                               isHinge = self.IsHinge(othervar.name))
+                        jointeval = []
                         for value in [S.Zero, pi/2, pi, -pi/2]:
                             try:
                                 # doing (1/x).subs(x,0) produces a RuntimeError (infinite recursion...)
                                 checkzerosub = checksimplezeroexpr.subs([(othervar,  value), \
                                                                          (sothervar, sin(value).evalf(n=30)), \
                                                                          (cothervar, cos(value).evalf(n=30))])
-
                                 if self.isValidSolution(checkzerosub) and \
                                    checkzerosub.evalf(n=30) == S.Zero:
-                                    s.jointeval.append(S.One*value)
+                                    jointeval.append(value)
                             except (RuntimeError, AssertionError), e:
                                 log.warn('othervar %s = %f: %s', str(othervar), value, e)
 
-                        ss = [s] if len(s.jointeval) > 0 else []
-
+                        ss = [AST.SolverSolution(othervar.name, \
+                                                 jointeval = jointeval, \
+                                                 isHinge = self.IsHinge(othervar.name))] \
+                                                 if len(jointeval) > 0 else []
                         try:
                             # checksimplezeroexpr can be simple like -cj4*r21 - r20*sj4
                             # in which case the solutions would be
@@ -8830,8 +8830,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             log.info('[SOLVE %i] AddSolution calls solveSingleVariable to solve %r for %r', \
                                      self._solutionStackCounter, eq, othervar)
                             self._inc_solutionStackCounter()
-                            newsol = self.solveSingleVariable([eq], othervar, othersolvedvars)
-                            ss += newsol
+                            ss += self.solveSingleVariable([eq], othervar, othersolvedvars)
 
                         except PolynomialError:
                             log.info('[SOLVE %i] Cannot use solveSingleVariable to solve for %r: PolynomialError', \
@@ -10709,7 +10708,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 eqcombinations.append((eqs[0][0] + eqs[1][0], [Eq(e[1], 0) for e in eqs]))
             eqcombinations.sort(lambda x, y: x[0]-y[0])
             hasgoodsolution = False
-            for icomb,comb in enumerate(eqcombinations):
+            for comb in eqcombinations:
                 # skip if too complex
                 if len(solutions) > 0 and comb[0] > 200:
                     break
@@ -10924,6 +10923,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                          self._solutionStackCounter, var)
                 return solutions
 
+        # TGN: ensure othersolvedvars is a subset of self.trigvars_subs
+        assert(all([z in self.trigvars_subs for z in othersolvedvars]))
+
         # solve one equation
         for ieq, eq in enumerate(eqns):
             symbolgen = cse_main.numbered_symbols('const')
@@ -10966,6 +10968,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
             numcvar = self.countVariables(eqnew, varsym.cvar)
             numsvar = self.countVariables(eqnew, varsym.svar)
+
+            # (1) equation in form a*cjx + b*sjx + c
             if numcvar == 1 and numsvar == 1:
                 a = Wild('a', exclude = [varsym.svar, varsym.cvar])
                 b = Wild('b', exclude = [varsym.svar, varsym.cvar])
@@ -11002,10 +11006,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         solutions[-1].equationsused = equationsused
                     continue
 
-            # TGN: ensure othersolvedvars is a subset of self.trigvars_subs
-            assert(all([z in self.trigvars_subs for z in othersolvedvars]))
-
-            # substitute cvar for svar and solve for cvar
+            # (2) substitute cvar for svar and solve for cvar
             if numcvar > 0:
                 try:
                     if  self.countVariables(eqnew, varsym.cvar) <= 1 or \
@@ -11031,7 +11032,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     # when solve cannot solve an equation
                     log.warn(e)
 
-            # substitute svar for cvar and solve for svar
+            # (3) substitute svar for cvar and solve for svar
             if numsvar > 0:
                 try:
                     if  self.countVariables(eqnew, varsym.svar) <= 1 or \
@@ -11056,7 +11057,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 except NotImplementedError, e:
                     # when solve cannot solve an equation
                     log.warn(e)
-                    
+
+            # (4) neither cvar nor svar occurs
             if numcvar == 0 and numsvar == 0:
                 try:
                     tempsolutions = solve(eqnew, var)
@@ -11064,10 +11066,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     for s in tempsolutions:
                         eqsub = s.subs(symbols)
                         if self.codeComplexity(eqsub) < 2000:
-                            
-                            # TGN: ensure othersolvedvars is a subset of self.trigvars_subs
-                            assert(all([z not in self.trigvars_subs for z in othersolvedvars]))
-                            
                             eqsub = self.SimplifyTransform(self.trigsimp_new(eqsub))
                         jointsolutions.append(eqsub)
                         
@@ -11083,10 +11081,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     # when solve cannot solve an equation
                     log.warn(e)
                 continue
-            
+
+            # (5) try high-order solver
             try:
-                log.info('[SOLVE %i] solveSingleVariable tries solveHighDegreeEquationsHalfAngle for %r', \
-                         self._solutionStackCounter, var)
+                log.info('[SOLVE %i] solveSingleVariable tries solveHighDegreeEquationsHalfAngle to solve %r for %r', \
+                         self._solutionStackCounter, eqnew, var)
                 self._inc_solutionStackCounter()
                 solution = self.solveHighDegreeEquationsHalfAngle([eqnew], var, symbols)
                 solutions.append(solution.subs(symbols))
@@ -11104,8 +11103,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             return solutions
 
         try:
-            log.info('[SOLVE %i] solveSingleVariable tries solveHighDegreeEquationsHalfAngle for %r', \
-                     self._solutionStackCounter, var)
+            log.info('[SOLVE %i] solveSingleVariable tries solveHighDegreeEquationsHalfAngle to solve %r for %r', \
+                     self._solutionStackCounter, eqns, var)
             self._inc_solutionStackCounter()
             solution = self.solveHighDegreeEquationsHalfAngle(eqns, var)
         except self.CannotSolveError, e:
