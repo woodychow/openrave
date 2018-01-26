@@ -702,6 +702,7 @@ class IKFastSolver(AutoReloader):
 
         self._isAnalyzingEquations = False # True # False
         self._isUnderAnalysis = False # True # False
+        self._printSolution = False # True
         self._solutionStackCounter = 0
         # ================ End of TGN's addition ===============
 
@@ -1544,7 +1545,12 @@ class IKFastSolver(AutoReloader):
 
     def checkForDivideByZero(self, eq):
         """
-        Returns the equations to check for zero
+        Collects a set of divide-by-zero equations in EQ.
+
+        These equations occur in two situations:
+
+        (1) atan(x, y) in EQ yields either Abs(x)+Abs(y) or x*x+y*y, whichever is less complex;
+        (2) 1/Abs(x**2+y**2)**(1/2) in EQ yields x**2+y**2.
         """
 
         if eq.is_number or eq.is_Symbol:
@@ -8172,7 +8178,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         self.ComputeSolutionComplexity(solution, othersolvedvars, curvars)
                         if solution.numsolutions() > 0:
                             solutions.append((solution, curvar))
-                            solution.show()
+                            if self._printSolution:
+                                solution.show()
                             # exec(ipython_str, globals(), locals())
                         else:
                             log.warn('solution did not have any equations')
@@ -8315,7 +8322,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     for solution in rawsolutions:
                         self.ComputeSolutionComplexity(solution, othersolvedvars, curvars)
                         dummysolutions.append(solution)
-                        solution.show()
+                        if self._printSolution:
+                            solution.show()
                         # exec(ipython_str, globals(), locals())
                         
                 except self.CannotSolveError, e:
@@ -8399,7 +8407,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         # solution.subs(inv_freevarsubs)
                         self.ComputeSolutionComplexity(solution, othersolvedvars, curvars)
                         solutions.append((solution, Symbol(solution.jointname)))
-                        solution.show()
+                        if self._printSolution:
+                            solution.show()
                         # exec(ipython_str, globals(), locals())
                     
                     if len(rawsolutions) > 0: # solving a pair is rare, so any solution will do; TGN may try others
@@ -8433,7 +8442,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 try:
                     self.ComputeSolutionComplexity(solution, othersolvedvars, curvars)
                     solutions.append((solution, Symbol(solution.jointname)))
-                    solution.show()
+                    if self._printSolution:
+                        solution.show()
                     # exec(ipython_str, globals(), locals())
                 except self.CannotSolveError, e:
                     log.warn(u'equation failed to compute solution complexity: %s', solution.jointeval)
@@ -8852,7 +8862,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             self._dec_solutionStackCounter()
 
                         for s in ss:
-                            exec(ipython_str, globals(), locals())
+                            # exec(ipython_str, globals(), locals())
                             
                             # can actually simplify Positions and possibly get a new solution!
                             if s.jointeval is not None:
@@ -8874,7 +8884,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             log.warn('eq %s is imaginary, but currently do not support this', eq)
                                             continue
 
-                                        if not eq.is_number and not eq.has(*allothersolvedvars):
+                                        if eq.is_number or eq.has(*allothersolvedvars):
+                                            sineq = sin(eq).evalf(n=30)
+                                            coseq = cos(eq).evalf(n=30)
+                                            dictequations = []
+                                        else:
                                             # not dependent on variables
                                             # so it could be in the form of atan(px,py),
                                             # so we convert to a global symbol since it never changes
@@ -8884,10 +8898,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             dictequations = [(sym, eq), \
                                                              (sineq, self.SimplifyAtan2(sin(eq))), \
                                                              (coseq, self.SimplifyAtan2(cos(eq)))]
-                                        else:
-                                            sineq = sin(eq).evalf(n=30)
-                                            coseq = cos(eq).evalf(n=30)
-                                            dictequations = []
+                                            # exec(ipython_str, globals(), locals())
 
                                         cond = Abs(othervar-eq.evalf(n=30))
                                         if self.CheckExpressionUnique(handledconds, cond):
@@ -8912,8 +8923,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                         self.codeComplexity(eq) < 100):
                                         dictequations = []
                                         # test when cos(othervar) > 0
-                                        # DO NOT use asin(eq)
-                                        # because eq = (-pz**2/py**2)**(1/2) would produce imaginary numbers
+                                        # DO NOT use asin(eq) because eq = (-pz**2/py**2)**(1/2) would produce imaginary numbers
                                         #
                                         # cond = othervar-asin(eq).evalf(n=30)
                                         # test if eq is imaginary
@@ -8923,13 +8933,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                         if isimaginary:
                                             cond = abs(sothervar) + abs((eq**2).evalf(n=30)) + abs(sign(cothervar)-1)
                                         else:
-                                            if not eq.is_number and not eq.has(*allothersolvedvars):
-                                                # not dependent on variables
-                                                # so it could be in the form of atan(px,py),
-                                                # so we convert to a global symbol since it never changes
+                                            if not (eq.is_number or eq.has(*allothersolvedvars)):
                                                 sym = self.gsymbolgen.next()
-                                                dictequations.append((sym,eq))
-                                                #eq = sym
+                                                dictequations.append((sym, eq))
+                                                exec(ipython_str, globals(), locals())
                                             cond = abs(sothervar-eq.evalf(n=30)) + abs(sign(cothervar)-1)
 
                                         if self.CheckExpressionUnique(handledconds, cond):
@@ -8972,7 +8979,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                          (cos(othervar),   coseq), \
                                                          (othervar     , othereq)], \
                                                         dictequations]
-
                                             log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
                                             localsubstitutioneqs.append(toappend)
                                             handledconds.append(cond)
@@ -8986,8 +8992,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
                                         dictequations = []
                                         # test when sin(othervar) > 0
-                                        # DO NOT use acos(eq) because eq = (-pz**2/px**2)**(1/2),
-                                        # which would produce imaginary numbers
+                                        # DO NOT use acos(eq) because eq = (-pz**2/px**2)**(1/2) would produce imaginary numbers
                                         # that's why check eq.evalf().has(I)
                                         # cond = othervar-acos(eq).evalf(n=30)
                                         isimaginary = self.AreAllImaginaryByEval(eq) or \
@@ -8997,17 +9002,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             cond = abs(cothervar) + abs((eq**2).evalf(n=30)) + abs(sign(sothervar)-1)
                                         else:
                                             if not (eq.is_number or eq.has(*allothersolvedvars)):
-                                                # not dependent on variables
-                                                # so it could be in the form of atan(px,py),
-                                                # so convert to a global symbol since it never changes
                                                 sym = self.gsymbolgen.next()
                                                 dictequations.append((sym, eq))
-                                                eq = sym
+                                                # exec(ipython_str, globals(), locals())
                                             cond = abs(cothervar-eq.evalf(n=30)) + abs(sign(sothervar)-1)
 
                                         if self.CheckExpressionUnique(handledconds, cond):
                                             evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
-
                                             # case: angle = pi/2
                                             sineq, coseq, othereq = (S.One, S.Zero, (pi/2).evalf(n=30)) if isimaginary \
                                                                     else (sqrt(S.One-eq*eq).evalf(n=30), eq, \
@@ -9020,7 +9021,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                          (cos(othervar),   coseq), \
                                                          (othervar     , othereq)], \
                                                         dictequations]
-
                                             log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
                                             localsubstitutioneqs.append(toappend)
                                             handledconds.append(cond)
@@ -9031,7 +9031,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                          abs(cothervar-eq.evalf(n=30)))
                                         if self.CheckExpressionUnique(handledconds, cond):
                                             evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
-
                                             # case: angle = -pi/2
                                             sineq, coseq, othereq = (-S.One, S.Zero, (-pi/2).evalf(n=30)) if isimaginary \
                                                                     else (-sqrt(S.One-eq*eq).evalf(n=30), eq, \
@@ -9158,7 +9157,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     ishinge = []
                     for preal in self.Tee[:3,3]:
                         if checkzero.has(preal):
-                            possiblesubs.append([(preal,S.Zero)])
+                            possiblesubs.append([(preal, S.Zero)])
                             ishinge.append(False)
                             
                     # have to be careful with the rotations since they are dependent on each other.
@@ -9288,6 +9287,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                         col2 = int(possiblevar2.name[-1])
                                         possiblevarname = possiblevar.name[:-2]
 
+                                        # possiblevarname == 'new_r'
                                         # add constraints new_r02 = new_r12 = 0
                                         # if we see new_r20 = new_r21 = 0 in constraints, and vice versa
                                         if row1 == row2:
@@ -9300,26 +9300,23 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             ra, rb, rc, rd = [Symbol('%s%d%d'%(possiblevarname, row, col)) \
                                                               for row, col in \
                                                               product(otherrows, [col1, col2])]
-
-                                            checkexpr[2].append((rb**2, S.One-ra**2))
-                                            checkexpr[2].append((rb**3, rb-rb*ra**2)) 
-                                            checkexpr[2].append((rc**2, S.One-ra**2))
+                                            checkexpr[2] += [(rb**2, S.One-ra**2), \
+                                                             (rb**3, rb-rb*ra**2), \
+                                                             (rc**2, S.One-ra**2)  ]
                                             
                                         elif col1 == col2:
                                             assert(row1 != row2)
                                             row3 = 3 - row1 - row2
-                                            othercols = [0, 1, 2]
-                                            othercols.remove(col1)
+                                            othercols = [col for col in [0, 1, 2] if col!=col1]
                                             checkexpr[2] += [(Symbol('%s%d%d' % \
                                                                      (possiblevarname, row3, col)), \
                                                               S.Zero) for col in othercols]
                                             ra, rb, rc, rd = [Symbol('%s%d%d'%(possiblevarname, row, col))
                                                               for col, row in \
                                                               product(othercols, [row1, row2])]
-                                            
-                                            checkexpr[2].append((rb**2, S.One-ra**2))
-                                            checkexpr[2].append((rb**3, rb-rb*ra**2)) 
-                                            checkexpr[2].append((rc**2, S.One-ra**2))
+                                            checkexpr[2] += [(rb**2, S.One-ra**2), \
+                                                             (rb**3, rb-rb*ra**2), \
+                                                             (rc**2, S.One-ra**2)  ]
                                             
                                         log.info('dual constraint %s\n' + \
                                                  '	in %s', \
@@ -9327,7 +9324,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                  checkzero)
                                     else:
                                         # shouldn't have any rotation vars
-                                        if not possiblevar in rotsymbols and not possiblevar2 in rotsymbols:
+                                        if not (possiblevar in rotsymbols or possiblevar2 in rotsymbols):
                                             checkexpr = [[cond + cond2], \
                                                          evalcond + evalcond2, \
                                                          possiblesub + possiblesub2, \
@@ -9383,9 +9380,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                               self._iktype == 'rotation3d' else \
                               self.ppsubs
             
-        log.debug('c = %d, %d zero-substitution(s)', scopecounter, len(flatzerosubstitutioneqs))
+        log.debug('c = %d, %d zero-substitution(s):\n        %s', \
+                  scopecounter, len(flatzerosubstitutioneqs), \
+                  ("\n"+" "*8).join(str(x) for x in list(flatzerosubstitutioneqs)))
         
-        for iflatzerosubstitutioneqs, (cond, evalcond, othervarsubs, dictequations) in enumerate(flatzerosubstitutioneqs):
+        for iflatzerosubstitutioneqs, \
+            (cond, evalcond, othervarsubs, dictequations) in enumerate(flatzerosubstitutioneqs):
             # have to convert to fractions before substituting!
             if not all([self.isValidSolution(v) for s, v in othervarsubs]):
                 continue
@@ -9411,12 +9411,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             extrazerochecks.append(expr.subs(solsubs).evalf(n=30))
                             
                 if extrazerochecks is not None:
-                    newcases = set(currentcases)
                     
-                    for singlecond in cond:
-                        newcases.add(singlecond)
-                        
-                    if not self.degeneratecases.CheckCases(newcases):
+                    newcases = set(currentcases).union(set(cond))
+                    if self.degeneratecases.CheckCases(newcases):
+                        log.warn('already has handled cases %r', newcases)
+                    else:
                         log.info('depth = %d, c = %d, stackcounter = %d, iter = %d/%d\n' +\
                                  '        start new cases: %s', \
                                  len(currentcases), scopecounter, \
@@ -9500,8 +9499,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                  iflatzerosubstitutioneqs, len(flatzerosubstitutioneqs), \
                                  ("\n"+" "*23).join(str(x) for x in list(newcases)))
                         self.degeneratecases.AddCases(newcases)
-                    else:
-                        log.warn('already has handled cases %r', newcases)
                         
             except self.CannotSolveError, e:
                 log.debug(e)
