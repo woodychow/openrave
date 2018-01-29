@@ -5110,15 +5110,16 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     AllEquations.append(simplify((peq0.TC()*peq1.LC() - peq0.LC()*peq1.TC()).subs(self.invsubs)))
 
                 log.info(str(AllEquations))
-                #sol=self.SolvePairVariablesHalfAngle(AllEquations,usedvars[1],usedvars[2],[])
+                # sol = self.solvePairVariablesHalfAngle(AllEquations,usedvars[1],usedvars[2],[])
 
         # choose which leftvar can determine the singularity of the following equations!
         exportcoeffeqs = None
         getsubs = raghavansolutiontree[0].getsubs if len(raghavansolutiontree) > 0 else None
-        for ileftvar in range(len(dummys)):
-            leftvar = dummys[ileftvar]
+        for ileftvar, leftvar in enumerate(dummys):
             try:
-                exportcoeffeqs,exportmonoms = self.solveDialytically(newreducedeqs,ileftvar,getsubs=getsubs)
+                exportcoeffeqs, exportmonoms = self.solveDialytically(newreducedeqs, \
+                                                                      ileftvar, \
+                                                                      getsubs = getsubs)
                 break
             except self.CannotSolveError,e:
                 log.warn('failed with leftvar %s: %s',leftvar,e)
@@ -5906,7 +5907,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                        currentcasesubs = currentcasesubs)
                     
                     # solvable, which means we now have len(AllEquations)-1 with two variables, solve with half angles
-                    halfanglesolution = self.SolvePairVariablesHalfAngle(raweqns = [eq.subs(curvarsubs) for eq in AllEquations], \
+                    halfanglesolution = self.solvePairVariablesHalfAngle(raweqns = [eq.subs(curvarsubs) for eq in AllEquations], \
                                                                          var0 = unknownvars[0], \
                                                                          var1 = unknownvars[1], \
                                                                          othersolvedvars = self.freejointvars+[curvar])[0]
@@ -6023,15 +6024,15 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             try:
                 log.info('try to solve first two variables pairwise')
                 
-                #solution = self.SolvePairVariables(AllEquations,usedvars[0],usedvars[1],self.freejointvars,maxcomplexity=50)
+                #solution = self.solvePairVariables(AllEquations,usedvars[0],usedvars[1],self.freejointvars,maxcomplexity=50)
                 jointtrees = []
                 unusedvars = [s for s in solvejointvars if not s in usedvars]
                 raweqns = [eq for eq in AllEquations if not eq.has(tvar, *unusedvars)]
                 self._inc_solutionStackCounter()
                 if len(raweqns) > 1:
-                    log.info('[SOLVE %i] solveLiWoernleHiller calls SolvePairVariablesHalfAngle for %r, %r', \
+                    log.info('[SOLVE %i] solveLiWoernleHiller calls solvePairVariablesHalfAngle for %r, %r', \
                              self._solutionStackCounter-1, usedvars[0], usedvars[1])
-                    halfanglesolution = self.SolvePairVariablesHalfAngle(raweqns = raweqns, \
+                    halfanglesolution = self.solvePairVariablesHalfAngle(raweqns = raweqns, \
                                                                          var0 = usedvars[0], \
                                                                          var1 = usedvars[1], \
                                                                          othersolvedvars = self.freejointvars)[0]
@@ -7125,7 +7126,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
         Method also checks if the equations are linearly dependent.
 
-        Called by solveManochaCanny, solveLiWoernleHiller, solveKohliOsvatic, SolvePairVariablesHalfAngle
+        Called by solveManochaCanny, solveLiWoernleHiller, solveKohliOsvatic, solvePairVariablesHalfAngle
         """
         self._CheckPreemptFn(progress = 0.12)
         if len(dialyticeqs) == 0:
@@ -8372,14 +8373,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         ## (3a) Solve (>=2) equations for a pair of one prismatic variable and one hinge variable using
         #       solvePrismaticHingePairVariables
         for var0, var1, raweqns, complexity in curvarsubssol:
-            # check before calling SolvePrismaticHingePairVariables
+            # check before calling solvePrismaticHingePairVariables
             if (self.IsPrismatic(var0.name) and self.IsHinge(var1.name)) or \
                (self.IsPrismatic(var1.name) and self.IsHinge(var0.name)):
                 try:
-                    log.info('[SOLVE %i] SolveAllEquations calls SolvePrismaticHingePairVariables for %r, %r', \
+                    log.info('[SOLVE %i] SolveAllEquations calls solvePrismaticHingePairVariables for %r, %r', \
                              self._solutionStackCounter, var0, var1)
                     self._inc_solutionStackCounter()
-                    rawsolutions = self.SolvePrismaticHingePairVariables(raweqns, var0, var1, \
+                    rawsolutions = self.solvePrismaticHingePairVariables(raweqns, var0, var1, \
                                                                      othersolvedvars, \
                                                                      unknownvars = curvars + unknownvars)
                     for solution in rawsolutions:
@@ -8393,7 +8394,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     if len(rawsolutions) > 0: # solving a pair is rare, so any solution will do; TGN may try others
                         break
                 except self.CannotSolveError, e:
-                    log.info('[SOLVE %i] Cannot use SolvePrismaticHingePairVariables to solve for %r, %r: %s', \
+                    log.info('[SOLVE %i] Cannot use solvePrismaticHingePairVariables to solve for %r, %r: %s', \
                              self._solutionStackCounter, var0, var1, e)
                     pass
                 finally:
@@ -8402,14 +8403,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         ## (3b) Solve (>=2) equations for a pair of hinge variables using solvePairVariables           
         for var0, var1, raweqns, complexity in curvarsubssol:
             try:
-                log.info('[SOLVE %i] SolveAllEquations calls SolvePairVariables for %r, %r', \
+                log.info('[SOLVE %i] SolveAllEquations calls solvePairVariables for %r, %r', \
                          self._solutionStackCounter, var0, var1)
                 self._inc_solutionStackCounter()
-                rawsolutions = self.SolvePairVariables(raweqns, var0, var1, \
+                rawsolutions = self.solvePairVariables(raweqns, var0, var1, \
                                                        othersolvedvars, \
                                                        unknownvars = curvars + unknownvars)
             except self.CannotSolveError, e:
-                log.info('[SOLVE %i] Cannot use SolvePairVariables to solve for %r, %r', \
+                log.info('[SOLVE %i] Cannot use solvePairVariables to solve for %r, %r', \
                          self._solutionStackCounter, var0, var1)
                 log.debug(e)
                 rawsolutions = []
@@ -9659,442 +9660,16 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     self._dec_solutionStackCounter()                    
 
         raise self.CannotSolveError('Cannot find a good variable to solve for')
-    
-    def SolvePairVariablesHalfAngle(self, raweqns, var0, var1, \
-                                    othersolvedvars, tosubs = []):
-        """
-        Solves equations of two variables var0, var1 in sin, cos
-
-        Called by SolvePairVariables, solveLiWoernleHiller.
-        """
-
-        log.info('[SOLVE %i] Starting SolvePairVariablesHalfAngle for %r, %r', \
-                 self._solutionStackCounter, var0, var1)
-        
-        import itertools
-
-        varsym0 = self.getVariable(var0)
-        varsym1 = self.getVariable(var1)
-        varsyms = [varsym0, varsym1]
-        
-        unknownvars = [varsym0.cvar, varsym0.svar, \
-                       varsym1.cvar, varsym1.svar  ]
-        
-        varsubs    = varsym0.subs    + varsym1.subs
-        varsubsinv = varsym0.subsinv + varsym1.subsinv
-
-        # numerators
-        halftannum   = [1-varsym0.htvar**2, 2*varsym0.htvar, \
-                        1-varsym1.htvar**2, 2*varsym1.htvar]
-        # denominators
-        halftandenom = [1+varsym0.htvar**2, 1+varsym1.htvar**2]
-
-        # half tangent substitutions
-        halftansubs = [(varsym0.cvar, halftannum[0] / halftandenom[0]), \
-                       (varsym0.svar, halftannum[1] / halftandenom[0]), \
-                       (varsym1.cvar, halftannum[2] / halftandenom[1]), \
-                       (varsym1.svar, halftannum[3] / halftandenom[1])  ]
-                       
-
-        dummyvars = [self.getVariable(othervar) for othervar in othersolvedvars]
-        dummyvars = self.jointlists([[v.cvar, v.svar, v.var, v.htvar] for v in dummyvars])
-
-        trigsubs = [(varsym0.svar**2,               1-varsym0.cvar**2),  \
-                    (varsym0.svar**3, varsym0.svar*(1-varsym0.cvar**2)), \
-                    (varsym1.svar**2,               1-varsym1.cvar**2),  \
-                    (varsym1.svar**3, varsym1.svar*(1-varsym1.cvar**2))]
-            
-        polyeqs = []
-        for eq in raweqns:
-
-            # unknownvars = [ cv1, sv1, cv2, sv2 ]
-            peq = Poly(eq.subs(varsubs).subs(trigsubs).expand().subs(trigsubs), *unknownvars)
-            
-            if peq.has(varsym0.var) or peq.has(varsym1.var):
-                raise self.CannotSolveError('Expecting only sin and cos! %s' % peq)
-            
-            maxdenom  = [ max([monoms[0]+monoms[1] for monoms in peq.monoms()]), \
-                          max([monoms[2]+monoms[3] for monoms in peq.monoms()])  ]
-
-            eqnew = S.Zero
-            
-            for monoms, c in peq.terms():
-                """
-                print '\nmonoms = ', monoms, '\nc = ', c
-                term = c 
-                for i in range(4): 
-                    num, denom = fraction(halftansubs[i][1]) 
-                    term *= num**monoms[i] 
- 
-                # the denoms for 0,1 and 2,3 are the same 
-                for i in [0, 2]: 
-                    denom = fraction(halftansubs[i][1])[1] 
-                    term *= denom**(maxdenom[i/2] - monoms[i] - monoms[i+1])
-                complexityvalue = self.codeComplexity(term.expand()) 
-                if complexityvalue < 450: 
-                    eqnew += simplify(term) 
-                else: 
-                    # too big, so don't simplify? 
-                    eqnew += term    
-                """
-
-                term = c
-                for i in range(4):
-                    term *= halftannum[i]**monoms[i]
-                    
-                term *= halftandenom[0]**(maxdenom[0]-monoms[0]-monoms[1])
-                term *= halftandenom[1]**(maxdenom[1]-monoms[2]-monoms[3])
-
-                # too big, so don't simplify?
-                eqnew += simplify(term) if self.codeComplexity(term.expand())<450 else term
-                
-            polyeq = Poly(eqnew, varsym0.htvar, varsym1.htvar)
-
-            
-            if polyeq.TC() == S.Zero:
-                log.info('Trailing coefficient is 0, i.e. for power (0,0)')
-
-
-                # might be able to divide out variables?
-                minmonoms = None
-                for monom in polyeq.monoms():
-                    if minmonoms is None:
-                        minmonoms = list(monom)
-                    else:
-                        for i in range(len(minmonoms)):
-                            minmonoms[i] = min(minmonoms[i],monom[i])
-                            
-                newpolyeq = Poly(S.Zero, *polyeq.gens)
-                for m, c in polyeq.terms():
-                    newm = list(m)
-                    for i in range(len(minmonoms)):
-                        newm[i] -= minmonoms[i]
-                    newpolyeq = newpolyeq.add(Poly.from_dict({tuple(newm):c}, \
-                                                             *newpolyeq.gens))
-                    
-                log.warn('Converting "%s" to "%s"' % (polyeq, newpolyeq))
-                
-                # check if any equations are only in one variable
-                polyeq = newpolyeq
-                
-            polyeqs.append(polyeq)
-
-        eqtosolve = self.sortComplexity([e.as_expr() for e in polyeqs if not e.has(varsym1.htvar)])
-        if len(eqtosolve)>0:
-            try:
-                return self.solveSingleVariable(eqtosolve, varsym0.var, \
-                                                othersolvedvars, unknownvars = [])
-            except self.CannotSolveError:
-                log.info('solveSingleVariable fails to solve %r', varsym0.var)
-
-        else:
-            eqtosolve = self.sortComplexity([e.as_expr() for e in polyeqs if not e.has(varsym0.htvar)])
-            if len(eqtosolve)>0:
-                try:
-                    return self.solveSingleVariable(eqtosolve, varsym1.var, \
-                                            othersolvedvars, unknownvars = [])
-                except self.CannotSolveError:
-                    log.info('solveSingleVariable fails to solve %r', varsym1.var)
-
-        #complexity = [(self.codeComplexity(peq.as_expr()), peq) for peq in polyeqs]
-        #complexity.sort(key = itemgetter(0))
-        #polyeqs = [peq[1] for peq in complexity]
-
-        polyeqs.sort(key = lambda x: x.count_ops())
-        
-        solutions = [None, None]
-        linearsolution = None
-        for ileftvar in (0,1):
-            if linearsolution is not None:
-                log.info('Found linearsolution')
-                break
-            
-            leftvar = varsyms[ileftvar].htvar
-            newpolyeqs = [Poly(eq,varsyms[1-ileftvar].htvar) for eq in polyeqs]
-            maxdeglist = [max(peq.degree_list()) for peq in newpolyeqs]
-            mindegree = __builtin__.min(maxdeglist)
-            maxdegree = __builtin__.max(maxdeglist)
-
-            for peq in newpolyeqs:
-                if len(peq.monoms()) == 1:
-                    possiblefinaleq = self.checkFinalEquation(Poly(peq.LC(), leftvar), tosubs)
-                    if possiblefinaleq is not None:
-                        solutions[ileftvar] = [possiblefinaleq]
-                        break
-                    
-            for degree in range(mindegree, maxdegree+1):
-                if not (solutions[ileftvar] is None and linearsolution is None):
-                    log.info('Found either solutions[ileftvar] or linearsolution')
-                    break
-                
-                newpolyeqs2 = [peq for peq in newpolyeqs \
-                               if max(peq.degree_list()) <= degree]
-                
-                if degree+1 <= len(newpolyeqs2):
-                    # To avoid wrong solutions, we get resultants for all equations
-                    possibilities = []
-                    unusedindices = range(len(newpolyeqs2))
-                    for eqsindices in combinations(range(len(newpolyeqs2)), degree+1):
-                        Mall = zeros((degree+1, degree+1))
-                        totalcomplexity = 0
-                        for i, eqindex in enumerate(eqsindices):
-                            eq = newpolyeqs2[eqindex]
-                            for j, c in eq.terms():
-                                totalcomplexity += self.codeComplexity(c.expand())
-                                Mall[i, j[0]] = c
-                        if degree >= 4 and totalcomplexity > 5000:
-                            # the determinant will never finish otherwise
-                            continue
-                        # det_bareis freezes when there are huge fractions
-                        # det=self.det_bareis(Mall, *(self.pvars+dummyvars+[leftvar]))
-                        # for i in range(Mall.shape[0]):
-                        #      for j in range(Mall.shape[1]):
-                        #          Mall[i,j] = Poly(Mall[i,j], leftvar)
-
-                        try:
-                            Malldet = Mall.berkowitz_det()
-                            # log.info('Try simplifying det(Mall)')
-                            # Malldet = simplify(Malldet)
-                            # print Malldet
-                            # log.info('Finished simplifying of of det(Mall)')
-                        except Exception, e:
-                            log.warn('Failed to compute det(Mall): %s', e)
-                            continue
-                        
-                        complexity = self.codeComplexity(Malldet)
-                        if complexity > 1200:
-                            log.warn('Complexity of det(Mall) is too big: %d', complexity)
-                            continue
-
-                        possiblefinaleq = self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)
-                        if possiblefinaleq is not None:
-                            # sometimes +- I are solutions, so remove them
-                            q, r = div(possiblefinaleq, leftvar+I)
-                            if r == S.Zero:
-                                possiblefinaleq = Poly(q, leftvar)
-                                
-                            q, r = div(possiblefinaleq, leftvar-I)
-                            if r == S.Zero:
-                                possiblefinaleq = Poly(q, leftvar)
-                                
-                            possibilities.append(possiblefinaleq)
-
-                            unusedindices = [ind for ind in unusedindices if ind not in eqsindices]
-                            if len(unusedindices) == 0:
-                                break # break degree in range(mindegree, maxdegree+1)
-
-                    if len(possibilities) > 1:
-                        try:
-                            linearsolutions = self.solveVariablesLinearly(possibilities, othersolvedvars)
-                            log.info('solveVariablesLinearly has found some solution for %r', possibilities[0].gens)
-                            
-                            # if can solve for a unique solution linearly, then prioritize this over anything
-                            prevsolution = AST.SolverBreak('SolvePairVariablesHalfAngle fail')
-                            for divisor, linearsolution in linearsolutions:
-                                assert(len(linearsolution)==1)
-                                divisorsymbol = self.gsymbolgen.next()
-                                
-                                # Call AST SolverSolution constructor
-                                solversolution = AST.SolverSolution(varsyms[ileftvar].name, \
-                                                                    jointeval = [2*atan(linearsolution[0]/divisorsymbol)], \
-                                                                    isHinge = self.IsHinge(varsyms[ileftvar].name))
-                                
-                                # Call AST SolverCheckZeros constructor
-                                prevsolution = AST.SolverCheckZeros(varsyms[ileftvar].name, \
-                                                                    [divisorsymbol], \
-                                                                    zerobranch    = [prevsolution], \
-                                                                    nonzerobranch = [solversolution], \
-                                                                    thresh = 1e-6)
-                                    
-                                prevsolution.dictequations = [(divisorsymbol, divisor)]
-                            linearsolution = prevsolution
-                            break
-                        
-                        except self.CannotSolveError:
-                            log.info('solveVariablesLinearly failed to find %r', possibilities[0].gens)
-                            pass
-                        
-                    if len(possibilities) > 0:
-                        # sort with respect to degree
-                        # equationdegrees = [(max(peq.degree_list())*100000 + \
-                        #                     self.codeComplexity(peq.as_expr()), peq) \
-                        #                    for peq in possibilities]
-                        # equationdegrees.sort(key=itemgetter(0))
-                        possibilities.sort(key = lambda x: max(x.degree_list())*100000+x.count_ops())
-                        solutions[ileftvar] = possibilities # [peq[1] for peq in equationdegrees]
-                        break
-                    
-        if linearsolution is not None:
-            log.info('[SOLVE %i] SolvePairVariablessHalfAngle returns a linear solution.', \
-                     self._solutionStackCounter)
-            return [linearsolution]
-        
-        # take the solution with the smallest degree
-        if solutions[0] is None:
-            if solutions[1] is None:
-
-                log.info('SolvePairVariablesHalfAngle has not found any solution yet.')
-                
-                pfinals  = None
-                ileftvar = None
-            else:
-                pfinals  = solutions[1]
-                ileftvar = 1
-        elif solutions[1] is None:
-            pfinals = solutions[0]
-            ileftvar = 0
-        else:
-            maxsol0deglist = max(solutions[0][0].degree_list())
-            maxsol1deglist = max(solutions[1][0].degree_list())
-                
-            if   maxsol1deglist < maxsol0deglist:
-                pfinals = solutions[1]
-                ileftvar = 1
-            elif maxsol1deglist == maxsol1deglist and \
-                 self.codeComplexity(solutions[1][0].as_expr()) < self.codeComplexity(solutions[0][0].as_expr()):
-                pfinals = solutions[1]
-                ileftvar = 1
-            else:
-                pfinals = solutions[0]
-                ileftvar = 0
-                
-        dictequations = []
-        if pfinals is None:
-            #simplifyfn = self._createSimplifyFn(self.freevarsubs, self.freevarsubsinv)
-            for newreducedeqs in combinations(polyeqs, 2):
-                try:
-                    Mall = None
-                    numrepeating = None
-                    for ileftvar in range(2):
-                        # TODO, sometimes this works and sometimes this doesn't
-                        try:
-                            Mall, allmonoms = self.solveDialytically(newreducedeqs, ileftvar, \
-                                                                     returnmatrix = True)
-                            if Mall is not None:
-                                leftvar = polyeqs[0].gens[ileftvar]
-                                break
-                        except self.CannotSolveError, e:
-                            log.debug(e)
-                        
-                    if Mall is None:
-                        continue
-                    
-                    shape=Mall[0].shape
-                    assert(shape[0] == 4 and shape[1] == 4)
-                    Malltemp = [None]*len(Mall)
-                    M = zeros(shape)
-                    for idegree in range(len(Mall)):
-                        Malltemp[idegree] = zeros(shape)
-                        for i in range(shape[0]):
-                            for j in range(shape[1]):
-                                if Mall[idegree][i,j] != S.Zero:
-                                    if self.codeComplexity(Mall[idegree][i,j]) > 5:
-                                        sym = self.gsymbolgen.next()
-                                        Malltemp[idegree][i,j] = sym
-                                        dictequations.append((sym, Mall[idegree][i, j]))
-                                    else:
-                                        Malltemp[idegree][i, j] = Mall[idegree][i, j]
-                        M += Malltemp[idegree]*leftvar**idegree
-                        
-                    tempsymbols = [self.gsymbolgen.next() for i in range(16)]
-                    tempsubs = []
-                    for i in range(16):
-                        if M[i] != S.Zero:
-                            tempsubs.append((tempsymbols[i], Poly(M[i], leftvar)))
-                        else:
-                            tempsymbols[i] = S.Zero
-                            
-                    Mtemp = Matrix(4, 4,tempsymbols)                    
-                    dettemp = Mtemp.det()
-                    log.info('Multiplying all determinant coefficients to solve %s', leftvar)
-                    eqadds = []
-                    for arg in dettemp.args:
-                        eqmuls = [Poly(arg2.subs(tempsubs), leftvar) for arg2 in arg.args]
-                        
-                        if sum(eqmuls[0].degree_list()) == 0:
-                            eq = eqmuls.pop(0)
-                            eqmuls[0] = eqmuls[0]*eq
-                            
-                        while len(eqmuls) > 1:
-                            ioffset = 0
-                            eqmuls2 = []
-                            while ioffset < len(eqmuls)-1:
-                                eqmuls2.append(eqmuls[ioffset]*eqmuls[ioffset+1])
-                                ioffset += 2
-                            eqmuls = eqmuls2
-                        eqadds.append(eqmuls[0])
-                        
-                    log.info('Done multiplying all determinant. Now convert to Poly')
-                    det = Poly(S.Zero, leftvar)
-                    for ieq, eq in enumerate(eqadds):
-                        # log.info('adding to det %d/%d', ieq, len(eqadds))
-                        det += eq
-                        
-                    if len(Mall) <= 3:
-                        # need to simplify further since self.globalsymbols can have important substitutions
-                        # that can yield the entire determinant to zero
-                        log.info('Attempt to simplify determinant')
-                        newdet = Poly(S.Zero,leftvar)
-                        for m, c in det.terms():
-                            origComplexity = self.codeComplexity(c)
-                            # 100 is a guess
-                            if origComplexity < 100:
-                                neweq = c.subs(dictequations)
-                                if self.codeComplexity(neweq) < 100:
-                                    neweq = self._SubstituteGlobalSymbols(neweq).expand()
-                                    newComplexity = self.codeComplexity(neweq)
-                                    if newComplexity < origComplexity:
-                                        c = neweq
-                            newdet += c*leftvar**m[0]
-                        det = newdet
-                    if det.degree(0) <= 0:
-                        continue
-                    pfinals = [det]
-                    break
-                except self.CannotSolveError,e:
-                    log.debug(e)
-        else:
-            log.info('SolvePairVariableHalfAngle has found %d pfinals', len(pfinals))
-                    
-                    
-        if pfinals is None:
-            raise self.CannotSolveError('SolvePairVariablesHalfAngle: ' + \
-                                        'failed to solve dialytically with %d equations'% \
-                                        len(polyeqs))
-
-        log.info('SolvePairVariableHalfAngle has found %d pfinal(s)', len(pfinals))
-        jointsol = 2*atan(varsyms[ileftvar].htvar)
-
-        # Call AST SolverPolynomialRoots constructor
-        solution = AST.SolverPolynomialRoots(jointname = varsyms[ileftvar].name, \
-                                             poly      = pfinals[0], \
-                                             jointeval = [jointsol], \
-                                             isHinge   = self.IsHinge(varsyms[ileftvar].name))
-        if len(pfinals) > 1:
-            # verify with at least one solution
-            solution.postcheckfornonzeros = [peq.as_expr() for peq in pfinals[1:2]]
-            solution.polybackup = pfinals[1]
-        solution.postcheckforrange = []
-        solution.dictequations = dictequations
-        solution.postcheckfornonzerosThresh = 1e-7
-        # make threshold a little loose since can be a lot of numbers compounding.
-        # depending on the degree, can expect small coefficients to be still valid
-        solution.AddHalfTanValue = True
-
-        log.info('[SOLVE %i] SolvePairVariableHalfAngle returns some solution', \
-                 self._solutionStackCounter)
-        
-        return [solution]
 
     """
     def _createSimplifyFn(self, varsubs, varsubsinv):
-        # called by SolvePairVariablesHalfAngle but commented out
+        # called by solvePairVariablesHalfAngle but commented out
         return lambda eq: self.trigsimp_new(eq.subs(varsubsinv)).subs(varsubs)
     """
                 
     def solveVariablesLinearly(self, polyeqs, othersolvedvars, maxsolvabledegree = 4):
         """
-        Called by SolvePairVariablesHalfAngle only.
+        Called by solvePairVariablesHalfAngle only.
         """
 
         log.debug('solveVariablesLinearly:\n' + \
@@ -10210,7 +9785,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
         Need >=3 equations.
 
-        Called by SolvePairVariables only.
+        Called by solvePairVariables only.
         """
         cvar = Symbol('c%s' % solvevar.name)
         svar = Symbol('s%s' % solvevar.name)
@@ -10274,7 +9849,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         """
         Solve a set of equations in one variable with half-angle substitution.
 
-        Called by SolvePairVariables, solveSingleVariable, (not sure if necessary) SolveAllEquations.
+        Called by solvePairVariables, solveSingleVariable, (not sure if necessary) SolveAllEquations.
         """
 
         log.info('[SOLVE %i] Starting solveHighDegreeEquationsHalfAngle for %r', \
@@ -10533,12 +10108,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         """
         Called by 
 
-        SolvePrismaticHingePairVariables
-        SolvePairVariables
+        solvePrismaticHingePairVariables
+        solvePairVariables
         solveFullIK_TranslationAxisAngle4D
         SolveAllEquations
         AddSolution
-        SolvePairVariablesHalfAngle
+        solvePairVariablesHalfAngle
         """
 
         log.info('[SOLVE %i] Starting solveSingleVariable for %r', \
@@ -11109,16 +10684,16 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                  self._solutionStackCounter, var)
         return [solution]
 
-    def SolvePrismaticHingePairVariables(self, raweqns, \
+    def solvePrismaticHingePairVariables(self, raweqns, \
                                          var0, var1, \
                                          othersolvedvars, \
                                          unknownvars = None):
         """
         Solves one hinge and one prismatic variable together.
 
-        Called by SolveAllEquations only so far.
+        Called by SolveAllEquations only.
         """
-        log.info('[SOLVE %i] Starting SolvePrismaticHingePairVariables for %r, %r', \
+        log.info('[SOLVE %i] Starting solvePrismaticHingePairVariables for %r, %r', \
                  self._solutionStackCounter, var0, var1)
 
         eqns = [eqn for eqn in raweqns if eqn.has(var0, var1)]
@@ -11167,12 +10742,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 if solveSymbol == solveSymbol2:
                     # have a solution for one variable,
                     # so substitute it in and see if the equations become solvable with one variable
+                    #
+                    # TGN: after substitution, solveSymbol is gone. How come solveSingleVariable solves for it?
                     polyeqs2 = [simplify(polyeq.as_expr().subs(solvesubs)) for polyeq in polyeqs]
                     reducedeqs = [eqnew for eqnew in polyeqs2 if eqnew != S.Zero]
                     self.sortComplexity(reducedeqs)
                     
                     try:
-                        log.info('[SOLVE %i] SolvePrismaticHingePairVariables tries solveSingleVariable for %r', \
+                        log.info('[SOLVE %i] solvePrismaticHingePairVariables tries solveSingleVariable for %r', \
                                  self._solutionStackCounter, solveSymbol)
                         self._inc_solutionStackCounter()
                         rawsolutions = self.solveSingleVariable(reducedeqs, \
@@ -11180,7 +10757,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                 othersolvedvars, \
                                                                 unknownvars = unknownvars)
                         if len(rawsolutions) > 0:
-                            log.info('[SOLVE %i] SolvePrismaticHingePairVariables returns a solution for %r', \
+                            log.info('[SOLVE %i] solvePrismaticHingePairVariables returns a solution for %r', \
                                      self._solutionStackCounter, solveSymbol)
                             return rawsolutions
 
@@ -11191,9 +10768,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     finally:
                         self._dec_solutionStackCounter()
                 
-        raise self.CannotSolveError(u'SolvePrismaticHingePairVariables: failed to find variable with degree 1')
+        raise self.CannotSolveError(u'solvePrismaticHingePairVariables: failed to find variable with degree 1')
         
-    def SolvePairVariables(self, raweqns, var0, var1, \
+    def solvePairVariables(self, raweqns, var0, var1, \
                            othersolvedvars, \
                            maxcomplexity = 50, \
                            unknownvars = None):
@@ -11203,7 +10780,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         Called by SolveAllEquations only.
         """
         
-        log.info('[SOLVE %i] Starting SolvePairVariables for %r, %r', \
+        log.info('[SOLVE %i] Starting solvePairVariables for %r, %r', \
                  self._solutionStackCounter, var0, var1)
         
         # make sure both variables are hinges
@@ -11383,7 +10960,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         # try single variable solution, only return if a single solution has been found
         # returning multiple solutions when only one exists can lead to wrong results.
         try:
-            log.info('[SOLVE %i] SolvePairVariables tries solveSingleVariable for %r', \
+            log.info('[SOLVE %i] solvePairVariables tries solveSingleVariable for %r', \
                      self._solutionStackCounter, var0)
             self._inc_solutionStackCounter()
             rawsolutions += self.solveSingleVariable(self.sortComplexity([e.as_expr().subs(varsubsinv).expand() \
@@ -11401,7 +10978,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             self._dec_solutionStackCounter()
 
         try:
-            log.info('[SOLVE %i] SolvePairVariables tries solveSingleVariable for %r', \
+            log.info('[SOLVE %i] solvePairVariables tries solveSingleVariable for %r', \
                      self._solutionStackCounter, var1)
             self._inc_solutionStackCounter()
             rawsolutions += self.solveSingleVariable(self.sortComplexity([e.as_expr().subs(varsubsinv).expand() \
@@ -11427,7 +11004,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     pass
                 
             if len(solutions) > 0:
-                log.info('[SOLVE %i] SolvePairVariables returns a solution for %r, %r', \
+                log.info('[SOLVE %i] solvePairVariables returns a solution for %r, %r', \
                          self._solutionStackCounter, var0, var1)
                 return solutions
         
@@ -11494,12 +11071,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             
             if len(goodgroup) == 0:
                 try:
-                    log.info('[SOLVE %i] SolvePairVariables tries SolvePairVariablesHalfAngle for %r, %r', \
+                    log.info('[SOLVE %i] solvePairVariables tries solvePairVariablesHalfAngle for %r, %r', \
                              self._solutionStackCounter, var0, var1)
                     self._inc_solutionStackCounter()
-                    return self.SolvePairVariablesHalfAngle(raweqns, var0, var1, othersolvedvars)
+                    return self.solvePairVariablesHalfAngle(raweqns, var0, var1, othersolvedvars)
                 except self.CannotSolveError,e:
-                    log.info('[SOLVE %i] Cannot use SolvePairVariablesHalfAngle to solve for %r, %r', \
+                    log.info('[SOLVE %i] Cannot use solvePairVariablesHalfAngle to solve for %r, %r', \
                              self._solutionStackCounter, var0, var1)
                     log.warn('%s', e)
                 finally:
@@ -11570,18 +11147,18 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                          jointeval = [jointsol], \
                                                                          isHinge = self.IsHinge(var.name))
                                     solution.postcheckforzeros = [ptotal_sin.as_expr()]
-                                    log.info('[SOLVE %i] SolvePairVariables returns a solution for %r, %r', \
+                                    log.info('[SOLVE %i] solvePairVariables returns a solution for %r, %r', \
                                              self._solutionStackCounter, var0, var1)
                                     return [solution]
 
-                log.info('[SOLVE %i] SolvePairVariables tries solveSingleVariableLinearly for %r', \
+                log.info('[SOLVE %i] solvePairVariables tries solveSingleVariableLinearly for %r', \
                          self._solutionStackCounter, var0)
                 # if maxnumeqs is any less, it will miss linearly independent equations
                 lineareqs = self.solveSingleVariableLinearly(raweqns, var0, [var1], \
                                                              maxnumeqs = len(raweqns))
                 if len(lineareqs) > 0:
                     try:
-                        log.info('[SOLVE %i] SolvePairVariables tries solveHighDegreeEquationsHalfAngle for %r', \
+                        log.info('[SOLVE %i] solvePairVariables tries solveHighDegreeEquationsHalfAngle for %r', \
                                 self._solutionStackCounter, var1)
                         self._inc_solutionStackCounter()
                         return [self.solveHighDegreeEquationsHalfAngle(lineareqs, var1)]
@@ -11655,32 +11232,32 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     finaleq = expand(p0.as_expr().subs(allsymbols))
                     
         if finaleq is None:
-            log.warn('SolvePairVariables: did not compute a final variable. This is a weird condition...')
-            log.info('SolvePairVariables tries SolvePairVariablesHalfAngle')
-            return self.SolvePairVariablesHalfAngle(raweqns, var0, var1, othersolvedvars)
+            log.warn('solvePairVariables: did not compute a final variable. This is a weird condition...')
+            log.info('solvePairVariables tries solvePairVariablesHalfAngle')
+            return self.solvePairVariablesHalfAngle(raweqns, var0, var1, othersolvedvars)
         
         if not self.isValidSolution(finaleq):
             log.warn('failed to solve pairwise equation: %s'%str(finaleq))
-            log.info('SolvePairVariables tries SolvePairVariablesHalfAngle')
-            return self.SolvePairVariablesHalfAngle(raweqns, var0, var1, othersolvedvars)
+            log.info('solvePairVariables tries solvePairVariablesHalfAngle')
+            return self.solvePairVariablesHalfAngle(raweqns, var0, var1, othersolvedvars)
 
         newunknownvars = unknownvars[:]
         newunknownvars.remove(unknownvar)
         if finaleq.has(*newunknownvars):
             log.warn('equation relies on unsolved variables(%s):\n' + \
                      '        %s', newunknownvars, finaleq)
-            log.info('SolvePairVariables tries SolvePairVariablesHalfAngle')
-            return self.SolvePairVariablesHalfAngle(raweqns, var0, var1, othersolvedvars)
+            log.info('solvePairVariables tries solvePairVariablesHalfAngle')
+            return self.solvePairVariablesHalfAngle(raweqns, var0, var1, othersolvedvars)
 
         if not finaleq.has(unknownvar):
             # somehow removed all variables, so try the general method
-            log.info('SolvePairVariables tries SolvePairVariablesHalfAngle')
-            return self.SolvePairVariablesHalfAngle(raweqns, var0, var1, othersolvedvars)
+            log.info('solvePairVariables tries solvePairVariablesHalfAngle')
+            return self.solvePairVariablesHalfAngle(raweqns, var0, var1, othersolvedvars)
 
         try:
             if self.codeComplexity(finaleq) > 100000:
-                log.info('SolvePairVariables tries SolvePairVariablesHalfAngle')
-                return self.SolvePairVariablesHalfAngle(raweqns, var0, var1, othersolvedvars)
+                log.info('solvePairVariables tries solvePairVariablesHalfAngle')
+                return self.solvePairVariablesHalfAngle(raweqns, var0, var1, othersolvedvars)
             
         except self.CannotSolveError:
             pass
@@ -11689,7 +11266,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # conic roots solver not as robust as half-angle transform!
             # return [SolverConicRoots(var.name, [finaleq], isHinge = self.IsHinge(var.name))]
             
-            log.info('SolvePairVariables tries solveHighDegreeEquationsHalfAngle')
+            log.info('solvePairVariables tries solveHighDegreeEquationsHalfAngle')
             solution = self.solveHighDegreeEquationsHalfAngle([finaleq], var)
             solution.checkforzeros += checkforzeros
             log.info('solvePairVariables returns a solution')
@@ -11716,12 +11293,438 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 solversolution.jointevalcos = processedsolutions
             else:
                 solversolution.jointevalsin = processedsolutions
-            log.info('SolvePairVariables returns a solution')
+            log.info('solvePairVariables returns a solution')
             return [solversolution]
         
-        log.info('SolvePairVariables tries SolvePairVariablesHalfAngle')
-        return self.SolvePairVariablesHalfAngle(raweqns, var0, var1, othersolvedvars)
+        log.info('solvePairVariables tries solvePairVariablesHalfAngle')
+        return self.solvePairVariablesHalfAngle(raweqns, var0, var1, othersolvedvars)
+
+    def solvePairVariablesHalfAngle(self, raweqns, var0, var1, \
+                                    othersolvedvars, tosubs = []):
+        """
+        Solves equations of two variables var0, var1 in sin, cos
+
+        Called by solvePairVariables, solveLiWoernleHiller.
+        """
+
+        log.info('[SOLVE %i] Starting solvePairVariablesHalfAngle for %r, %r', \
+                 self._solutionStackCounter, var0, var1)
         
+        import itertools
+
+        varsym0 = self.getVariable(var0)
+        varsym1 = self.getVariable(var1)
+        varsyms = [varsym0, varsym1]
+        
+        unknownvars = [varsym0.cvar, varsym0.svar, \
+                       varsym1.cvar, varsym1.svar  ]
+        
+        varsubs    = varsym0.subs    + varsym1.subs
+        varsubsinv = varsym0.subsinv + varsym1.subsinv
+
+        # numerators
+        halftannum   = [1-varsym0.htvar**2, 2*varsym0.htvar, \
+                        1-varsym1.htvar**2, 2*varsym1.htvar]
+        # denominators
+        halftandenom = [1+varsym0.htvar**2, 1+varsym1.htvar**2]
+
+        # half tangent substitutions
+        halftansubs = [(varsym0.cvar, halftannum[0] / halftandenom[0]), \
+                       (varsym0.svar, halftannum[1] / halftandenom[0]), \
+                       (varsym1.cvar, halftannum[2] / halftandenom[1]), \
+                       (varsym1.svar, halftannum[3] / halftandenom[1])  ]
+                       
+
+        dummyvars = [self.getVariable(othervar) for othervar in othersolvedvars]
+        dummyvars = self.jointlists([[v.cvar, v.svar, v.var, v.htvar] for v in dummyvars])
+
+        trigsubs = [(varsym0.svar**2,               1-varsym0.cvar**2),  \
+                    (varsym0.svar**3, varsym0.svar*(1-varsym0.cvar**2)), \
+                    (varsym1.svar**2,               1-varsym1.cvar**2),  \
+                    (varsym1.svar**3, varsym1.svar*(1-varsym1.cvar**2))]
+            
+        polyeqs = []
+        for eq in raweqns:
+
+            # unknownvars = [ cv1, sv1, cv2, sv2 ]
+            peq = Poly(eq.subs(varsubs).subs(trigsubs).expand().subs(trigsubs), *unknownvars)
+            
+            if peq.has(varsym0.var) or peq.has(varsym1.var):
+                raise self.CannotSolveError('Expecting only sin and cos! %s' % peq)
+            
+            maxdenom  = [ max([monoms[0]+monoms[1] for monoms in peq.monoms()]), \
+                          max([monoms[2]+monoms[3] for monoms in peq.monoms()])  ]
+
+            eqnew = S.Zero
+            
+            for monoms, c in peq.terms():
+                """
+                print '\nmonoms = ', monoms, '\nc = ', c
+                term = c 
+                for i in range(4): 
+                    num, denom = fraction(halftansubs[i][1]) 
+                    term *= num**monoms[i] 
+ 
+                # the denoms for 0,1 and 2,3 are the same 
+                for i in [0, 2]: 
+                    denom = fraction(halftansubs[i][1])[1] 
+                    term *= denom**(maxdenom[i/2] - monoms[i] - monoms[i+1])
+                complexityvalue = self.codeComplexity(term.expand()) 
+                if complexityvalue < 450: 
+                    eqnew += simplify(term) 
+                else: 
+                    # too big, so don't simplify? 
+                    eqnew += term    
+                """
+
+                term = c
+                for i in range(4):
+                    term *= halftannum[i]**monoms[i]
+                    
+                term *= halftandenom[0]**(maxdenom[0]-monoms[0]-monoms[1])
+                term *= halftandenom[1]**(maxdenom[1]-monoms[2]-monoms[3])
+
+                # too big, so don't simplify?
+                eqnew += simplify(term) if self.codeComplexity(term.expand())<450 else term
+                
+            polyeq = Poly(eqnew, varsym0.htvar, varsym1.htvar)
+
+            
+            if polyeq.TC() == S.Zero:
+                log.info('Trailing coefficient is 0, i.e. for power (0,0)')
+
+
+                # might be able to divide out variables?
+                minmonoms = None
+                for monom in polyeq.monoms():
+                    if minmonoms is None:
+                        minmonoms = list(monom)
+                    else:
+                        for i in range(len(minmonoms)):
+                            minmonoms[i] = min(minmonoms[i],monom[i])
+                            
+                newpolyeq = Poly(S.Zero, *polyeq.gens)
+                for m, c in polyeq.terms():
+                    newm = list(m)
+                    for i in range(len(minmonoms)):
+                        newm[i] -= minmonoms[i]
+                    newpolyeq = newpolyeq.add(Poly.from_dict({tuple(newm):c}, \
+                                                             *newpolyeq.gens))
+                    
+                log.warn('Converting "%s" to "%s"' % (polyeq, newpolyeq))
+                
+                # check if any equations are only in one variable
+                polyeq = newpolyeq
+                
+            polyeqs.append(polyeq)
+
+        eqtosolve = self.sortComplexity([e.as_expr() for e in polyeqs if not e.has(varsym1.htvar)])
+        if len(eqtosolve)>0:
+            try:
+                return self.solveSingleVariable(eqtosolve, varsym0.var, \
+                                                othersolvedvars, unknownvars = [])
+            except self.CannotSolveError:
+                log.info('solveSingleVariable fails to solve %r', varsym0.var)
+
+        else:
+            eqtosolve = self.sortComplexity([e.as_expr() for e in polyeqs if not e.has(varsym0.htvar)])
+            if len(eqtosolve)>0:
+                try:
+                    return self.solveSingleVariable(eqtosolve, varsym1.var, \
+                                            othersolvedvars, unknownvars = [])
+                except self.CannotSolveError:
+                    log.info('solveSingleVariable fails to solve %r', varsym1.var)
+
+        #complexity = [(self.codeComplexity(peq.as_expr()), peq) for peq in polyeqs]
+        #complexity.sort(key = itemgetter(0))
+        #polyeqs = [peq[1] for peq in complexity]
+
+        polyeqs.sort(key = lambda x: x.count_ops())
+        
+        solutions = [None, None]
+        linearsolution = None
+        for ileftvar in (0,1):
+            if linearsolution is not None:
+                log.info('Found linearsolution')
+                break
+            
+            leftvar = varsyms[ileftvar].htvar
+            newpolyeqs = [Poly(eq,varsyms[1-ileftvar].htvar) for eq in polyeqs]
+            maxdeglist = [max(peq.degree_list()) for peq in newpolyeqs]
+            mindegree = __builtin__.min(maxdeglist)
+            maxdegree = __builtin__.max(maxdeglist)
+
+            for peq in newpolyeqs:
+                if len(peq.monoms()) == 1:
+                    possiblefinaleq = self.checkFinalEquation(Poly(peq.LC(), leftvar), tosubs)
+                    if possiblefinaleq is not None:
+                        solutions[ileftvar] = [possiblefinaleq]
+                        break
+                    
+            for degree in range(mindegree, maxdegree+1):
+                if not (solutions[ileftvar] is None and linearsolution is None):
+                    log.info('Found either solutions[ileftvar] or linearsolution')
+                    break
+                
+                newpolyeqs2 = [peq for peq in newpolyeqs \
+                               if max(peq.degree_list()) <= degree]
+                
+                if degree+1 <= len(newpolyeqs2):
+                    # To avoid wrong solutions, we get resultants for all equations
+                    possibilities = []
+                    unusedindices = range(len(newpolyeqs2))
+                    for eqsindices in combinations(range(len(newpolyeqs2)), degree+1):
+                        Mall = zeros((degree+1, degree+1))
+                        totalcomplexity = 0
+                        for i, eqindex in enumerate(eqsindices):
+                            eq = newpolyeqs2[eqindex]
+                            for j, c in eq.terms():
+                                totalcomplexity += self.codeComplexity(c.expand())
+                                Mall[i, j[0]] = c
+                        if degree >= 4 and totalcomplexity > 5000:
+                            # the determinant will never finish otherwise
+                            continue
+                        # det_bareis freezes when there are huge fractions
+                        # det=self.det_bareis(Mall, *(self.pvars+dummyvars+[leftvar]))
+                        # for i in range(Mall.shape[0]):
+                        #      for j in range(Mall.shape[1]):
+                        #          Mall[i,j] = Poly(Mall[i,j], leftvar)
+
+                        try:
+                            Malldet = Mall.berkowitz_det()
+                            # log.info('Try simplifying det(Mall)')
+                            # Malldet = simplify(Malldet)
+                            # print Malldet
+                            # log.info('Finished simplifying of of det(Mall)')
+                        except Exception, e:
+                            log.warn('Failed to compute det(Mall): %s', e)
+                            continue
+                        
+                        complexity = self.codeComplexity(Malldet)
+                        if complexity > 1200:
+                            log.warn('Complexity of det(Mall) is too big: %d', complexity)
+                            continue
+
+                        possiblefinaleq = self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)
+                        if possiblefinaleq is not None:
+                            # sometimes +- I are solutions, so remove them
+                            q, r = div(possiblefinaleq, leftvar+I)
+                            if r == S.Zero:
+                                possiblefinaleq = Poly(q, leftvar)
+                                
+                            q, r = div(possiblefinaleq, leftvar-I)
+                            if r == S.Zero:
+                                possiblefinaleq = Poly(q, leftvar)
+                                
+                            possibilities.append(possiblefinaleq)
+
+                            unusedindices = [ind for ind in unusedindices if ind not in eqsindices]
+                            if len(unusedindices) == 0:
+                                break # break degree in range(mindegree, maxdegree+1)
+
+                    if len(possibilities) > 1:
+                        try:
+                            linearsolutions = self.solveVariablesLinearly(possibilities, othersolvedvars)
+                            log.info('solveVariablesLinearly has found some solution for %r', possibilities[0].gens)
+                            
+                            # if can solve for a unique solution linearly, then prioritize this over anything
+                            prevsolution = AST.SolverBreak('solvePairVariablesHalfAngle fail')
+                            for divisor, linearsolution in linearsolutions:
+                                assert(len(linearsolution)==1)
+                                divisorsymbol = self.gsymbolgen.next()
+                                
+                                # Call AST SolverSolution constructor
+                                solversolution = AST.SolverSolution(varsyms[ileftvar].name, \
+                                                                    jointeval = [2*atan(linearsolution[0]/divisorsymbol)], \
+                                                                    isHinge = self.IsHinge(varsyms[ileftvar].name))
+                                
+                                # Call AST SolverCheckZeros constructor
+                                prevsolution = AST.SolverCheckZeros(varsyms[ileftvar].name, \
+                                                                    [divisorsymbol], \
+                                                                    zerobranch    = [prevsolution], \
+                                                                    nonzerobranch = [solversolution], \
+                                                                    thresh = 1e-6)
+                                    
+                                prevsolution.dictequations = [(divisorsymbol, divisor)]
+                            linearsolution = prevsolution
+                            break
+                        
+                        except self.CannotSolveError:
+                            log.info('solveVariablesLinearly failed to find %r', possibilities[0].gens)
+                            pass
+                        
+                    if len(possibilities) > 0:
+                        # sort with respect to degree
+                        # equationdegrees = [(max(peq.degree_list())*100000 + \
+                        #                     self.codeComplexity(peq.as_expr()), peq) \
+                        #                    for peq in possibilities]
+                        # equationdegrees.sort(key=itemgetter(0))
+                        possibilities.sort(key = lambda x: max(x.degree_list())*100000+x.count_ops())
+                        solutions[ileftvar] = possibilities # [peq[1] for peq in equationdegrees]
+                        break
+                    
+        if linearsolution is not None:
+            log.info('[SOLVE %i] solvePairVariablessHalfAngle returns a linear solution.', \
+                     self._solutionStackCounter)
+            return [linearsolution]
+        
+        # take the solution with the smallest degree
+        if solutions[0] is None:
+            if solutions[1] is None:
+
+                log.info('solvePairVariablesHalfAngle has not found any solution yet.')
+                
+                pfinals  = None
+                ileftvar = None
+            else:
+                pfinals  = solutions[1]
+                ileftvar = 1
+        elif solutions[1] is None:
+            pfinals = solutions[0]
+            ileftvar = 0
+        else:
+            maxsol0deglist = max(solutions[0][0].degree_list())
+            maxsol1deglist = max(solutions[1][0].degree_list())
+                
+            if   maxsol1deglist < maxsol0deglist:
+                pfinals = solutions[1]
+                ileftvar = 1
+            elif maxsol1deglist == maxsol1deglist and \
+                 self.codeComplexity(solutions[1][0].as_expr()) < self.codeComplexity(solutions[0][0].as_expr()):
+                pfinals = solutions[1]
+                ileftvar = 1
+            else:
+                pfinals = solutions[0]
+                ileftvar = 0
+                
+        dictequations = []
+        if pfinals is None:
+            #simplifyfn = self._createSimplifyFn(self.freevarsubs, self.freevarsubsinv)
+            for newreducedeqs in combinations(polyeqs, 2):
+                try:
+                    Mall = None
+                    numrepeating = None
+                    for ileftvar in range(2):
+                        # TODO, sometimes this works and sometimes this doesn't
+                        try:
+                            Mall, allmonoms = self.solveDialytically(newreducedeqs, ileftvar, \
+                                                                     returnmatrix = True)
+                            if Mall is not None:
+                                leftvar = polyeqs[0].gens[ileftvar]
+                                break
+                        except self.CannotSolveError, e:
+                            log.debug(e)
+                        
+                    if Mall is None:
+                        continue
+                    
+                    shape=Mall[0].shape
+                    assert(shape[0] == 4 and shape[1] == 4)
+                    Malltemp = [None]*len(Mall)
+                    M = zeros(shape)
+                    for idegree in range(len(Mall)):
+                        Malltemp[idegree] = zeros(shape)
+                        for i in range(shape[0]):
+                            for j in range(shape[1]):
+                                if Mall[idegree][i,j] != S.Zero:
+                                    if self.codeComplexity(Mall[idegree][i,j]) > 5:
+                                        sym = self.gsymbolgen.next()
+                                        Malltemp[idegree][i,j] = sym
+                                        dictequations.append((sym, Mall[idegree][i, j]))
+                                    else:
+                                        Malltemp[idegree][i, j] = Mall[idegree][i, j]
+                        M += Malltemp[idegree]*leftvar**idegree
+                        
+                    tempsymbols = [self.gsymbolgen.next() for i in range(16)]
+                    tempsubs = []
+                    for i in range(16):
+                        if M[i] != S.Zero:
+                            tempsubs.append((tempsymbols[i], Poly(M[i], leftvar)))
+                        else:
+                            tempsymbols[i] = S.Zero
+                            
+                    Mtemp = Matrix(4, 4,tempsymbols)                    
+                    dettemp = Mtemp.det()
+                    log.info('Multiplying all determinant coefficients to solve %s', leftvar)
+                    eqadds = []
+                    for arg in dettemp.args:
+                        eqmuls = [Poly(arg2.subs(tempsubs), leftvar) for arg2 in arg.args]
+                        
+                        if sum(eqmuls[0].degree_list()) == 0:
+                            eq = eqmuls.pop(0)
+                            eqmuls[0] = eqmuls[0]*eq
+                            
+                        while len(eqmuls) > 1:
+                            ioffset = 0
+                            eqmuls2 = []
+                            while ioffset < len(eqmuls)-1:
+                                eqmuls2.append(eqmuls[ioffset]*eqmuls[ioffset+1])
+                                ioffset += 2
+                            eqmuls = eqmuls2
+                        eqadds.append(eqmuls[0])
+                        
+                    log.info('Done multiplying all determinant. Now convert to Poly')
+                    det = Poly(S.Zero, leftvar)
+                    for ieq, eq in enumerate(eqadds):
+                        # log.info('adding to det %d/%d', ieq, len(eqadds))
+                        det += eq
+                        
+                    if len(Mall) <= 3:
+                        # need to simplify further since self.globalsymbols can have important substitutions
+                        # that can yield the entire determinant to zero
+                        log.info('Attempt to simplify determinant')
+                        newdet = Poly(S.Zero,leftvar)
+                        for m, c in det.terms():
+                            origComplexity = self.codeComplexity(c)
+                            # 100 is a guess
+                            if origComplexity < 100:
+                                neweq = c.subs(dictequations)
+                                if self.codeComplexity(neweq) < 100:
+                                    neweq = self._SubstituteGlobalSymbols(neweq).expand()
+                                    newComplexity = self.codeComplexity(neweq)
+                                    if newComplexity < origComplexity:
+                                        c = neweq
+                            newdet += c*leftvar**m[0]
+                        det = newdet
+                    if det.degree(0) <= 0:
+                        continue
+                    pfinals = [det]
+                    break
+                except self.CannotSolveError,e:
+                    log.debug(e)
+        else:
+            log.info('SolvePairVariableHalfAngle has found %d pfinals', len(pfinals))
+                    
+                    
+        if pfinals is None:
+            raise self.CannotSolveError('solvePairVariablesHalfAngle: ' + \
+                                        'failed to solve dialytically with %d equations'% \
+                                        len(polyeqs))
+
+        log.info('SolvePairVariableHalfAngle has found %d pfinal(s)', len(pfinals))
+        jointsol = 2*atan(varsyms[ileftvar].htvar)
+
+        # Call AST SolverPolynomialRoots constructor
+        solution = AST.SolverPolynomialRoots(jointname = varsyms[ileftvar].name, \
+                                             poly      = pfinals[0], \
+                                             jointeval = [jointsol], \
+                                             isHinge   = self.IsHinge(varsyms[ileftvar].name))
+        if len(pfinals) > 1:
+            # verify with at least one solution
+            solution.postcheckfornonzeros = [peq.as_expr() for peq in pfinals[1:2]]
+            solution.polybackup = pfinals[1]
+        solution.postcheckforrange = []
+        solution.dictequations = dictequations
+        solution.postcheckfornonzerosThresh = 1e-7
+        # make threshold a little loose since can be a lot of numbers compounding.
+        # depending on the degree, can expect small coefficients to be still valid
+        solution.AddHalfTanValue = True
+
+        log.info('[SOLVE %i] SolvePairVariableHalfAngle returns some solution', \
+                 self._solutionStackCounter)
+        
+        return [solution]
+    
     ## SymPy helper routines
 
     @staticmethod

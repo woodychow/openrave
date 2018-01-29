@@ -15,8 +15,9 @@ clear && clear
 #            --manipname=arm \
 #            --numiktests=1000
 
+#openrave.py --database inversekinematics --robot=robotfiles/barrettsegway.robot.xml --numiktests=1000 
 
-openrave.py --database inversekinematics --robot=robotfiles/barrettsegway.robot.xml --numiktests=1000
+openrave.py --database inversekinematics --robot=robotfiles/cmu-permma.zae --numiktests=1000
 
 #openrave.py --database inversekinematics --robot=robotfiles/collada_robots_mitsubishi-pa10.zae --numiktests=1000
 
