@@ -1889,7 +1889,7 @@ class IKFastSolver(AutoReloader):
                          solvefn = None, \
                          ikfastoptions = 0):
         """
-        :param ikfastoptions: options that control how ikfast.
+        :param ikfastoptions: options that control how ikfast behaves.
         """
         self._CheckPreemptFn(progress = 0)
         
@@ -1982,10 +1982,11 @@ class IKFastSolver(AutoReloader):
             self.rxpsubs += [(self.rxp[-1][j],c[j]) for j in range(3)]
 
         # have to include new_rXX
+        self.new_r = [ Symbol('new_r%d%d'%(i,j)) for i in range(3) for j in range(3) ]
         self.pvars = self.Tee[0:12] + \
                      self.npxyz + \
                      [self.pp] + self.rxp[0]+self.rxp[1]+self.rxp[2] + \
-                     [Symbol('new_r%d%d' % (i,j)) for i in range(3) for j in range(3)]
+                     self.new_r
 
         # [r00, r01, r02, px, r10, r11, r12, py, r20, r21, r22, pz]
         # [npx, npy, npz]
@@ -3604,7 +3605,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
         Called by TestIntersectingAxes only.
         """
-        
+
         self._iktype = 'transform6d'
         assert(len(transvars)==3 and len(rotvars) == 3)
         T0 = self.multiplyMatrix(T0links)
@@ -3655,11 +3656,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             transvars + rotvars, \
                                             self.freevarsubs[:], transtree)
 
-        solvertree = transtree
-        storesolutiontree = endbranchtree
         solvedvarsubs = self.freevarsubs[:] + \
                         self.jointlists([self.getVariable(tvar).subs for tvar in transvars])
-        Ree = [ Symbol('new_r%d%d'%(i,j)) for i in range(3) for j in range(3) ]
+        Ree = self.new_r
         
         try:
             T1sub = T1.subs(solvedvarsubs)
@@ -3675,7 +3674,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                               curvars = currotvars, \
                                               othersolvedvars = othersolvedvars, \
                                               solsubs = self.freevarsubs[:], \
-                                              endbranchtree = storesolutiontree)
+                                              endbranchtree = endbranchtree)
             
             # has to be after SolveAllEquations...?
             T1rot =  [T1[i,j] for i in range(3) for j in range(3)]
@@ -3684,12 +3683,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             if len(rottree) == 0:
                 raise self.CannotSolveError('Cannot solve for all rotation variables: %s:%s' % \
                                             (str(freevar), str(freevalue)))
-
-            #if solveRotationFirst:
-            #    solvertree.append(AST.SolverRotation(T1sub, rottree))
-            #else:
             rottree[:] = [AST.SolverRotation(T1sub, rottree[:])]
-            return solvertree
+            return transtree
         
         finally:
             # remove the Ree global symbols out of dictionary whether a solution is found or not
@@ -9129,8 +9124,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # count the number of rotation symbols seen in the current cases
             if self._iktype == 'transform6d' or \
                self._iktype == 'rotation3d':
-                rotsymbols = [ Symbol('new_r%d%d'%(i,j)) for i in range(3) for j in range(3) ] + \
-                             list(self.Tee[:3,:3])
+                rotsymbols = self.new_r + list(self.Tee[:3,:3])
                 numRotSymbolsInCases = len([var for var, eq in currentcasesubs if var in rotsymbols])
             else:
                 rotsymbols = []
