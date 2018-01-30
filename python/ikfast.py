@@ -646,7 +646,9 @@ class IKFastSolver(AutoReloader):
                  precision = None, \
                  checkpreemptfn = None):
         """
-        :param checkpreemptfn: checkpreemptfn(msg, progress) called periodically at various points in ikfast. Takes in two arguments to notify user how far the process has completed.
+        :param checkpreemptfn: checkpreemptfn(msg, progress) is called periodically at various points in ikfast. 
+
+        Takes in two arguments and notifies the user so far how much of the process has been completed.
         """
         self._checkpreemptfn = checkpreemptfn
         self.usinglapack = False
@@ -906,19 +908,17 @@ class IKFastSolver(AutoReloader):
     @staticmethod
     def prod(m):
         return reduce(mul, m, 1)
+    
     @staticmethod
     def jointlists(lists):
         return list(chain.from_iterable(lists))
+    
     @staticmethod
     def mapvaluepmpi(cond):
         # TGN: the original fmod(cond+pi,2*pi)-pi maps cond to [-pi, pi)
         #      however return value of atan2 is in (-pi, pi]
         #      so we change to pi-fmod(pi-cond,2*pi)
         return pi-fmod(pi-cond,2*pi)
-    
-    @staticmethod
-    def rodrigues(axis, angle):
-        return IKFastSolver.rodrigues2(axis,cos(angle),sin(angle))
     
     @staticmethod
     def GetMatrixFromQuat(quat):
@@ -949,12 +949,18 @@ class IKFastSolver(AutoReloader):
         return M
 
     @staticmethod
+    def rodrigues(axis, angle):
+        return IKFastSolver.rodrigues2(axis, cos(angle), sin(angle))
+    
+    @staticmethod
     def rodrigues2(axis, cosangle, sinangle):
         skewsymmetric = Matrix(3, 3, \
                                [  S.Zero, -axis[2],  axis[1], \
                                  axis[2],   S.Zero, -axis[0], \
                                 -axis[1],  axis[0],  S.Zero])
-        return eye(3) + sinangle * skewsymmetric + (S.One-cosangle)*skewsymmetric*skewsymmetric
+        return eye(3) + \
+            sinangle*skewsymmetric + \
+            (S.One-cosangle)*skewsymmetric*skewsymmetric
 
     @staticmethod
     def affineInverse(affinematrix):
@@ -985,23 +991,20 @@ class IKFastSolver(AutoReloader):
             eq0 = eq0.as_expr()
         if isinstance(eq1, Poly):
             eq1 = eq1.as_expr()
-        # return eq0-eq1 == S.Zero # TGN: see if it works.
-        # expand(eq0-eq1) == S.Zero
         check_zero = expand(eq0-eq1)
-        # print 'finished check zero'
         return check_zero == S.Zero
 
     def chop(self, expr, precision = None):
         return expr
 
     def IsHinge(self, axisname):
-        if axisname[0]!='j' or not axisname in self.axismap:
+        if axisname[0]!='j' or \
+           not axisname in self.axismap:
             if axisname == 'j100':
                 # TGN: j100 is sumjoint in solveFullIK_TranslationDirection5D so always revolute
                 return True
-            
             else:
-                log.info('IsHinge returns False for variable %s'% axisname)
+                log.info('IsHinge returns False for variable %s' % axisname)
                 return False # dummy joint most likely for angles
         else:
             return self.axismap[axisname].joint.IsRevolute(self.axismap[axisname].iaxis)
@@ -1015,6 +1018,10 @@ class IKFastSolver(AutoReloader):
 
     def forwardKinematicsChain(self, chainlinks, chainjoints):
         """
+        Reads in IK variables and parameters. Converts numpy data into sympy.
+
+        Builds homogeneous matrices and performs multiplications, simplifications, etc.
+
         The first and last matrices returned are always non-symbolic.
 
         Called by generateIkSolver only.
@@ -1040,7 +1047,6 @@ class IKFastSolver(AutoReloader):
                 axissign = S.One
 
                 if joint.GetHierarchyParentLink() != chainlinks[i]:
-                    exec(ipython_str, globals(), locals())
                     TLeftjoint  = self.affineInverse(TLeftjoint)
                     TRightjoint = self.affineInverse(TRightjoint)
                     axissign = -S.One
@@ -1064,7 +1070,7 @@ class IKFastSolver(AutoReloader):
                             # get the mimic equation
                             var = joint.GetMimicEquation(iaxis)
                             for itestjoint, testjoint in enumerate(chainjoints):
-                                var = var.replace(testjoint.GetName(), 'j%d'%itestjoint)
+                                var = var.replace(testjoint.GetName(), 'j%d' % itestjoint)
                             # this needs to be reduced!
                             cosvar = cos(var)
                             sinvar = sin(var)
@@ -1079,7 +1085,7 @@ class IKFastSolver(AutoReloader):
                             if joint.IsRevolute(iaxis):
                                 Tj[0:3,0:3] = self.rodrigues2(jaxis, cosvar, sinvar)
                             elif joint.IsPrismatic(iaxis):
-                                Tj[0:3,3] = jaxis*(var)
+                                Tj[0:3,3] = jaxis * var
                             else:
                                 raise ValueError('Failed to process joint %s' % joint.GetName())
                         
@@ -1104,11 +1110,8 @@ class IKFastSolver(AutoReloader):
         # outward to both ends. Sometimes these components can get in the way of detecting
         # intersecting axes
         if len(jointinds) > 0:
-
             # TGN: this executes only once, so it is trivial to modify
-            #
             # Better is to not multiply translation matrix but add values to translation vector [0:3,3]
-            # 
             # TO-DO
 
             iright = jointinds[-1]
@@ -2339,7 +2342,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             T = self.multiplyMatrix(Links[i:])
             D = T[0:3,0:3]*manipdir
             hasvars = [self.has(D, v) for v in solvejointvars]
-            if __builtin__.sum(hasvars) == numvarsdone:
+            if sum(hasvars) == numvarsdone:
                 Ds.append(D)
                 Dsee.append(Daccum)
                 numvarsdone -= 1
@@ -2410,7 +2413,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             D = T[0:3,0:3]*manipdir
             hasvars = [self.has(P,v) or self.has(D,v) for v in solvejointvars]
             
-            if __builtin__.sum(hasvars) == numvarsdone:
+            if sum(hasvars) == numvarsdone:
                 Positions.append(P.cross(D))
                 Positionsee.append(Paccum.cross(D))
                 numvarsdone -= 1
@@ -2616,7 +2619,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         for i in range(len(T1links)-1):
             Taccum = T1linksinv[i]*Taccum
             hasvars = [self.has(Taccum,v) for v in solvejointvars]
-            if __builtin__.sum(hasvars) == numvarsdone:
+            if sum(hasvars) == numvarsdone:
                 Positions.append(Taccum[0:2,3])
                 Positionsee.append(self.multiplyMatrix(T1links[(i+1):])[0:2,3])
                 numvarsdone += 1
@@ -2705,7 +2708,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             P = T[0:3,0:3]*manippos + T[0:3,3]
             D = T[0:3,0:3]*manipdir
             hasvars = [self.has(P,v) or self.has(D,v) for v in solvejointvars]
-            if __builtin__.sum(hasvars) == numvarsdone:
+            if sum(hasvars) == numvarsdone:
                 Positions.append(P.cross(D))
                 Positionsee.append(Pee.cross(Dee))
                 Positions.append(D)
@@ -4401,7 +4404,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         for irow in range(3):
             hasvar = [self.has(T[0:3,irow], var) or \
                       self.has(p, var) for var in solvejointvars]
-            numcurvars = __builtin__.sum(hasvar)
+            numcurvars = sum(hasvar)
             if numminvars > numcurvars and numcurvars > 0:
                 numminvars = numcurvars
                 l0 = T0[0:3, irow]
@@ -4409,7 +4412,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 
             hasvar = [self.has(T[irow,0:3], var) or \
                       self.has(p,var) for var in solvejointvars]
-            numcurvars = __builtin__.sum(hasvar)
+            numcurvars = sum(hasvar)
             if numminvars > numcurvars and numcurvars > 0:
                 numminvars = numcurvars
                 l0 = T0[irow, 0:3].transpose()
@@ -4598,7 +4601,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         numsymbolcoeffs, _computereducedequations = self.reduceBothSidesSymbolicallyDelayed(leftsideeqs, \
                                                                                                             rightsideeqs)
                         reducedelayed.append([j, leftsideeqs, \
-                                              rightsideeqs,__builtin__.sum(numsymbolcoeffs), \
+                                              rightsideeqs,sum(numsymbolcoeffs), \
                                               _computereducedequations])
                     except self.CannotSolveError:
                         continue
@@ -4646,7 +4649,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             allmonomsleft = allmonomsleft.union(set(peq.monoms()))
         allmonomsleft = list(allmonomsleft)
         allmonomsleft.sort()
-        if __builtin__.sum(allmonomsleft[0]) == 0:
+        if sum(allmonomsleft[0]) == 0:
             allmonomsleft.pop(0)
         if len(leftsideeqs) < len(allmonomsleft):
             raise self.CannotSolveError('Left side has too few equations for the number of variables %d < %d' % \
@@ -4657,7 +4660,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             coeffs = [S.Zero]*len(allmonomsleft)
             rank = 0
             for m,c in left.terms():
-                if __builtin__.sum(m) > 0:
+                if sum(m) > 0:
                     if c != S.Zero:
                         rank += 1
                     coeffs[allmonomsleft.index(m)] = c
@@ -4680,7 +4683,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             for i,index in enumerate(eqindices):
                 for k in range(len(allmonomsleft)):
                     A[i,k] = systemcoeffs[index][2][k]
-            nummatrixsymbols = __builtin__.sum(1 for a in A if not a.is_number)
+            nummatrixsymbols = sum(1 for a in A if not a.is_number)
             if nummatrixsymbols > 10:
                 # if too many symbols, evaluate numerically
                 if not self.IsDeterminantNonZeroByEval(A, evalfirst=nummatrixsymbols>60): # pi_robot has 55 symbols and still finishes ok
@@ -4715,7 +4718,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # have to multiply just the constant by the determinant
             neweq = rightsideeqs[i].as_expr()
             for m,c in leftsideeqs[i].terms():
-                if __builtin__.sum(m) > 0:
+                if sum(m) > 0:
                     neweq -= c*reducedeqs[allmonomsleft.index(m)][1]
                 else:
                     neweq -= c
@@ -4822,7 +4825,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 rightsidedummy.append(S.Zero)
                 
             for m in left.monoms():
-                if __builtin__.sum(m) > 0 and not m in allmonoms:
+                if sum(m) > 0 and not m in allmonoms:
                     newvar = vargen.next()
                     localsymbols.append((newvar, Poly.from_dict({m:S.One}, *left.gens).as_expr()))
                     allmonoms[m] = newvar
@@ -4843,7 +4846,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         for left,right in izip(leftsideeqs,rightsidedummy):
             left = left - right
             newleft = Poly(S.Zero,*allmonoms.values())
-            leftcoeffs = [c for m,c in left.terms() if __builtin__.sum(m) > 0]
+            leftcoeffs = [c for m,c in left.terms() if sum(m) > 0]
             allnumbers = all([c.is_number for c in leftcoeffs])
             if usesymbols and not allnumbers:
                 # check if all the equations are within a constant from each other
@@ -4862,7 +4865,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     # divide everything by reducedeq0
                     index = 0
                     for m,c in left.terms():
-                        if __builtin__.sum(m) > 0:
+                        if sum(m) > 0:
                             newleft = newleft + commonmults[index]*allmonoms.get(m)
                             index += 1
                         else:
@@ -4889,7 +4892,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             numsymbols = 0
             for m,c in left.terms():
                 polyvar = S.One
-                if __builtin__.sum(m) > 0:
+                if sum(m) > 0:
                     polyvar = allmonoms.get(m)
                     if not c.is_number:
                         numsymbols += 1
@@ -4903,7 +4906,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             newleftsideeqs.sort(lambda x,y: len(x.monoms()) - len(y.monoms()))
             newunknowns = newleftsideeqs[0].gens
             log.info('solving for all pairwise variables in %s, number of symbol coeffs are %s', \
-                     unknownvars, __builtin__.sum(numsymbolcoeffs))
+                     unknownvars, sum(numsymbolcoeffs))
             systemcoeffs = []
             for eq in newleftsideeqs:
                 eqdict = eq.as_dict()
@@ -4919,7 +4922,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             detvars = [s for s,v in localsymbols] + self.pvars
             for eqindices in combinations(range(len(newleftsideeqs)),len(newunknowns)):
                 # very quick rejection
-                numsymbols = __builtin__.sum(numsymbolcoeffs[i] for i in eqindices)
+                numsymbols = sum(numsymbolcoeffs[i] for i in eqindices)
                 if numsymbols > maxsymbols:
                     continue
                 M = Matrix([systemcoeffs[i] for i in eqindices])
@@ -5184,7 +5187,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # if first symbol is cjX, then next should be sjX
             if originalsymbols[i].name[0] == 'c':
                 assert( originalsymbols[i+1].name == 's'+originalsymbols[i].name[1:])
-                if 8 == __builtin__.sum(int(peq[0].has(originalsymbols[i],originalsymbols[i+1])) for peq in rawpolyeqs):
+                if 8 == sum(int(peq[0].has(originalsymbols[i],originalsymbols[i+1])) for peq in rawpolyeqs):
                     allowedindices.append(i)
                     
         if len(allowedindices) == 0:
@@ -5468,7 +5471,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     peq1norm = Poly(peq1norm, *peq[1].gens)
                     peq0dict = peq0norm.as_dict()
                     monom, value = peq0dict.items()[0]
-                    if len(peq0dict) == 1 and __builtin__.sum(monom) == 1:
+                    if len(peq0dict) == 1 and sum(monom) == 1:
                         indices = [index for index in range(4) if monom[index] == 1]
                         if len(indices) > 0 and indices[0] < 4:
                             reducedsinglevars[indices[0]] = (value, peq1norm.as_expr())
@@ -5491,7 +5494,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 if peq[0] != S.Zero:
                     peq0dict = peq[0].as_dict()
                     monom, value = peq0dict.items()[0]
-                    if len(peq0dict) == 1 and __builtin__.sum(monom) == 1:
+                    if len(peq0dict) == 1 and sum(monom) == 1:
                         indices = [index for index in range(4) if monom[index] == 1]
                         if len(indices) > 0 and indices[0] < 4:
                             reducedsinglevars[indices[0]] = (value,peq[1].as_expr())
@@ -6151,7 +6154,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             newpeq = Poly(eqnew, htvars+nonhtvars)
             if newpeq != S.Zero:
                 newreducedeqs.append(newpeq)
-                hassinglevariable |= any([all([__builtin__.sum(monom)==monom[i] for monom in newpeq.monoms()]) for i in range(3)])
+                hassinglevariable |= any([all([sum(monom)==monom[i] for monom in newpeq.monoms()]) for i in range(3)])
         
         if hassinglevariable:
             log.info('hassinglevariable, trying with raw equations')
@@ -9680,8 +9683,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
         # number of monomials (excluding constants) in each equation
         nummonoms = [(len(peq.monoms()) - int(peq.TC()!=S.Zero)) for peq in polyeqs]
-        mindegree = __builtin__.min(nummonoms)
-        maxdegree = min(__builtin__.max(nummonoms), len(polyeqs))
+        mindegree = min(nummonoms)
+        maxdegree = min(max(nummonoms), len(polyeqs))
 
         polyeqs.sort(key = lambda x: x.count_ops())
         #complexity = [(self.codeComplexity(peq.as_expr()),peq) for peq in polyeqs]
@@ -9708,7 +9711,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     allmonoms = allmonoms.union(set(polyeqs[index].monoms()))
                 allmonoms = list(allmonoms)
                 allmonoms.sort()
-                if __builtin__.sum(allmonoms[0]) == 0:
+                if sum(allmonoms[0]) == 0:
                     allmonoms.pop(0)
                 # allmonoms has to have symbols as a single variable
                 if not all([check in allmonoms for check in symbolscheck]):
@@ -10870,11 +10873,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         for i in range(len(reduceeqns)):
             if reduceeqns[i].has(pairwisevars[4], pairwisevars[5]):
                 continue
-            if not all([__builtin__.sum(m) <= 1 for m in reduceeqns[i].monoms()]):
+            if not all([sum(m) <= 1 for m in reduceeqns[i].monoms()]):
                 continue
             arr = [S.Zero]*5
             for m,c in reduceeqns[i].terms():
-                if __builtin__.sum(m) == 1:
+                if sum(m) == 1:
                     arr[list(m).index(1)] = c
                 else:
                     arr[4] = c
@@ -10908,7 +10911,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             polyunknown = []
             for rank,eq in orgeqns:
                 p = Poly(eq,unknownvars[2*ivar], unknownvars[2*ivar+1])
-                if sum(p.degree_list()) == 1 and __builtin__.sum(p.LM()) == 1:
+                if sum(p.degree_list()) == 1 and sum(p.LM()) == 1:
                     polyunknown.append((rank, p))
             if len(polyunknown) > 0:
                 break
@@ -11014,12 +11017,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             listeqscmp = []
             for rank,eq in neweqns:
                 # if variable ever appears, it should be alone
-                if all([m[i] == 0 or (__builtin__.sum(m) == m[i] and \
+                if all([m[i] == 0 or (sum(m) == m[i] and \
                                       m[i] > 0) for m in eq.monoms()]) and \
                                       any([m[i] > 0 for m in eq.monoms()]):
                     # make sure there's only one monom that includes other variables
-                    othervars = [__builtin__.sum(m) - m[i] > 0 for m in eq.monoms()]
-                    if __builtin__.sum(othervars) <= 1:
+                    othervars = [sum(m) - m[i] > 0 for m in eq.monoms()]
+                    if sum(othervars) <= 1:
                         eqcmp = self.removecommonexprs(eq.subs(allsymbols).as_expr(), \
                                                        onlygcd = True, \
                                                        onlynumbers = False)
@@ -11043,13 +11046,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 for rank,eq in neweqns:
                     # if variable ever appears, it should be alone
                     addeq = False
-                    if all([__builtin__.sum(m) == m[i]+m[i+1] for m in eq.monoms()]):
+                    if all([sum(m) == m[i]+m[i+1] for m in eq.monoms()]):
                         addeq = True
                     else:
                         # make sure there's only one monom that includes other variables
                         othervars = 0
                         for m in eq.monoms():
-                            if __builtin__.sum(m) >  m[i]+m[i+1]:
+                            if sum(m) >  m[i]+m[i+1]:
                                 if m[i] == 0 and m[i+1]==0:
                                     othervars += 1
                                 else:
@@ -11088,7 +11091,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     p = Poly(eq,unknownvars[0], unknownvars[1])
                     iscoupled = False
                     for m,c in p.terms():
-                        if __builtin__.sum(m) > 0:
+                        if sum(m) > 0:
                             if c.has(unknownvars[2], unknownvars[3]):
                                 iscoupled = True
                                 break
@@ -11099,7 +11102,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             unknownvars[3])])
                 if len(neweqs) > 0:
                     for ivar in range(2):
-                        lineareqs = [eq for eq in neweqs if __builtin__.sum(eq[ivar].LM())==1]
+                        lineareqs = [eq for eq in neweqs if sum(eq[ivar].LM())==1]
                         for paireq0, paireq1 in combinations(lineareqs, 2):
                             log.info('solving separated equations with linear terms')
                             eq0 = paireq0[ivar]
@@ -11181,9 +11184,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         domagicsquare = False
         for i in range(2):
             if useconic:
-                terms=[(c,m) for m,c in eqs[i].terms() if __builtin__.sum(m) - m[varindex] - m[varindex+1] > 0]
+                terms=[(c,m) for m,c in eqs[i].terms() if sum(m) - m[varindex] - m[varindex+1] > 0]
             else:
-                terms=[(c,m) for m,c in eqs[i].terms() if __builtin__.sum(m) - m[varindex] > 0]
+                terms=[(c,m) for m,c in eqs[i].terms() if sum(m) - m[varindex] > 0]
             if len(terms) > 0:
                 simpleterms.append(eqs[i].sub(Poly.from_dict({terms[0][1]:terms[0][0]}, *eqs[i].gens)).as_expr()/terms[0][0]) # divide by the coeff
                 complexterms.append(Poly({terms[0][1]:S.One}, *unknownvars).as_expr())
@@ -11451,8 +11454,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             leftvar = varsyms[ileftvar].htvar
             newpolyeqs = [Poly(eq,varsyms[1-ileftvar].htvar) for eq in polyeqs]
             maxdeglist = [max(peq.degree_list()) for peq in newpolyeqs]
-            mindegree = __builtin__.min(maxdeglist)
-            maxdegree = __builtin__.max(maxdeglist)
+            mindegree = min(maxdeglist)
+            maxdegree = max(maxdeglist)
 
             for peq in newpolyeqs:
                 if len(peq.monoms()) == 1:
