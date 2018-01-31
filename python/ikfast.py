@@ -2411,9 +2411,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             T = self.multiplyMatrix(Links[i:])
             P = T[0:3,0:3]*manippos+T[0:3,3]
             D = T[0:3,0:3]*manipdir
-            hasvars = [self.has(P,v) or self.has(D,v) for v in solvejointvars]
-            
-            if sum(hasvars) == numvarsdone:
+            hasvars = [v for v in solvejointvars if self.has(P,v) or self.has(D,v)]
+            if len(hasvars) == numvarsdone:
                 Positions.append(P.cross(D))
                 Positionsee.append(Paccum.cross(D))
                 numvarsdone -= 1
@@ -2618,8 +2617,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         Positionsee = []
         for i in range(len(T1links)-1):
             Taccum = T1linksinv[i]*Taccum
-            hasvars = [self.has(Taccum,v) for v in solvejointvars]
-            if sum(hasvars) == numvarsdone:
+            hasvars = [v for v in solvejointvars if self.has(Taccum,v)]
+            if len(hasvars) == numvarsdone:
                 Positions.append(Taccum[0:2,3])
                 Positionsee.append(self.multiplyMatrix(T1links[(i+1):])[0:2,3])
                 numvarsdone += 1
@@ -2634,11 +2633,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         AllEquations = self.buildEquationsFromTwoSides(Positions, \
                                                        Positionsee, \
                                                        solvejointvars + self.freejointvars)
-
+        # check, solve, verify
         self.checkSolvability(AllEquations, \
                               solvejointvars, \
                               self.freejointvars)
-        
         transtree = self.SolveAllEquations(AllEquations, \
                                            curvars = solvejointvars[:], \
                                            othersolvedvars = self.freejointvars, \
@@ -2649,8 +2647,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             self.freevarsubs, \
                                             transtree)
         
-        chaintree = AST.SolverIKChainTranslationXY2D([(jointvars[ijoint],ijoint) for ijoint in isolvejointvars], \
-                                                     [(v,i) for v,i in izip(self.freejointvars,self.ifreejointvars)], \
+        chaintree = AST.SolverIKChainTranslationXY2D([(jointvars[ijoint], ijoint) for ijoint in isolvejointvars], \
+                                                     [(v, i) for v, i in izip(self.freejointvars, self.ifreejointvars)], \
                                                      Pee = self.Tee[0:2,3], \
                                                      jointtree = transtree, \
                                                      Pfk = self.Tfinal[0:2,3])
@@ -2707,8 +2705,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             T = self.multiplyMatrix(Links[i:])
             P = T[0:3,0:3]*manippos + T[0:3,3]
             D = T[0:3,0:3]*manipdir
-            hasvars = [self.has(P,v) or self.has(D,v) for v in solvejointvars]
-            if sum(hasvars) == numvarsdone:
+            hasvars = [v for v in solvejointvars if self.has(P,v) or self.has(D,v)]
+            if len(hasvars) == numvarsdone:
                 Positions.append(P.cross(D))
                 Positionsee.append(Pee.cross(Dee))
                 Positions.append(D)
@@ -4402,17 +4400,15 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         T = T0-T1
         numminvars = 100000
         for irow in range(3):
-            hasvar = [self.has(T[0:3,irow], var) or \
-                      self.has(p, var) for var in solvejointvars]
-            numcurvars = sum(hasvar)
+            hasvar = [var for var in solvejointvars if self.has(T[0:3,irow], var) or self.has(p, var)]
+            numcurvars = len(hasvar)
             if numminvars > numcurvars and numcurvars > 0:
                 numminvars = numcurvars
                 l0 = T0[0:3, irow]
                 l1 = T1[0:3, irow]
                 
-            hasvar = [self.has(T[irow,0:3], var) or \
-                      self.has(p,var) for var in solvejointvars]
-            numcurvars = sum(hasvar)
+            hasvar = [var for var in solvejointvars if self.has(T[irow,0:3], var) or self.has(p,var)]
+            numcurvars = len(hasvar)
             if numminvars > numcurvars and numcurvars > 0:
                 numminvars = numcurvars
                 l0 = T0[irow, 0:3].transpose()
@@ -4600,8 +4596,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     try:
                         numsymbolcoeffs, _computereducedequations = self.reduceBothSidesSymbolicallyDelayed(leftsideeqs, \
                                                                                                             rightsideeqs)
-                        reducedelayed.append([j, leftsideeqs, \
-                                              rightsideeqs,sum(numsymbolcoeffs), \
+                        reducedelayed.append([j, \
+                                              leftsideeqs, \
+                                              rightsideeqs, \
+                                              sum(numsymbolcoeffs), \
                                               _computereducedequations])
                     except self.CannotSolveError:
                         continue
@@ -4652,14 +4650,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         if sum(allmonomsleft[0]) == 0:
             allmonomsleft.pop(0)
         if len(leftsideeqs) < len(allmonomsleft):
-            raise self.CannotSolveError('Left side has too few equations for the number of variables %d < %d' % \
+            raise self.CannotSolveError('Left side has fewer equations than variables: %d < %d' % \
                                         (len(leftsideeqs), len(allmonomsleft)))
         
         systemcoeffs = []
         for ileft, left in enumerate(leftsideeqs):
             coeffs = [S.Zero]*len(allmonomsleft)
             rank = 0
-            for m,c in left.terms():
+            for m, c in left.terms():
                 if sum(m) > 0:
                     if c != S.Zero:
                         rank += 1
@@ -4683,7 +4681,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             for i,index in enumerate(eqindices):
                 for k in range(len(allmonomsleft)):
                     A[i,k] = systemcoeffs[index][2][k]
-            nummatrixsymbols = sum(1 for a in A if not a.is_number)
+            nummatrixsymbols = len([a for a in A if not a.is_number])
             if nummatrixsymbols > 10:
                 # if too many symbols, evaluate numerically
                 if not self.IsDeterminantNonZeroByEval(A, evalfirst=nummatrixsymbols>60): # pi_robot has 55 symbols and still finishes ok
@@ -4718,10 +4716,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # have to multiply just the constant by the determinant
             neweq = rightsideeqs[i].as_expr()
             for m,c in leftsideeqs[i].terms():
-                if sum(m) > 0:
-                    neweq -= c*reducedeqs[allmonomsleft.index(m)][1]
-                else:
-                    neweq -= c
+                neweq -= c*reducedeqs[allmonomsleft.index(m)][1] if sum(m) > 0 else c
             reducedeqs.append([S.Zero, neweq])
         return reducedeqs, [solution]
 
@@ -4890,7 +4885,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     newleftsideeqs.append(newleft)
                     continue
             numsymbols = 0
-            for m,c in left.terms():
+            for m, c in left.terms():
                 polyvar = S.One
                 if sum(m) > 0:
                     polyvar = allmonoms.get(m)
@@ -5187,7 +5182,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # if first symbol is cjX, then next should be sjX
             if originalsymbols[i].name[0] == 'c':
                 assert( originalsymbols[i+1].name == 's'+originalsymbols[i].name[1:])
-                if 8 == sum(int(peq[0].has(originalsymbols[i],originalsymbols[i+1])) for peq in rawpolyeqs):
+                if 8 == len([peq for peq in rawpolyeqs if peq[0].has(originalsymbols[i], originalsymbols[i+1])]):
                     allowedindices.append(i)
                     
         if len(allowedindices) == 0:
@@ -5195,7 +5190,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             for i in range(len(originalsymbols)):
                 # if first symbol is cjX, then next should be sjX
                 if originalsymbols[i].name[0] == 'c':
-                    assert( originalsymbols[i+1].name == 's'+originalsymbols[i].name[1:])
+                    assert(originalsymbols[i+1].name == 's' + originalsymbols[i].name[1:])
                     allowedindices.append(i)
             #raise self.CannotSolveError('need exactly 8 equations of one variable')
             
