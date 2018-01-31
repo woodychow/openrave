@@ -10348,8 +10348,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         testsuccess = False
                         
                         for testconsistentvalue in self.testconsistentvalues:
-                            if all([testeq.subs(self.globalsymbols).subs(testconsistentvalue).evalf() != S.Zero \
-                                    for testeq in testeqs]):
+                            values = [testeq.subs(self.globalsymbols).subs(testconsistentvalue).evalf() \
+                                      for testeq in testeqs]
+                            if all([value!=S.Zero and self.isValidSolution(value) for value in values]):
                                 testsuccess = True
                                 break
                             
@@ -10422,9 +10423,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         if denomsequal and not svarfracsimp_denom.is_number:
                             solversolution.FeasibleIsZeros = False
                             solversolution.presetcheckforzeros.append(svarfracsimp_denom)
-                            # instead of doing atan2(sign(dummy)*s, sign(dummy)*c) with dummy!=0
-                            # we do atan2(s,c) + pi/2*(1-1/sign(dummy)) so equations become simpler
-                            # TGN: just 1-sign(dummy)
+                            #   atan2(sign(dummy)*s, sign(dummy)*c) 
+                            # = atan2(s,c) + pi/2*(1-sign(dummy))   with dummy!=0
                             expandedsol = atan2(svarsolsimp, cvarsolsimp) + \
                                           pi/2*(-S.One + sign(svarfracsimp_denom))
                         else:
@@ -10692,69 +10692,67 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             raise self.CannotSolveError('Need at least 2 equations; now there are %i' % len(eqns))
 
         if self.IsPrismatic(var0.name) and self.IsHinge(var1.name):
-            prismaticSymbol = var0
-            hingeSymbol = var1
+            pvar = var0
+            hvar = var1
         elif self.IsHinge(var0.name) and self.IsPrismatic(var1.name):
-            hingeSymbol = var0
-            prismaticSymbol = var1
+            hvar = var0
+            pvar = var1
         else:
             raise self.CannotSolveError('Need exactly one hinge variable and one prismatic variable')
         
-        prismaticVariable = self.getVariable(prismaticSymbol)
-        hingeVariable = self.getVariable(hingeSymbol)
-        chingeSymbol, shingeSymbol = hingeVariable.cvar, hingeVariable.svar
-        varsubs = prismaticVariable.subs + hingeVariable.subs
-        varsubsinv = prismaticVariable.subsinv + hingeVariable.subsinv
+        pvarsym = self.getVariable(pvar)
+        hvarsym = self.getVariable(hvar)
+        hcvar, hsvar = hvarsym.cvar, hvarsym.svar
+        varsubs    = pvarsym.subs    + hvarsym.subs
+        varsubsinv = pvarsym.subsinv + hvarsym.subsinv
         # unknowns are cos(h), sin(h), p
-        unknownvars = [chingeSymbol, shingeSymbol, prismaticSymbol]
-        reducesubs = [(shingeSymbol**2, 1-chingeSymbol**2), \
-                      (shingeSymbol**3, shingeSymbol*(1-chingeSymbol**2))]
+        unknownvars = [hcvar, hsvar, pvar]
+        reducesubs = [(hsvar**2, 1-hcvar**2), \
+                      (hsvar**3, hsvar*(1-hcvar**2))]
         polyeqs = [Poly(eq.subs(varsubs).subs(reducesubs).expand(), unknownvars) for eq in eqns]
         
         # try to solve one variable in terms of the others
         solvevariables = []
         for polyeq in polyeqs:
             if polyeq.degree(0) == 1 and polyeq.degree(1) == 0:
-                chingeSolutions = solve(polyeq, chingeSymbol) # solve for cos(h)
-                solvevariables.append((prismaticSymbol, \
-                                       [(chingeSymbol, chingeSolutions[0])]))
+                chingeSolutions = solve(polyeq, hcvar) # solve for cos(h)
+                solvevariables.append((pvar, \
+                                       [(hcvar, chingeSolutions[0])]))
             elif polyeq.degree(0) == 0 and polyeq.degree(1) == 1:
-                shingeSolutions = solve(polyeq, shingeSymbol) # solve for sin(h)
-                solvevariables.append((prismaticSymbol, \
-                                       [(shingeSymbol, shingeSolutions[0])]))
+                shingeSolutions = solve(polyeq, hsvar) # solve for sin(h)
+                solvevariables.append((pvar, \
+                                       [(hsvar, shingeSolutions[0])]))
             elif polyeq.degree(2) == 1:
-                prismaticSolutions = solve(polyeq, prismaticSymbol) # solve for p
-                solvevariables.append((hingeSymbol,\
-                                       [(prismaticSymbol, prismaticSolutions[0])]))
+                prismaticSolutions = solve(polyeq, pvar) # solve for p
+                solvevariables.append((hvar,\
+                                       [(pvar, prismaticSolutions[0])]))
         
-        # prioritize solving the hingeSymbol out
-        for solveSymbol in [hingeSymbol, prismaticSymbol]:
-            for solveSymbol2, solvesubs in solvevariables:
-                if solveSymbol == solveSymbol2:
+        # prioritize solving hvar out
+        for var in [hvar, pvar]:
+            for var2, solvesubs in solvevariables:
+                if var == var2:
                     # have a solution for one variable,
-                    # so substitute it in and see if the equations become solvable with one variable
-                    #
-                    # TGN: after substitution, solveSymbol is gone. How come solveSingleVariable solves for it?
+                    # so substitute it in and see if the equations become solvable in the other variable
                     polyeqs2 = [simplify(polyeq.as_expr().subs(solvesubs)) for polyeq in polyeqs]
                     reducedeqs = [eqnew for eqnew in polyeqs2 if eqnew != S.Zero]
                     self.sortComplexity(reducedeqs)
                     
                     try:
                         log.info('[SOLVE %i] solvePrismaticHingePairVariables tries solveSingleVariable for %r', \
-                                 self._solutionStackCounter, solveSymbol)
+                                 self._solutionStackCounter, var)
                         self._inc_solutionStackCounter()
                         rawsolutions = self.solveSingleVariable(reducedeqs, \
-                                                                solveSymbol, \
+                                                                var, \
                                                                 othersolvedvars, \
                                                                 unknownvars = unknownvars)
                         if len(rawsolutions) > 0:
                             log.info('[SOLVE %i] solvePrismaticHingePairVariables returns a solution for %r', \
-                                     self._solutionStackCounter, solveSymbol)
+                                     self._solutionStackCounter, var)
                             return rawsolutions
 
                     except self.CannotSolveError:
                         log.info('[SOLVE %i] Cannot use solveSingleVariable to solve for %r', \
-                                 self._solutionStackCounter, solveSymbol)
+                                 self._solutionStackCounter, var)
                         pass
                     finally:
                         self._dec_solutionStackCounter()
@@ -10776,7 +10774,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         
         # make sure both variables are hinges
         if not (self.IsHinge(var0.name) and self.IsHinge(var1.name)):
-            raise self.CannotSolveError('pairwise variables only supports hinge joints')
+            raise self.CannotSolveError('solvePairVariables only solves two hinge joints')
 
         eqns = [eq for eq in raweqns if eq.has(var0, var1)]
         if len(eqns) < 2:
@@ -10789,21 +10787,21 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         varsubs = varsym0.subs + varsym1.subs
         varsubsinv = varsym0.subsinv + varsym1.subsinv
         unknownvars = [cvar0, svar0, cvar1, svar1]
-        reducesubs = [(svar0**2, 1-cvar0**2), \
+        reducesubs = [(svar0**2,        1-cvar0**2), \
                       (svar0**3, svar0*(1-cvar0**2)), \
-                      (svar1**2, 1-cvar1**2), \
+                      (svar1**2,        1-cvar1**2), \
                       (svar1**3, svar1*(1-cvar1**2)) ]
         eqns = [eq.subs(varsubs).subs(reducesubs).expand() for eq in eqns]
 
         # group equations with single variables
         symbolgen = cse_main.numbered_symbols('const')
-        orgeqns = []
-        allsymbols = []
-        for eq in eqns:
-            eqnew, symbols = self.groupTerms(eq, unknownvars, symbolgen)
-            allsymbols += symbols
-            orgeqns.append([self.codeComplexity(eq), Poly(eqnew, *unknownvars)])
-        orgeqns.sort(lambda x, y: x[0]-y[0])
+        # each entry is (complexity, (polyeq, symbols))
+        eqnsyms = [(self.codeComplexity(eq), \
+                    self.groupTerms(eq, unknownvars, symbolgen)) for eq in eqns]
+        eqnsyms.sort(lambda x, y: x[0]-y[0])
+        orgeqns = [(eqnsym[0], Poly(eqnsym[1][0], *unknownvars)) for eqnsym in eqnsyms]
+        allsymbols = self.jointlists([eqnsym[1][1] for eqnsym in eqnsyms])
+        # neweqns and orgeqns are polynomials in c0, s0, c1, s1
         neweqns = orgeqns[:]
         
         pairwisesubs = [(svar0*cvar1, Symbol('s0c1')), \
@@ -10811,93 +10809,116 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         (cvar0*cvar1, Symbol('c0c1')), \
                         (cvar0*svar1, Symbol('c0s1')), \
                         (cvar0*svar0, Symbol('s0c0')), \
-                        (cvar1*svar1, Symbol('c1s1'))  ]
+                        (cvar1*svar1, Symbol('s1c1'))  ] 
         pairwiseinvsubs = [(f[1], f[0]) for f in pairwisesubs]
-        pairwisevars = [f[1] for f in pairwisesubs]
-        reduceeqns = [Poly(eq.as_expr().subs(pairwisesubs), *pairwisevars) \
-                      for rank,eq in orgeqns if rank < 4*maxcomplexity]
+        pairwisevars    =  [f[1]        for f in pairwisesubs]
+
+        # isolate pairwise variables in each equation
+        # reduceeqns are polynomials in pairwise variables
+        reduceeqns = [Poly(eqnsym[0].subs(pairwisesubs), *pairwisevars) \
+                      for rank, eqnsym in eqnsyms if rank < 4*maxcomplexity] # complexity < 200
         for eq in reduceeqns:
             if eq.TC != S.Zero and not eq.TC().is_Symbol:
                 n = symbolgen.next()
                 allsymbols.append((n,eq.TC().subs(allsymbols)))
                 eq += n - eq.TC()
-        
-        # try to at least subtract as much paired variables out
-        eqcombs = [c for c in combinations(reduceeqns,2)]
-        while len(eqcombs) > 0 and len(neweqns) < 20:
-            eq0,eq1 = eqcombs.pop()
+
+        eqns2 = []
+        neweqns2 = []
+        # try to take linear combination of any pair of equations to eliminate pairwise variables
+        for eq0, eq1 in combinations(reduceeqns, 2):
+            if len(neweqns) == 20:
+                break
             eq0dict = eq0.as_dict()
             eq1dict = eq1.as_dict()
             for i in range(6):
-                monom = [0,0,0,0,0,0]
+                monom = [0]*6
                 monom[i] = 1
-                eq0value = eq0dict.get(tuple(monom),S.Zero)
-                eq1value = eq1dict.get(tuple(monom),S.Zero)
+                monom = tuple(monom)
+                eq0value = eq0dict.get(monom, S.Zero)
+                eq1value = eq1dict.get(monom, S.Zero)
+
                 if eq0value != 0 and eq1value != 0:
-                    tempeq = (eq0.as_expr()*eq1value-eq0value*eq1.as_expr()).subs(allsymbols+pairwiseinvsubs).expand()
+                    gcdvalue = gcd(eq0value, eq1value)
+                    eq0value /= gcdvalue
+                    eq1value /= gcdvalue
+
+                    # linear combination
+                    tempeq = (eq0.as_expr()*eq1value - \
+                              eq1.as_expr()*eq0value).subs(allsymbols+pairwiseinvsubs).expand()
+                    
                     if self.codeComplexity(tempeq) > 200:
                         continue
                     eq = simplify(tempeq)
                     if eq == S.Zero:
                         continue
                     
-                    peq = Poly(eq,*pairwisevars)
+                    peq = Poly(eq, *pairwisevars)
                     if max(peq.degree_list()) > 0 and self.codeComplexity(eq) > maxcomplexity:
-                        # don't need such complex equations
+                        # only include equations that no longer contain pairwise variables and are not too complex
                         continue
-                    
-                    if not self.CheckExpressionUnique(eqns, eq):
+
+                    eq = self.trigsimp_new(eq)
+                    if not self.CheckExpressionUnique(eqns2, eq) or \
+                       not self.CheckExpressionUnique(eqns,  eq):
                         continue
                     
                     if eq.has(*unknownvars): # be a little strict about new candidates
-                        eqns.append(eq)
-                        eqnew, symbols = self.groupTerms(eq, unknownvars, symbolgen)
-                        allsymbols += symbols
-                        neweqns.append([self.codeComplexity(eq), Poly(eqnew,*unknownvars)])
-
+                        eqns2.append(eq)
+                        eqnew, syms = self.groupTerms(eq, unknownvars, symbolgen)
+                        allsymbols += syms
+                        neweqns2.append([self.codeComplexity(eq), Poly(eqnew, *unknownvars)])
+        eqns    +=    eqns2
+        neweqns += neweqns2
+        
         orgeqns = neweqns[:]
         # try to solve for all pairwise variables
         systemofequations = []
-        for i in range(len(reduceeqns)):
-            if reduceeqns[i].has(pairwisevars[4], pairwisevars[5]):
-                continue
-            if not all([sum(m) <= 1 for m in reduceeqns[i].monoms()]):
+        for reduceeqn in reduceeqns:
+            # pairwisevars[4:6] = [s0c0, s1c1]
+            # reduceeqn is a polynomial in pairwise variables
+            if reduceeqn.has(pairwisevars[4], pairwisevars[5]) or \
+               not all([sum(m) <= 1 for m in reduceeqn.monoms()]):
                 continue
             arr = [S.Zero]*5
-            for m,c in reduceeqns[i].terms():
-                if sum(m) == 1:
-                    arr[list(m).index(1)] = c
-                else:
-                    arr[4] = c
-            systemofequations.append(arr)
+            for m, c in reduceeqn.terms():
+                # here sum(m) = 0 or 1
+                arr[list(m).index(1) if sum(m)==1 else 4] = c
+            if(sum(arr[0:4]) > 0):
+                systemofequations.append(arr)
 
+        # try to solve a linear system in s0c1, s0s1, c0c1, c0s1
         if len(systemofequations) >= 4:
-            singleeqs = None
-            for eqs in combinations(systemofequations,4):
-                M = zeros((4,4))
-                B = zeros((4,1))
-                for i,arr in enumerate(eqs):
+            singleeqs = []
+            for eqs in combinations(systemofequations, 4):
+                A = zeros(4)
+                b = zeros((4, 1))
+                for i, arr in enumerate(eqs):
                     for j in range(4):
-                        M[i,j] = arr[j]
-                    B[i] = -arr[4]
-                det = self.det_bareis(M, *(self.pvars+unknownvars)).subs(allsymbols)
-                if det.evalf() != S.Zero:
-                    X = M.adjugate()*B
-                    singleeqs = []
+                        A[i,j] = arr[j]
+                    b[i] = -arr[4]
+                detA = self.det_bareis(A, *(self.pvars+unknownvars)).subs(allsymbols)
+                """
+                To solve A*x = b, this method does C*A*x = C*b where C is the adjugate of A: C := adj(A).
+                Hence C*A = det(A)*I and det(A)*x = C*b =: c. So we add 4 equations v[i]*det(A)-c[i], 
+                without concerning whether det(A) != 0.
+                """
+                if detA.evalf() != S.Zero:
+                    c = A.adjugate()*b
                     for i in range(4):
-                        eq = (pairwisesubs[i][0]*det - X[i]).subs(allsymbols)
+                        eq = (pairwisevars[i] * detA - c[i]).subs(allsymbols)
                         eqnew, symbols = self.groupTerms(eq, unknownvars, symbolgen)
                         allsymbols += symbols
                         singleeqs.append([self.codeComplexity(eq), Poly(eqnew,*unknownvars)])
+
+                    neweqns += singleeqs
+                    neweqns.sort(lambda x, y: x[0]-y[0])
                     break
-            if singleeqs is not None:
-                neweqns += singleeqs
-                neweqns.sort(lambda x, y: x[0]-y[0])
 
         # check if any equations are at least degree 1 (if not, try to compute some)
-        for ivar in range(2):
+        for ivar in (0, 1):
             polyunknown = []
-            for rank,eq in orgeqns:
+            for rank, eq in orgeqns:
                 p = Poly(eq,unknownvars[2*ivar], unknownvars[2*ivar+1])
                 if sum(p.degree_list()) == 1 and sum(p.LM()) == 1:
                     polyunknown.append((rank, p))
