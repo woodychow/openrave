@@ -10104,7 +10104,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             var, othersolvedvars, \
                             maxsolutions = 4, \
                             maxdegree = 2, \
-                            subs = [], \
+                            tosubs = [], \
                             unknownvars = []):
         """
         Called by 
@@ -10339,12 +10339,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             continue
                         
                         # check if there exists at least one test solution with non-zero denominators
-                        if subs is None:
+                        if len(tosubs) == 0:
                             testeqs = [svarfrac[1].subs(othersubs), \
                                        cvarfrac[1].subs(othersubs)]
                         else:
-                            testeqs = [svarfrac[1].subs(subs).subs(othersubs), \
-                                       cvarfrac[1].subs(subs).subs(othersubs)]
+                            testeqs = [svarfrac[1].subs(tosubs).subs(othersubs), \
+                                       cvarfrac[1].subs(tosubs).subs(othersubs)]
                         testsuccess = False
                         
                         for testconsistentvalue in self.testconsistentvalues:
@@ -10386,6 +10386,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                cvarfrac[0] = -cvarfrac[0]
                                cvarfracsimp_denom = -cvarfracsimp_denom
                                denomsequal = True
+                        """
                            else: # TGN checks if one is a multiple of another
                                lcmsc = lcm(svarfracsimp_denom, cvarfracsimp_denom)
                                if lcmsc == svarfracsimp_denom:
@@ -10396,6 +10397,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                    svarfrac[0] *= lcmsc/svarfracsimp_denom
                                    svarfracsimp_denom = lcmsc
                                    denomsequal = True
+                        """
                             
                         if denomsequal:
                             # TGN: did not do global substitution
@@ -10452,7 +10454,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             solversolution.FeasibleIsZeros = False
                             log.debug('solution for %s = atan2check(%r, %r)', var.name, \
                                       svarsolsimp, cvarsolsimp)
-                            # exec(ipython_str, globals(), locals())
 
                         solversolution.jointeval.append(expandedsol)
                         
@@ -10489,15 +10490,15 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 return solutions
 
         # solve one equation
-        for ieq, eq in enumerate(eqns):
+        for eq in eqns:
             symbolgen = cse_main.numbered_symbols('const')
             eqnew, symbols = self.groupTerms(eq.subs(varsym.subs), \
-                                             [varsym.cvar, varsym.svar, varsym.var], \
+                                             [cvar, svar, var], \
                                              symbolgen)
             try:
-                # ignore any equations with degree 3 or more 
-                ps = Poly(eqnew, varsym.svar)
-                pc = Poly(eqnew, varsym.cvar)
+                # ignore any equations with degree 3 or more
+                ps = Poly(eqnew, svar)
+                pc = Poly(eqnew, cvar)
                 if max(ps.degree_list()) > maxdegree or \
                    max(pc.degree_list()) > maxdegree:
                     log.debug('Cannot solve equation with degree higher than %i: %r', \
@@ -10521,26 +10522,21 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 unsolvedsymbols = self.jointlists([self.getVariable(unknownvar).vars \
                                                    for unknownvar in unknownvars \
                                                    if unknownvar != var])
-                if len(unsolvedsymbols) > 0:
-                    equationsused = [eq2 for ieq2, eq2 in enumerate(eqns) \
-                                     if ieq2 != ieq and not eq2.has(*unsolvedsymbols)]
-                else:
-                    equationsused = eqns[:]
-                    equationsused.pop(ieq)
+                equationsused = [eq2 for eq2 in eqns if eq2 != eq and not eq2.has(*unsolvedsymbols)]
 
-            numcvar = self.countVariables(eqnew, varsym.cvar)
-            numsvar = self.countVariables(eqnew, varsym.svar)
+            numcvar = self.countVariables(eqnew, cvar)
+            numsvar = self.countVariables(eqnew, svar)
 
             # (1) equation in form a*cjx + b*sjx + c
             if numcvar == 1 and numsvar == 1:
-                a = Wild('a', exclude = [varsym.svar, varsym.cvar])
-                b = Wild('b', exclude = [varsym.svar, varsym.cvar])
-                c = Wild('c', exclude = [varsym.svar, varsym.cvar])
-                m = eqnew.match(a*varsym.cvar + b*varsym.svar + c)
+                a = Wild('a', exclude = [svar, cvar])
+                b = Wild('b', exclude = [svar, cvar])
+                c = Wild('c', exclude = [svar, cvar])
+                m = eqnew.match(a*cvar + b*svar + c)
 
                 if m is not None:
-                    symbols += [(varsym.svar, sin(var)), \
-                                (varsym.cvar, cos(var))]
+                    symbols += [(svar, sin(var)), \
+                                (cvar, cos(var))]
                     asinsol = trigsimp(asin(-m[c]/Abs(sqrt(m[a]*m[a]+m[b]*m[b]))).subs(symbols), \
                                        deep = True)
 
@@ -10571,14 +10567,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # (2) substitute cvar for svar and solve for cvar
             if numcvar > 0:
                 try:
-                    if  self.countVariables(eqnew, varsym.cvar) <= 1 or \
-                       (self.countVariables(eqnew, varsym.cvar) == 2 and \
-                        self.countVariables(eqnew, varsym.svar) == 0):
+                    if numcvar == 1 or (numcvar == 2 and numsvar == 0):
                         # anything more than 1 implies quartic equation
-                        tempsolutions = solve(eqnew.subs(varsym.svar, \
-                                                         sqrt(1-varsym.cvar**2)).expand(), \
-                                              varsym.cvar)
-                        jointsolutions = [self.SimplifyTransform(self.trigsimp_new(s.subs(symbols+varsym.subsinv))) \
+                        tempsolutions = solve(eqnew.subs(svar, \
+                                                         sqrt(1-cvar**2)).expand(), \
+                                              cvar)
+                        jointsolutions = [self.SimplifyTransform(self.trigsimp_new(s.subs(symbols + \
+                                                                                          varsym.subsinv))) \
                                           for s in tempsolutions]
                         jointsolutions = [s for s in jointsolutions if self.isValidSolution(s)]
                         
@@ -10597,14 +10592,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # (3) substitute svar for cvar and solve for svar
             if numsvar > 0:
                 try:
-                    if  self.countVariables(eqnew, varsym.svar) <= 1 or \
-                       (self.countVariables(eqnew, varsym.svar) == 2 and \
-                        self.countVariables(eqnew, varsym.cvar) == 0):
+                    if numsvar == 1 or (numsvar == 2 and numcvar == 0):
                         # anything more than 1 implies quartic equation
-                        tempsolutions = solve(eqnew.subs(varsym.cvar, \
-                                                         sqrt(1-varsym.svar**2)).expand(), \
-                                              varsym.svar)
-                        jointsolutions = [self.SimplifyTransform(self.trigsimp_new(s.subs(symbols+varsym.subsinv))) \
+                        tempsolutions = solve(eqnew.subs(cvar, \
+                                                         sqrt(1-svar**2)).expand(), \
+                                              svar)
+                        jointsolutions = [self.SimplifyTransform(self.trigsimp_new(s.subs(symbols + \
+                                                                                          varsym.subsinv))) \
                                           for s in tempsolutions]
                         jointsolutions = [s for s in jointsolutions if self.isValidSolution(s)]
                         
@@ -10660,7 +10654,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 self._dec_solutionStackCounter()
 
         if len(solutions) > 0:
-            log.info('[SOLVE %i] solveSingleVariable returns a solution for %r', \
+            log.info('[SOLVE %i] solveSingleVariable (M4) returns a solution for %r', \
                      self._solutionStackCounter, var)
             return solutions
 
@@ -10965,7 +10959,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                           if not e.has(cvar1,svar1,var1)]), \
                                                      var0, \
                                                      othersolvedvars, \
-                                                     subs = allsymbols, \
+                                                     tosubs = allsymbols, \
                                                      unknownvars = unknownvars)
         except self.CannotSolveError:
             log.info('[SOLVE %i] solveSingleVariable cannot solve for %r', \
@@ -10983,7 +10977,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                           if not e.has(cvar0,svar0,var0)]), \
                                                      var1, \
                                                      othersolvedvars, \
-                                                     subs = allsymbols, \
+                                                     tosubs = allsymbols, \
                                                      unknownvars = unknownvars)                    
         except self.CannotSolveError:
             log.info('[SOLVE %i] solveSingleVariable cannot solve for %r', \
