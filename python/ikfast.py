@@ -199,7 +199,10 @@ def ikfast_print_stack():
     tb = traceback.extract_stack()
     pattern = '%-30s %5s %24s' 
     print( '\n'+pattern % ('        FUNCTION','LINE', 'FILE      '))
-    keyword_of_interest = [ '__init__.py', 'ikfast.py', 'inversekinematics.py']
+    keyword_of_interest = [ '__init__.py', \
+                            'ikfast.py', \
+                            'inversekinematics.py', \
+                            'ikfast_generator_cpp.py']
     print('--------------------------------------------------------------')
     for function_call in tb:
         for keyword in keyword_of_interest:
@@ -10101,7 +10104,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             var, othersolvedvars, \
                             maxsolutions = 4, \
                             maxdegree = 2, \
-                            subs = None, \
+                            subs = [], \
                             unknownvars = []):
         """
         Called by 
@@ -10118,10 +10121,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                  self._solutionStackCounter, var)
         
         varsym = self.getVariable(var)
-        vars = [varsym.cvar, varsym.svar, varsym.htvar, var]
-        othersubs = []
-        for othersolvedvar in othersolvedvars:
-            othersubs += self.getVariable(othersolvedvar).subs
+        cvar, svar, htvar = varsym.cvar, varsym.svar, varsym.htvar
+        vars = [cvar, svar, htvar, var]
+        othersubs = self.jointlists([self.getVariable(othersolvedvar).subs \
+                                     for othersolvedvar in othersolvedvars])
+
+        # TGN: ensure othersolvedvars is a subset of self.trigvars_subs
+        assert(all([z in self.trigvars_subs for z in othersolvedvars]))
 
 #         eqns = []
 #         for eq in raweqns:
@@ -10132,23 +10138,23 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 #                     eqns.append(eq)
         eqns = [eq.expand() for eq in raweqns if eq.has(*vars)]
         if len(eqns) == 0:
-            raise self.CannotSolveError('not enough equations')
+            raise self.CannotSolveError('Need at least 1 equation; now there is none')
 
         # prioritize finding a solution when var is alone
         returnfirstsolutions = []
         
         for eq in eqns:
             symbolgen = cse_main.numbered_symbols('const')
+            # write eq as a polynomial in vars and group unrelevant terms as constx
             eqnew, symbols = self.groupTerms(eq.subs(varsym.subs), vars, symbolgen)
             try:
-                ps = Poly(eqnew, varsym.svar)
-                pc = Poly(eqnew, varsym.cvar)
+                ps = Poly(eqnew, svar)
+                pc = Poly(eqnew, cvar)
                 if sum(ps.degree_list()) > 0 or \
                    sum(pc.degree_list()) > 0 or \
                    ps.TC() == S.Zero or \
                    pc.TC() == S.Zero:
                     continue
-                
             except PolynomialError:
                 continue
             
@@ -10156,15 +10162,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             if numvar in [1, 2]:
                 try:
                     tempsolutions  = solve(eqnew, var)
-
-                    # TGN: ensure curvars is a subset of self.trigvars_subs
-                    assert(all([z in self.trigvars_subs for z in othersolvedvars]))
-                    
                     jointsolutions = [self.SimplifyTransform(self.trigsimp_new(s.subs(symbols))) \
                                       for s in tempsolutions]
-                    if all([self.isValidSolution(s) and s != S.Zero \
-                            for s in jointsolutions]) and \
-                                len(jointsolutions) > 0:
+                    if len(jointsolutions) > 0 and \
+                       all([self.isValidSolution(s) and s != S.Zero \
+                            for s in jointsolutions]):
                         # check if any solutions don't have divide by zero problems
                         returnfirstsolutions.append(AST.SolverSolution(var.name, \
                                                                        jointeval = jointsolutions,\
@@ -10172,55 +10174,52 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         hasdividebyzero = any([len(self.checkForDivideByZero(self._SubstituteGlobalSymbols(s))) > 0 \
                                                for s in jointsolutions])
                         if not hasdividebyzero:
-                            log.info('[SOLVE %i] solveSingleVariable returns a solution for %r', \
-                                     self._solutionStackCounter, var)
+                            log.info('[SOLVE %i] solveSingleVariable (M1) has solved %r for %r', \
+                                     self._solutionStackCounter, eq, var)
                             return returnfirstsolutions
                         
                 except NotImplementedError, e:
                     # when solve cannot solve an equation
                     log.warn(e)
             
-            numvar = self.countVariables(eqnew, varsym.htvar)
-            if Poly(eqnew, varsym.htvar).TC() != S.Zero and numvar in [1, 2]:
+            numvar = self.countVariables(eqnew, htvar)
+            if Poly(eqnew, htvar).TC() != S.Zero and numvar in [1, 2]:
                 try:
-                    tempsolutions = solve(eqnew,varsym.htvar)
+                    tempsolutions = solve(eqnew, htvar)
                     jointsolutions = []
                     for s in tempsolutions:
-                        s2 = s.subs(symbols)
-
-                        # TGN: ensure curvars is a subset of self.trigvars_subs
-                        assert(all([z in self.trigvars_subs for z in othersolvedvars]))
-                    
-                        s3 = self.trigsimp_new(s2)
-                        s4 = self.SimplifyTransform(s3)
+                        htval = self.SimplifyTransform(self.trigsimp_new(s.subs(symbols)))
                         try:
-                            jointsolutions.append(2*atan(s4, evaluate = False))
-                            # set evaluate to False; otherwise it takes long time to evaluate when s4 is a number
+                            # evaluating takes long time if htval.is_number
+                            jointsolutions.append(2*atan(htval, evaluate = False))
+
                         except RuntimeError, e:
                             log.warn('got runtime error when taking atan: %s', e)
                             
-                    if all([self.isValidSolution(s) \
+                    if len(jointsolutions) > 0 and \
+                       all([self.isValidSolution(s) \
                             and s != S.Zero \
-                            for s in jointsolutions]) \
-                                and len(jointsolutions) > 0:
+                            for s in jointsolutions]):
                         returnfirstsolutions.append(AST.SolverSolution(var.name, \
                                                                        jointeval = jointsolutions, \
                                                                        isHinge = self.IsHinge(var.name)))
                         hasdividebyzero = any([len(self.checkForDivideByZero(self._SubstituteGlobalSymbols(s))) > 0 \
                                                for s in jointsolutions])
                         if not hasdividebyzero:
-                            log.info('[SOLVE %i] solveSingleVariable returns a solution for %r', \
-                                     self._solutionStackCounter, var)
+                            log.info('[SOLVE %i] solveSingleVariable (M2) solves %r for %r', \
+                                     self._solutionStackCounter, eq, var)
                             return returnfirstsolutions
 
                 except NotImplementedError, e:
                     # when solve cannot solve an equation
                     log.warn(e)
-                    
+
+        # finished eq for-loop using methods 1 & 2
         if len(returnfirstsolutions) > 0:
             # already computed some solutions, so return them
             # note that this means that all solutions have a divide-by-zero condition
-            log.info('[SOLVE %i] solveSingleVariable returns a solution for %r', \
+            log.info('[SOLVE %i] solveSingleVariable (M1 or M2) returns a solution for %r\n' + \
+                     ' '*19 + 'All solutions have divide-by-zero conditions', \
                      self._solutionStackCounter, var)
             return returnfirstsolutions
         
@@ -10229,105 +10228,104 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             neweqns = []
             listsymbols = []
             symbolgen = cse_main.numbered_symbols('const')
-            for e in eqns:
-                enew, symbols = self.groupTerms(e.subs(varsym.subs), \
-                                                [varsym.cvar, varsym.svar, var], \
-                                                symbolgen)
+            for eq in eqns:
+                neweq, symbols = self.groupTerms(eq.subs(varsym.subs), \
+                                                [cvar, svar, var], symbolgen)
                 try:
                     # remove coupled equations
                     if any([(m[0]>0) + (m[1]>0) + (m[2]>0) > 1 \
-                            for m in Poly(enew, varsym.cvar, varsym.svar, var).monoms()]):
+                            for m in Poly(neweq, cvar, svar, var).monoms()]):
                         continue
                 except PolynomialError:
                     continue
                 
                 try:
                     # ignore any equations with degree 3 or more
-                    if max(Poly(enew, varsym.svar).degree_list()) > maxdegree or \
-                       max(Poly(enew, varsym.cvar).degree_list()) > maxdegree:
-                        log.debug('ignoring equation: ', enew)
+                    if max(Poly(neweq, svar).degree_list()) > maxdegree or \
+                       max(Poly(neweq, cvar).degree_list()) > maxdegree:
+                        log.debug('ignoring equation: ', neweq)
                         continue
                 except PolynomialError:
                     continue
                 
                 try:
-                    if Poly(enew,varsym.svar).TC() == S.Zero or \
-                       Poly(enew,varsym.cvar)      == S.Zero or \
-                       Poly(enew,varsym.var)       == S.Zero:
-                        log.debug('%s allows trivial solution for %s, ignore', e, varsym.name)
+                    if Poly(neweq, svar).TC() == S.Zero or \
+                       Poly(neweq, cvar).TC() == S.Zero or \
+                       Poly(neweq,  var).TC() == S.Zero:
+                        log.debug('%s allows trivial solution for %s, ignore', eq, varsym.name)
                         continue
                 except PolynomialError:
                     continue
                 
-                rank = self.codeComplexity(enew)
-                for s in symbols:
-                    rank += self.codeComplexity(s[1])
-                neweqns.append((rank, enew))
+                rank = self.codeComplexity(neweq) + \
+                       sum(self.codeComplexity(s[1]) for s in symbols)
+                neweqns.append((rank, neweq))
                 listsymbols += symbols
                 
-            # We only need two equations for two variables, so we sort all equations and
-            # start with the least complicated ones until we find a solution
-            eqcombinations = []
-            for eqs in combinations(neweqns,2):
-                eqcombinations.append((eqs[0][0] + eqs[1][0], [Eq(e[1], 0) for e in eqs]))
+            # Need two equations for two variables: each entry is (complexity, [eq0==0, eq1==0])
+            eqcombinations = [(eq0[0] + eq1[0], \
+                               [Eq(eq0[1],0), Eq(eq1[1],0)]) \
+                              for eq0, eq1 in combinations(neweqns, 2)]
+            # sort pairs of equations
             eqcombinations.sort(lambda x, y: x[0]-y[0])
             hasgoodsolution = False
-            for comb in eqcombinations:
+
+            for complexity, eqs in eqcombinations:
                 # skip if too complex
-                if len(solutions) > 0 and comb[0] > 200:
+                if len(solutions) > 0 and complexity > 200:
                     break
                 # try to solve for both sin and cos terms
-                if not (self.has(comb[1], varsym.svar) and \
-                        self.has(comb[1], varsym.cvar)):
+                if not (self.has(eqs, svar) and \
+                        self.has(eqs, cvar)):
                     continue
                 
                 try:
-                    s = solve(comb[1], [varsym.svar, varsym.cvar])
+                    sol = solve(eqs, [svar, cvar])
                 except (PolynomialError, CoercionFailed), e:
-                    log.debug('solveSingleVariable: failed: %s', e)
+                    log.debug('solveSingleVariable failed to solve %r for %r: %s', \
+                              eqs, [svar, cvar], e)
                     continue
                 
-                if s is not None:
-                    sollist = [(s[varsym.svar], s[varsym.cvar])] if \
-                              s.has_key(varsym.svar) and \
-                              s.has_key(varsym.cvar) else [] if \
-                              hasattr(s, 'has_key') else s
+                if sol is not None:
+                    sollist = [(sol[svar], sol[cvar])] if \
+                              sol.has_key(svar) and \
+                              sol.has_key(cvar) else [] if \
+                              hasattr(sol, 'has_key') else sol
                         
                     solversolution = AST.SolverSolution(var.name, \
                                                         jointeval = [], \
                                                         isHinge = self.IsHinge(var.name))
                     goodsolution = 0
                     for svarsol, cvarsol in sollist:
+                        svarsol_subbed = svarsol.subs(listsymbols)
+                        cvarsol_subbed = cvarsol.subs(listsymbols)
+                        
                         # solutions cannot be trivial
-                        soldiff = (svarsol-cvarsol).subs(listsymbols)
+                        soldiff = svarsol_subbed - cvarsol_subbed
                         soldiffComplexity = self.codeComplexity(soldiff)
                         if soldiffComplexity < 1000 and soldiff.expand() == S.Zero:
                             break
                         
-                        svarComplexity = self.codeComplexity(svarsol.subs(listsymbols))
-                        cvarComplexity = self.codeComplexity(cvarsol.subs(listsymbols))
+                        svarComplexity = self.codeComplexity(svarsol_subbed)
+                        cvarComplexity = self.codeComplexity(cvarsol_subbed)
                         
-                        if  svarComplexity < 600 and \
-                            svarsol.subs(listsymbols).expand() == S.Zero and \
-                            cvarComplexity < 600 and \
-                            Abs(cvarsol.subs(listsymbols).expand()) != S.One:
+                        if svarComplexity < 600 and \
+                           svarsol_subbed.expand() == S.Zero and \
+                           cvarComplexity < 600 and \
+                           Abs(cvarsol_subbed.expand()) != S.One:
                             # TGN: this used to be ... - S.One != S.Zero
                             break
                         
                         if cvarComplexity < 600 and \
-                           cvarsol.subs(listsymbols).expand() == S.Zero and \
+                           cvarsol_subbed.expand() == S.Zero and \
                            svarComplexity < 600 and \
-                           Abs(svarsol.subs(listsymbols).expand()) != S.One:
+                           Abs(svarsol_subbed.expand()) != S.One:
                             # TGN: this used to be ... - S.One != S.Zero
                             break
                         
                         # check the numerator and denominator if solutions are the same or for possible divide by zeros
-                        svarfrac = fraction(svarsol)
-                        svarfrac = [svarfrac[0].subs(listsymbols), \
-                                    svarfrac[1].subs(listsymbols)]
-                        cvarfrac = fraction(cvarsol)
-                        cvarfrac = [cvarfrac[0].subs(listsymbols), \
-                                    cvarfrac[1].subs(listsymbols)]
+                        svarfrac = list(fraction(svarsol_subbed))
+                        cvarfrac = list(fraction(cvarsol_subbed))
                         
                         if self.equal(svarfrac[0], cvarfrac[0]) and \
                            self.equal(svarfrac[1], cvarfrac[1]):
@@ -10366,63 +10364,70 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             log.debug('equation too complex for single variable solution (%d, %d) ' + \
                                       '... (probably wrong?)', scomplexity, ccomplexity)
                             break
-                        
+
+                        # long fractions can take long time to simplify, so we check the length of equation
                         if scomplexity < 500 and len(str(svarfrac[1])) < 600:
-                            # long fractions can take long time to simplify, so we check the length of equation
                             svarfrac[1] = simplify(svarfrac[1])
-                            
                         if self.chop(svarfrac[1])== 0:
                             break
-                        
                         if ccomplexity < 500 and len(str(cvarfrac[1])) < 600:
                             cvarfrac[1] = simplify(cvarfrac[1])
-                            
                         if self.chop(cvarfrac[1])== 0:
                             break
                         # sometimes the returned simplest solution makes really gross approximations
 
-                        # TGN: ensure othersolvedvars is a subset of self.trigvars_subs
-                        assert(all([z in self.trigvars_subs for z in othersolvedvars]))
-                        
+                        # self.SimplifyTransform could help reduce denoms further...
                         svarfracsimp_denom = self.SimplifyTransform(self.trigsimp_new(svarfrac[1]))
                         cvarfracsimp_denom = self.SimplifyTransform(self.trigsimp_new(cvarfrac[1]))
-                        # self.SimplifyTransform could help reduce denoms further...
-                        denomsequal = False
-                        if self.equal(svarfracsimp_denom, cvarfracsimp_denom):
-                            denomsequal = True
-                        elif self.equal(svarfracsimp_denom, -cvarfracsimp_denom):
-                            cvarfrac[0] = -cvarfrac[0]
-                            cvarfracsimp_denom = -cvarfracsimp_denom
+
+                        denomsequal = self.equal(svarfracsimp_denom, cvarfracsimp_denom)
+                        if not denomsequal:
+                           if self.equal(svarfracsimp_denom, -cvarfracsimp_denom):
+                               cvarfrac[0] = -cvarfrac[0]
+                               cvarfracsimp_denom = -cvarfracsimp_denom
+                               denomsequal = True
+                           else: # TGN checks if one is a multiple of another
+                               lcmsc = lcm(svarfracsimp_denom, cvarfracsimp_denom)
+                               if lcmsc == svarfracsimp_denom:
+                                   cvarfrac[0] *= lcmsc/cvarfracsimp_denom
+                                   cvarfracsimp_denom = lcmsc
+                                   denomsequal = True
+                               elif lcmsc == cvarfracsimp_denom:
+                                   svarfrac[0] *= lcmsc/svarfracsimp_denom
+                                   svarfracsimp_denom = lcmsc
+                                   denomsequal = True
                             
-                        if self.equal(svarfracsimp_denom, cvarfracsimp_denom) and \
-                           not svarfracsimp_denom.is_number:
-                            log.debug('denom of %s = %s', var.name, svarfracsimp_denom)
+                        if denomsequal:
                             # TGN: did not do global substitution
                             # denom = self.gsymbolgen.next()
                             # solversolution.dictequations.append((denom, sign(svarfracsimp_denom)))
+                            log.debug('denom of %s = %s', var.name, svarfracsimp_denom)
+                        else:
+                            log.debug('denoms of %s''s svar and cvar are different: %r, %r', \
+                                      var.name, svarfracsimp_denom, cvarfracsimp_denom)
 
-                            # TGN: ensure othersolvedvars is a subset of self.trigvars_subs
-                            assert(all([z in self.trigvars_subs for z in othersolvedvars]))
-                            
-                            svarsolsimp = self.SimplifyTransform(self.trigsimp_new(svarfrac[0]))#*denom)
-                            cvarsolsimp = self.SimplifyTransform(self.trigsimp_new(cvarfrac[0]))#*denom)
+                        svarsolsimp = self.SimplifyTransform(self.trigsimp_new(svarfrac[0]))#*denom)
+                        cvarsolsimp = self.SimplifyTransform(self.trigsimp_new(cvarfrac[0]))#*denom)
+
+                        # If both denominators are the same and they are not numbers, we use atan2 here and
+                        # CodeGenerator._WriteExprCode will use IKatan2WithCheck to check the solution,
+                        # being more robust against NaNs: once 
+                        #
+                        # Otherwise, we use atan2check(x,y) and CodeGenerator._WriteExprCode will check if
+                        # Abs(x), Abs(y) < IKFAST_ATAN2_MAGTHRESH, and
+                        # Abs(x*x+y*y-1) <= IKFAST_SINCOS_THRESH
+
+                        if denomsequal and not svarfracsimp_denom.is_number:
                             solversolution.FeasibleIsZeros = False
                             solversolution.presetcheckforzeros.append(svarfracsimp_denom)
                             # instead of doing atan2(sign(dummy)*s, sign(dummy)*c) with dummy!=0
                             # we do atan2(s,c) + pi/2*(1-1/sign(dummy)) so equations become simpler
-                            #
-                            # TGN: or just 1-sign(dummy)?
-                            #
-                            expandedsol = atan2(svarsolsimp,cvarsolsimp) + pi/2*(-S.One + sign(svarfracsimp_denom))
+                            # TGN: just 1-sign(dummy)
+                            expandedsol = atan2(svarsolsimp, cvarsolsimp) + \
+                                          pi/2*(-S.One + sign(svarfracsimp_denom))
                         else:
-                            
-                            # TGN: ensure othersolvedvars is a subset of self.trigvars_subs
-                            assert(all([z in self.trigvars_subs for z in othersolvedvars]))
-                            
-                            svarfracsimp_num = self.SimplifyTransform(self.trigsimp_new(svarfrac[0]))
-                            cvarfracsimp_num = self.SimplifyTransform(self.trigsimp_new(cvarfrac[0]))
-                            svarsolsimp = svarfracsimp_num/svarfracsimp_denom
-                            cvarsolsimp = cvarfracsimp_num/cvarfracsimp_denom
+                            svarsolsimp /= svarfracsimp_denom
+                            cvarsolsimp /= cvarfracsimp_denom
                             
                             if svarsolsimp.is_number and cvarsolsimp.is_number:
                                 if Abs(svarsolsimp**2+cvarsolsimp**2-S.One).evalf() > 1e-10:
@@ -10445,20 +10450,17 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                 continue
                             
                             solversolution.FeasibleIsZeros = False
-                            log.debug('solution for %s: atan2 check for joint', var.name)
+                            log.debug('solution for %s = atan2check(%r, %r)', var.name, \
+                                      svarsolsimp, cvarsolsimp)
+                            # exec(ipython_str, globals(), locals())
+
                         solversolution.jointeval.append(expandedsol)
                         
                         if unknownvars is not None:
-                            unsolvedsymbols = []
-                            for unknownvar in unknownvars:
-                                if unknownvar != var:
-                                    unsolvedsymbols += self.getVariable(unknownvar).vars
-                            if len(unsolvedsymbols) > 0:
-                                solversolution.equationsused = [eq for eq in eqns \
-                                                                if not eq.has(*unsolvedsymbols)]
-                            else:
-                                solversolution.equationsused = eqns
-                                
+                            unsolvedsymbols = self.jointlists([self.getVariable(unknownvar).vars \
+                                                               for unknownvar in unknownvars if unknownvar != var])
+                            solversolution.equationsused = [eq for eq in eqns \
+                                                            if not eq.has(*unsolvedsymbols)] if len(unsolvedsymbols) > 0 else eqns
                             if len(solversolution.equationsused) > 0:
                                 log.info('%s = atan2( %s,\n' + \
                                          '                  %s%s )', \
@@ -10482,12 +10484,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
             if len(solutions) > 0 or hasgoodsolution:
                 # found a solution without any divides, necessary for pr2 head_torso lookat3d ik
-                log.info('[SOLVE %i] solveSingleVariable returns a solution for %r', \
+                log.info('[SOLVE %i] solveSingleVariable (M3) returns a solution for %r', \
                          self._solutionStackCounter, var)
                 return solutions
-
-        # TGN: ensure othersolvedvars is a subset of self.trigvars_subs
-        assert(all([z in self.trigvars_subs for z in othersolvedvars]))
 
         # solve one equation
         for ieq, eq in enumerate(eqns):

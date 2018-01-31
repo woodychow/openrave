@@ -87,6 +87,32 @@ logging.basicConfig( format  = LOGGING_FORMAT, \
                      level   = logging.DEBUG)
 log = logging.getLogger('ikfast_generator_cpp')
 
+# ========== TGN's tools for studying how IKFast works ==========
+import traceback
+def ikfast_print_stack():
+    tb = traceback.extract_stack()
+    pattern = '%-30s %5s %24s' 
+    print( '\n'+pattern % ('        FUNCTION','LINE', 'FILE      '))
+    keyword_of_interest = [ '__init__.py', \
+                            'ikfast.py', \
+                            'inversekinematics.py', \
+                            'ikfast_generator_cpp.py']
+    print('--------------------------------------------------------------')
+    for function_call in tb:
+        for keyword in keyword_of_interest:
+            if (keyword in function_call[0]) and (function_call[2] not in 'ikfast_print_stack'):
+                print(pattern % (function_call[2], function_call[1], keyword))
+                break
+
+ipython_str = 'ikfast_print_stack(); ' + \
+              'from IPython.terminal import embed; ' + \
+              'ipshell = embed.InteractiveShellEmbed(banner1="", config=embed.load_default_config())(local_ns=locals())'
+
+"""
+exec(ipython_str, globals(), locals())
+"""
+# ========== End of TGN's tools  ==============
+
 from sympy.core import function # for sympy 0.7.1+
 class fmod(function.Function):
     nargs = 2
@@ -1974,12 +2000,12 @@ IkReal r00 = 0, r11 = 0, r22 = 0;
                 exprbase1 = code.read(pos1-pos0)
                 code.seek(pos1)
                 sepcodelist.append('if( IKabs(%s) < IKFAST_ATAN2_MAGTHRESH && IKabs(%s) < IKFAST_ATAN2_MAGTHRESH && IKabs(IKsqr(%s)+IKsqr(%s)-1) <= IKFAST_SINCOS_THRESH )\n    continue;\n'%(exprbase0,exprbase1,exprbase0,exprbase1))
+                
             elif expr.func == atan2:
                 # check for divides by 0 in arguments, this could give two possible solutions?!?
                 # if common arguments is nan! solution is lost!
                 # use IKatan2WithCheck in order to make it robust against NaNs
                 iktansymbol = self.symbolgen.next()
-                
                 code2 = cStringIO.StringIO()
                 code2.write('CheckValue<IkReal> %s = IKatan2WithCheck(IkReal('%iktansymbol)
                 code3,sepcodelist = self._WriteExprCode(expr.args[0], code2)
@@ -1988,9 +2014,8 @@ IkReal r00 = 0, r11 = 0, r22 = 0;
                 code2.write('),IKFAST_ATAN2_MAGTHRESH);\nif(!%s.valid){\ncontinue;\n}\n'%iktansymbol)
                 sepcodelist += sepcodelist2
                 sepcodelist.append(code2.getvalue())
-                
                 code.write('%s.value'%iktansymbol)
-                return code,sepcodelist
+                return code, sepcodelist
             
             elif expr.func == sin:
                 code.write('IKsin(')
@@ -2017,7 +2042,7 @@ IkReal r00 = 0, r11 = 0, r22 = 0;
                     if not arg == expr.args[-1]:
                         code.write(',')
             code.write(')')
-            return code,sepcodelist
+            return code, sepcodelist
         
         elif expr.is_number:
             expreval = expr.evalf()
