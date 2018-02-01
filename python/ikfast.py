@@ -1231,9 +1231,9 @@ class IKFastSolver(AutoReloader):
             self.gen_variable_obj([v])
         return self.variable_obj[v]
 
-    def trigsimp_new(self, eq):
+    def trigsimp(self, eq):
         """
-        TGN's rewrite version of trigsimp: recursively subs sin**2 for 1-cos**2 for every trig var
+        Recursively substitutes sin**2 for 1-cos**2 for every trigvar in self.trigvars_subs
         """
         eq = eq.expand()
         curcount = eq.count_ops()
@@ -1244,30 +1244,6 @@ class IKFastSolver(AutoReloader):
                 break
             curcount = newcount
         return eq
-    
-    """    
-    def trigsimp(self, eq, trigvars):
-
-        # recursively subs sin**2 for 1-cos**2 for every trig var
-
-        exec(ipython_str)
-        trigsubs = []
-        for v in trigvars:
-            if self.IsHinge(v.name):
-                trigsubs.append((sin(v)**2, 1-cos(v)**2))
-                trigsubs.append((Symbol('s%s'%v.name)**2, \
-                                 1-Symbol('c%s'%v.name)**2))
-                
-        eq = expand(eq)
-        curcount = eq.count_ops()
-        while True:
-            eq = eq.subs(trigsubs).expand()
-            newcount = eq.count_ops()
-            if IKFastSolver.equal(curcount, newcount):
-                break
-            curcount=newcount
-        return eq
-    """
     
     def SimplifyAtan2(self, eq, \
                       incos = False, \
@@ -2977,8 +2953,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                 for z in [sumjoint, checkorientationjoints[0], checkorientationjoints[1]]]))
                                 
                                     for i in range(3):
-                                        newp1[i] = self.trigsimp_new(newp1[i])
-                                        newl1[i] = self.trigsimp_new(newl1[i])
+                                        newp1[i] = self.trigsimp(newp1[i])
+                                        newl1[i] = self.trigsimp(newl1[i])
 
                                     for i in range(3):
                                         AllEquations.append(self.SimplifyTransform(p0[i]-newp1[i]).expand())
@@ -3959,7 +3935,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # TGN: ensure solvejointvars is a subset of self.trigvars_subs
             assert(all([z in self.trigvars_subs for z in solvejointvars]))
             
-            eq = self.SimplifyTransform(self.trigsimp_new(globaldir2.dot(manipdir2))) - cos(self.Tee[0])
+            eq = self.SimplifyTransform(self.trigsimp(globaldir2.dot(manipdir2))) - cos(self.Tee[0])
             if self.CheckExpressionUnique(AllEquations, eq):
                 AllEquations.append(eq)
                 
@@ -3969,7 +3945,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     if binormaldir2[i].is_number:
                         binormaldir2[i] = self.convertRealToRational(binormaldir2[i])
                         
-                eq = self.SimplifyTransform(self.trigsimp_new(binormaldir2.dot(manipdir2))) - sin(self.Tee[0])
+                eq = self.SimplifyTransform(self.trigsimp(binormaldir2.dot(manipdir2))) - sin(self.Tee[0])
                 if self.CheckExpressionUnique(AllEquations, eq):
                     AllEquations.append(eq)
         
@@ -4258,7 +4234,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     leftside [i][j] -= sumterm
                     rightside[i][j] -= sumterm
                         
-                eq = self.trigsimp_new(p - pee)
+                eq = self.trigsimp(p - pee)
                 if self.codeComplexity(eq) < 1500:
                     eq = self.SimplifyTransform(eq)
                 if self.CheckExpressionUnique(AllEquations, eq):
@@ -4271,7 +4247,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     
                 if self.codeComplexity(pnorm) < 1200 and self.codeComplexity(penorm) < 1200:
                     # sympy's trigsimp/customtrigsimp give up too easily
-                    eq = self.SimplifyTransform(self.trigsimp_new(pnorm - penorm))
+                    eq = self.SimplifyTransform(self.trigsimp(pnorm - penorm))
                     if self.CheckExpressionUnique(AllEquations, eq):
                         AllEquations.append(eq.expand())
                 else:
@@ -4366,7 +4342,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
                 # TGN: ensure othersolvedvars+rotvars is a subset of self.trigvars_subs
                 assert(all([z in self.trigvars_subs for z in othersolvedvars+rotvars]))
-                AllEquations += [self.trigsimp_new(Raccum[i,j]-R[i,j]) \
+                AllEquations += [self.trigsimp(Raccum[i,j]-R[i,j]) \
                                  for i in range(3) for j in range(3)]
                 numvarsdone += 1
                 """
@@ -7460,7 +7436,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # not translationdirection5d nor transform6d
             pass
 
-        eq = self.trigsimp_new(eq)
+        eq = self.trigsimp(eq)
         if eq == origeq:
             # TGN: Sometimes eq is not "simplified" because global substitutions happen,
             #      not because _SimplifyRotation* functions don't work
@@ -8253,7 +8229,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             for eq in raweqns:
                 # TGN: ensure curvars is a subset of self.trigvars_subs
                 assert(all([z in self.trigvars_subs for z in curvars]))
-                neweq = self.trigsimp_new(eq.subs(var0, dummyvar-var1).expand(trig = True))
+                neweq = self.trigsimp(eq.subs(var0, dummyvar-var1).expand(trig = True))
                 eq = neweq.subs(freevar_sol_subs)
                 if self.CheckExpressionUnique(NewEquationsAll, eq):
                     NewEquationsAll.append(eq)
@@ -8277,7 +8253,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 for eq in raweqns:
                     # TGN: ensure curvars is a subset of self.trigvars_subs
                     assert(all([z in self.trigvars_subs for z in curvars]))
-                    neweq = self.trigsimp_new(eq.subs(var0, dummyvar + var1).expand(trig = True))
+                    neweq = self.trigsimp(eq.subs(var0, dummyvar + var1).expand(trig = True))
                     eq = neweq.subs(freevar_sol_subs)
                     if self.CheckExpressionUnique(NewEquationsAll, eq):
                         NewEquationsAll.append(eq)
@@ -8437,11 +8413,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         if len(solutions) > 0:
             for solution in solutions:
                 if solution[0].jointeval is not None:
-                    solution[0].jointeval = [self.trigsimp_new(eq) for eq in solution[0].jointeval]
+                    solution[0].jointeval = [self.trigsimp(eq) for eq in solution[0].jointeval]
                 if solution[0].jointevalcos is not None:
-                    solution[0].jointevalcos = [self.trigsimp_new(eq) for eq in solution[0].jointevalcos]
+                    solution[0].jointevalcos = [self.trigsimp(eq) for eq in solution[0].jointevalcos]
                 if solution[0].jointevalsin is not None:
-                    solution[0].jointevalsin = [self.trigsimp_new(eq) for eq in solution[0].jointevalsin]
+                    solution[0].jointevalsin = [self.trigsimp(eq) for eq in solution[0].jointevalsin]
             try:
                 log.info('[SOLVE %i] SolveAllEquations calls AddSolution for %r', \
                          self._solutionStackCounter, curvars)
@@ -9665,7 +9641,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
     """
     def _createSimplifyFn(self, varsubs, varsubsinv):
         # called by solvePairVariablesHalfAngle but commented out
-        return lambda eq: self.trigsimp_new(eq.subs(varsubsinv)).subs(varsubs)
+        return lambda eq: self.trigsimp(eq.subs(varsubsinv)).subs(varsubs)
     """
                 
     def solveVariablesLinearly(self, polyeqs, othersolvedvars, maxsolvabledegree = 4):
@@ -9758,14 +9734,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                              'determinant will most likely freeze (%d)', complexity)
                                 
                         if M.shape[0] == M.shape[1]:
-                            Mdet = self.trigsimp_new(Mdet.subs(trigsubsinv)).subs(trigsubs)
+                            Mdet = self.trigsimp(Mdet.subs(trigsubsinv)).subs(trigsubs)
                             #Minv = M.inv()
                             B = Matrix(M.shape[0],1,[consts[i] for i in rows])
                             Madjugate = M.adjugate()
                             solution = []
                             for check in symbolscheck:
                                 value = Madjugate[allmonoms.index(check),:]*B
-                                solution.append(self.trigsimp_new(value[0].subs(trigsubsinv)).subs(trigsubs))
+                                solution.append(self.trigsimp(value[0].subs(trigsubsinv)).subs(trigsubs))
                             solutions.append([Mdet, solution])
                             if len(solutions) >= 2:
                                 break
@@ -10162,7 +10138,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             if numvar in [1, 2]:
                 try:
                     tempsolutions  = solve(eqnew, var)
-                    jointsolutions = [self.SimplifyTransform(self.trigsimp_new(s.subs(symbols))) \
+                    jointsolutions = [self.SimplifyTransform(self.trigsimp(s.subs(symbols))) \
                                       for s in tempsolutions]
                     if len(jointsolutions) > 0 and \
                        all([self.isValidSolution(s) and s != S.Zero \
@@ -10188,7 +10164,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     tempsolutions = solve(eqnew, htvar)
                     jointsolutions = []
                     for s in tempsolutions:
-                        htval = self.SimplifyTransform(self.trigsimp_new(s.subs(symbols)))
+                        htval = self.SimplifyTransform(self.trigsimp(s.subs(symbols)))
                         try:
                             # evaluating takes long time if htval.is_number
                             jointsolutions.append(2*atan(htval, evaluate = False))
@@ -10378,8 +10354,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         # sometimes the returned simplest solution makes really gross approximations
 
                         # self.SimplifyTransform could help reduce denoms further...
-                        svarfracsimp_denom = self.SimplifyTransform(self.trigsimp_new(svarfrac[1]))
-                        cvarfracsimp_denom = self.SimplifyTransform(self.trigsimp_new(cvarfrac[1]))
+                        svarfracsimp_denom = self.SimplifyTransform(self.trigsimp(svarfrac[1]))
+                        cvarfracsimp_denom = self.SimplifyTransform(self.trigsimp(cvarfrac[1]))
 
                         denomsequal = self.equal(svarfracsimp_denom, cvarfracsimp_denom)
                         if not denomsequal:
@@ -10409,8 +10385,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             log.debug('denoms of %s''s svar and cvar are different: %r, %r', \
                                       var.name, svarfracsimp_denom, cvarfracsimp_denom)
 
-                        svarsolsimp = self.SimplifyTransform(self.trigsimp_new(svarfrac[0]))#*denom)
-                        cvarsolsimp = self.SimplifyTransform(self.trigsimp_new(cvarfrac[0]))#*denom)
+                        svarsolsimp = self.SimplifyTransform(self.trigsimp(svarfrac[0]))#*denom)
+                        cvarsolsimp = self.SimplifyTransform(self.trigsimp(cvarfrac[0]))#*denom)
 
                         # If both denominators are the same and they are not numbers, we use atan2 here and
                         # CodeGenerator._WriteExprCode will use IKatan2WithCheck to check the solution,
@@ -10572,7 +10548,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         tempsolutions = solve(eqnew.subs(svar, \
                                                          sqrt(1-cvar**2)).expand(), \
                                               cvar)
-                        jointsolutions = [self.SimplifyTransform(self.trigsimp_new(s.subs(symbols + \
+                        jointsolutions = [self.SimplifyTransform(self.trigsimp(s.subs(symbols + \
                                                                                           varsym.subsinv))) \
                                           for s in tempsolutions]
                         jointsolutions = [s for s in jointsolutions if self.isValidSolution(s)]
@@ -10597,7 +10573,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         tempsolutions = solve(eqnew.subs(cvar, \
                                                          sqrt(1-svar**2)).expand(), \
                                               svar)
-                        jointsolutions = [self.SimplifyTransform(self.trigsimp_new(s.subs(symbols + \
+                        jointsolutions = [self.SimplifyTransform(self.trigsimp(s.subs(symbols + \
                                                                                           varsym.subsinv))) \
                                           for s in tempsolutions]
                         jointsolutions = [s for s in jointsolutions if self.isValidSolution(s)]
@@ -10622,7 +10598,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     for s in tempsolutions:
                         eqsub = s.subs(symbols)
                         if self.codeComplexity(eqsub) < 2000:
-                            eqsub = self.SimplifyTransform(self.trigsimp_new(eqsub))
+                            eqsub = self.SimplifyTransform(self.trigsimp(eqsub))
                         jointsolutions.append(eqsub)
                         
                     if all([self.isValidSolution(s) and s != S.Zero \
@@ -10862,7 +10838,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         # only include equations that no longer contain pairwise variables and are not too complex
                         continue
 
-                    eq = self.trigsimp_new(eq)
+                    eq = self.trigsimp(eq)
                     if not self.CheckExpressionUnique(eqns2, eq) or \
                        not self.CheckExpressionUnique(eqns,  eq):
                         continue
@@ -11021,8 +10997,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             log.info('[SOLVE %i] solvePairVariables (M1) returns a solution for %r, %r', \
                      self._solutionStackCounter, var0, var1)
             return solutions
-        
+
+        # Find a group that has two or more equations:
+        # Case 1: Look for equations where all monoms but one involve one of c0,s0,c1,s1.
         goodgroup = []
+        useconic = False
         for i in range(4): # iterate through (c0,s0,c1,s1)
             listeqs = []
             for rank, eq in neweqns:
@@ -11039,13 +11018,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             listeqs.append(eq)
             if len(listeqs) >= 2:
                 goodgroup.append((i, listeqs))
-        useconic = False
             
-        # find a group that has two or more equations:
         if len(goodgroup) == 0:
-            # might have a set of equations that can be solved with conics
-            # look for equations where the variable and its complement are alone
+            # Case 2: Look for equations where all monoms but one involve only (c0, s0) or (c1, s1).
+            #         Might be able to solve a set of equations with conics.
             goodgroup = []
+            useconic = True
             for i in [0, 2]:
                 listeqs = []
                 for rank, eq in neweqns:
@@ -11073,8 +11051,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             listeqs.append(eq)
                 if len(listeqs) >= 2:
                     goodgroup.append((i, listeqs))
-                
-            useconic = True
+
             if len(goodgroup) == 0:
                 try:
                     log.info('[SOLVE %i] solvePairVariables tries solvePairVariablesHalfAngle for %r, %r', \
@@ -11128,7 +11105,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                 totaleq = simplify(totaleq)
 
                             polysymbols = paireq0[1-ivar].gens
-                            ptotal_cos = Poly(self.trigsimp_new(totaleq), *polysymbols)
+                            ptotal_cos = Poly(self.trigsimp(totaleq), *polysymbols)
                             ptotal_sin = Poly(S.Zero, *polysymbols)
                             for m, c in ptotal_cos.terms():
                                 if m[1] > 0:
@@ -11177,33 +11154,38 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         
                 raise self.CannotSolveError('cannot cleanly separate pair equations')
 
+        # take the first good group (there can be more than 1 good group)
         varindex = goodgroup[0][0]
-        assert(varindex == 0 or varindex == 2)
-        var, varsym = (var0, varsym0) if varindex == 0 else (var1, varsym1)
-        unknownvar = c0s0c1s1[varindex] # either c0 or c1
+        # if useconic is True, then varindex is either 0 or 2
+        assert(not useconic or varindex==0 or varindex==2)
+        var, varsym = (var0, varsym0) if varindex < 2 else (var1, varsym1)
+        unknownvar = c0s0c1s1[varindex]
         eqs = goodgroup[0][1][0:2] # first two equations
-        simpleterms = []
+        simpleterms  = []
         complexterms = []
         domagicsquare = False
 
         for i in (0, 1):
-            terms = [(c, m) for m, c in eqs[i].terms() \
-                     if sum(m) - m[varindex] > (m[varindex+1] if useconic else 0)]
-            if len(terms) > 0:
+            term = [(m, c) for m, c in eqs[i].terms() \
+                    if sum(m) - m[varindex] > (m[varindex+1] if useconic else 0)]
+            if len(term) > 0:
+                # recall "all but one" condition in Cases 1 & 2 above
+                assert(len(term)==1)
                 # exec(ipython_str, globals(), locals())
+                m, c = term[0]
 
-                simpleterms.append(eqs[i].sub(Poly.from_dict({terms[0][1]:terms[0][0]}, *eqs[i].gens)).as_expr()/terms[0][0]) # divide by the coeff
-                complexterms.append(Poly({terms[0][1]:S.One}, *c0s0c1s1).as_expr())
+                simpleterms. append(eqs[i].sub(Poly.from_dict({m:c}, *c0s0c1s1)).as_expr()/c) # divide by the coeff
+                complexterms.append(Poly({m:S.One}, *c0s0c1s1).as_expr())
                 domagicsquare = True
             else:
-                simpleterms.append(eqs[i].as_expr())
+                simpleterms. append(eqs[i].as_expr())
                 complexterms.append(S.Zero)
                 
         finaleq = None
         checkforzeros = []
         if domagicsquare:
             # here is the magic transformation:
-            finaleq = self.trigsimp_new(expand((complexterms[0]**2 + complexterms[1]**2 - \
+            finaleq = self.trigsimp(expand((complexterms[0]**2 + complexterms[1]**2 - \
                                                 simpleterms [0]**2 -  simpleterms[1]**2)  ))
             
             denoms = [fraction(simpleterms [0])[1], \
@@ -11217,9 +11199,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             for denom in denoms:
                 if denom != S.One:
                     checkforzeros.append(self.removecommonexprs(denom))
-                    denomlcm = Poly(lcm(denomlcm,denom), *lcmvars)
+                    denomlcm = Poly(lcm(denomlcm, denom), *lcmvars)
             finaleq = simplify(finaleq * denomlcm.as_expr()**2)
-            complementvarindex = varindex - (varindex%2) + ((varindex+1)%2)
+            complementvarindex = varindex + (-1)**varindex
             complementvar = c0s0c1s1[complementvarindex]
             finaleq = simplify(finaleq.subs(complementvar**2, 1-unknownvar**2)).subs(allsymbols).expand()
         else:
@@ -11289,14 +11271,15 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 # trigsimp probably won't work on long solutions
                 if self.codeComplexity(processedsolution) < 2000: # complexity of 2032 for pi robot freezes
                     log.info('solution complexity: %d', self.codeComplexity(processedsolution))
-                    processedsolution = self.SimplifyTransform(self.trigsimp(processedsolution, othersolvedvars))
+                    processedsolution = self.SimplifyTransform(self.trigsimp(processedsolution))
                 processedsolutions.append(processedsolution.subs(varsubs))
                 
-            if (varindex%2)==0:
+            if varindex % 2 == 0:
                 solversolution.jointevalcos = processedsolutions
             else:
                 solversolution.jointevalsin = processedsolutions
-            log.info('solvePairVariables returns a solution')
+            log.info('solvePairVariables returns a solution in %s', \
+                     'jointevalcos' if varindex%2 == 0 else 'jointevalsin')
             return [solversolution]
         
         log.info('solvePairVariables tries solvePairVariablesHalfAngle')
@@ -12321,7 +12304,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 # not sure about this thresh
                 if self.codeComplexity(eq) > 300:
 
-                    neweq = self.trigsimp_new(factor(eq))
+                    neweq = self.trigsimp(factor(eq))
                     if self.codeComplexity(neweq) > 300:
                         log.warn(u'equation too complex to simplify for rot norm: %s', eq)
                         break
