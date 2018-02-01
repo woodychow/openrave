@@ -11171,9 +11171,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             if len(term) > 0:
                 # recall "all but one" condition in Cases 1 & 2 above
                 assert(len(term)==1)
-                # exec(ipython_str, globals(), locals())
                 m, c = term[0]
-
                 simpleterms. append(eqs[i].sub(Poly.from_dict({m:c}, *c0s0c1s1)).as_expr()/c) # divide by the coeff
                 complexterms.append(Poly({m:S.One}, *c0s0c1s1).as_expr())
                 domagicsquare = True
@@ -11192,15 +11190,19 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                       fraction(simpleterms [1])[1], \
                       fraction(complexterms[0])[1], \
                       fraction(complexterms[1])[1]]
-            
+            """
             lcmvars = self.pvars + c0s0c1s1 + \
-                      self.jointlists([self.getVariable(othersolvedvar).vars for othersolvedvar in othersolvedvars])
-            denomlcm = Poly(S.One, *lcmvars)
-            for denom in denoms:
-                if denom != S.One:
-                    checkforzeros.append(self.removecommonexprs(denom))
-                    denomlcm = Poly(lcm(denomlcm, denom), *lcmvars)
+                      self.jointlists([self.getVariable(othersolvedvar).vars for othersolvedvar in othersolvedvars]) 
+            denomlcm = Poly(S.One, *lcmvars) 
+            for denom in denoms: 
+                if denom != S.One: 
+                    checkforzeros.append(self.removecommonexprs(denom)) 
+                    denomlcm = Poly(lcm(denomlcm, denom), *lcmvars) 
             finaleq = simplify(finaleq * denomlcm.as_expr()**2)
+            """
+            checkforzeros = [self.removecommonexprs(denom) for denom in denoms if denom != S.One]
+            denomlcm = lcm(denoms)
+            finaleq = simplify(finaleq * denomlcm**2)
             complementvarindex = varindex + (-1)**varindex
             complementvar = c0s0c1s1[complementvarindex]
             finaleq = simplify(finaleq.subs(complementvar**2, 1-unknownvar**2)).subs(allsymbols).expand()
@@ -11257,6 +11259,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             log.info('solvePairVariables returns a solution')
             return [solution]
 
+        exec(ipython_str, globals(), locals())
         # now that everything is with respect to one variable, simplify and solve the equation
         eqnew, symbols = self.groupTerms(finaleq, c0s0c1s1, symbolgen)
         allsymbols += symbols
@@ -11295,131 +11298,105 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
         log.info('[SOLVE %i] Starting solvePairVariablesHalfAngle for %r, %r', \
                  self._solutionStackCounter, var0, var1)
-        
-        import itertools
 
         varsym0 = self.getVariable(var0)
         varsym1 = self.getVariable(var1)
         varsyms = [varsym0, varsym1]
-        
-        unknownvars = [varsym0.cvar, varsym0.svar, \
-                       varsym1.cvar, varsym1.svar  ]
+
+        cvar0, svar0 = varsym0.cvar, varsym0.svar
+        cvar1, svar1 = varsym1.cvar, varsym1.svar
+        c0s0c1s1 = [cvar0, svar0, cvar1, svar1]
         
         varsubs    = varsym0.subs    + varsym1.subs
         varsubsinv = varsym0.subsinv + varsym1.subsinv
 
+        htvar0, htvar1 = varsym0.htvar, varsym1.htvar
         # numerators
-        halftannum   = [1-varsym0.htvar**2, 2*varsym0.htvar, \
-                        1-varsym1.htvar**2, 2*varsym1.htvar]
+        halftannum   = [1-htvar0**2, 2*htvar0, \
+                        1-htvar1**2, 2*htvar1]
         # denominators
-        halftandenom = [1+varsym0.htvar**2, 1+varsym1.htvar**2]
+        halftandenom = [1+htvar0**2, 1+htvar1**2]
 
         # half tangent substitutions
-        halftansubs = [(varsym0.cvar, halftannum[0] / halftandenom[0]), \
-                       (varsym0.svar, halftannum[1] / halftandenom[0]), \
-                       (varsym1.cvar, halftannum[2] / halftandenom[1]), \
-                       (varsym1.svar, halftannum[3] / halftandenom[1])  ]
-                       
+        halftansubs = [(cvar0, halftannum[0] / halftandenom[0]), \
+                       (svar0, halftannum[1] / halftandenom[0]), \
+                       (cvar1, halftannum[2] / halftandenom[1]), \
+                       (svar1, halftannum[3] / halftandenom[1])  ]
 
         dummyvars = [self.getVariable(othervar) for othervar in othersolvedvars]
         dummyvars = self.jointlists([[v.cvar, v.svar, v.var, v.htvar] for v in dummyvars])
 
-        trigsubs = [(varsym0.svar**2,               1-varsym0.cvar**2),  \
-                    (varsym0.svar**3, varsym0.svar*(1-varsym0.cvar**2)), \
-                    (varsym1.svar**2,               1-varsym1.cvar**2),  \
-                    (varsym1.svar**3, varsym1.svar*(1-varsym1.cvar**2))]
-            
+        trigsubs = [(svar0**2,        1-cvar0**2),  \
+                    (svar0**3, svar0*(1-cvar0**2)), \
+                    (svar1**2,        1-cvar1**2),  \
+                    (svar1**3, svar1*(1-cvar1**2))]
         polyeqs = []
         for eq in raweqns:
-
-            # unknownvars = [ cv1, sv1, cv2, sv2 ]
-            peq = Poly(eq.subs(varsubs).subs(trigsubs).expand().subs(trigsubs), *unknownvars)
+            # c0s0c1s1 = [ c0, s0, c1, s1 ]
+            peq = Poly(eq.subs(varsubs).subs(trigsubs).expand().subs(trigsubs), *c0s0c1s1)
             
             if peq.has(varsym0.var) or peq.has(varsym1.var):
                 raise self.CannotSolveError('Expecting only sin and cos! %s' % peq)
             
             maxdenom  = [ max([monoms[0]+monoms[1] for monoms in peq.monoms()]), \
                           max([monoms[2]+monoms[3] for monoms in peq.monoms()])  ]
-
             eqnew = S.Zero
             
             for monoms, c in peq.terms():
-                """
-                print '\nmonoms = ', monoms, '\nc = ', c
-                term = c 
-                for i in range(4): 
-                    num, denom = fraction(halftansubs[i][1]) 
-                    term *= num**monoms[i] 
- 
-                # the denoms for 0,1 and 2,3 are the same 
-                for i in [0, 2]: 
-                    denom = fraction(halftansubs[i][1])[1] 
-                    term *= denom**(maxdenom[i/2] - monoms[i] - monoms[i+1])
-                complexityvalue = self.codeComplexity(term.expand()) 
-                if complexityvalue < 450: 
-                    eqnew += simplify(term) 
-                else: 
-                    # too big, so don't simplify? 
-                    eqnew += term    
-                """
-
-                term = c
-                for i in range(4):
-                    term *= halftannum[i]**monoms[i]
-                    
-                term *= halftandenom[0]**(maxdenom[0]-monoms[0]-monoms[1])
-                term *= halftandenom[1]**(maxdenom[1]-monoms[2]-monoms[3])
-
+                term = c * self.prod(halftannum[i]**monoms[i] for i in range(4)) * \
+                       halftandenom[0]**(maxdenom[0]-monoms[0]-monoms[1])   * \
+                       halftandenom[1]**(maxdenom[1]-monoms[2]-monoms[3])
                 # too big, so don't simplify?
                 eqnew += simplify(term) if self.codeComplexity(term.expand())<450 else term
-                
-            polyeq = Poly(eqnew, varsym0.htvar, varsym1.htvar)
-
+            polyeq = Poly(eqnew, htvar0, htvar1)
             
             if polyeq.TC() == S.Zero:
                 log.info('Trailing coefficient is 0, i.e. for power (0,0)')
-
-
                 # might be able to divide out variables?
-                minmonoms = None
-                for monom in polyeq.monoms():
-                    if minmonoms is None:
-                        minmonoms = list(monom)
-                    else:
-                        for i in range(len(minmonoms)):
-                            minmonoms[i] = min(minmonoms[i],monom[i])
-                            
-                newpolyeq = Poly(S.Zero, *polyeq.gens)
-                for m, c in polyeq.terms():
-                    newm = list(m)
-                    for i in range(len(minmonoms)):
-                        newm[i] -= minmonoms[i]
-                    newpolyeq = newpolyeq.add(Poly.from_dict({tuple(newm):c}, \
-                                                             *newpolyeq.gens))
-                    
-                log.warn('Converting "%s" to "%s"' % (polyeq, newpolyeq))
-                
-                # check if any equations are only in one variable
-                polyeq = newpolyeq
-                
+                minmonoms = [min(monom[i] for monom in polyeq.monoms()) for i in (0,1)]
+                if minmonoms[0]>0 or minmonoms[1]>0:
+                    newpolyeq = sum(Poly.from_dict({tuple([m[0]-minmonoms[0], \
+                                                           m[1]-minmonoms[1]]):c}, \
+                                                   htvar0, htvar1) \
+                                    for m, c in polyeq.terms())
+                    log.warn('Converting "%s" to "%s"' % (polyeq, newpolyeq))
+                    # check if any equations are only in one variable
+                    polyeq = newpolyeq
             polyeqs.append(polyeq)
 
-        eqtosolve = self.sortComplexity([e.as_expr() for e in polyeqs if not e.has(varsym1.htvar)])
+        eqtosolve = self.sortComplexity([eq.as_expr() for eq in polyeqs if not eq.has(htvar1)])
         if len(eqtosolve)>0:
             try:
-                return self.solveSingleVariable(eqtosolve, varsym0.var, \
-                                                othersolvedvars, unknownvars = [])
+                log.info('[SOLVE %i] solvePairVariablesHalfAngle tries solveSingleVariable for %r', \
+                         self._solutionStackCounter, var0)
+                self._inc_solutionStackCounter()
+                solution = self.solveSingleVariable(eqtosolve, var0, \
+                                                    othersolvedvars, unknownvars = [])
+                log.info('[SOLVE %i] solvePairVariablesHalfAngle returns solution for %r', \
+                         self._solutionStackCounter, var0)
+                return solution
             except self.CannotSolveError:
-                log.info('solveSingleVariable fails to solve %r', varsym0.var)
+                log.info('[SOLVE %i] Cannot use solveSingleVariable for %r', \
+                         self._solutionStackCounter, var0)
+            finally:
+                self._dec_solutionStackCounter()
 
-        else:
-            eqtosolve = self.sortComplexity([e.as_expr() for e in polyeqs if not e.has(varsym0.htvar)])
-            if len(eqtosolve)>0:
-                try:
-                    return self.solveSingleVariable(eqtosolve, varsym1.var, \
-                                            othersolvedvars, unknownvars = [])
-                except self.CannotSolveError:
-                    log.info('solveSingleVariable fails to solve %r', varsym1.var)
+        eqtosolve = self.sortComplexity([eq.as_expr() for eq in polyeqs if not eq.has(htvar0)])
+        if len(eqtosolve)>0:
+            try:
+                log.info('[SOLVE %i] solvePairVariablesHalfAngle tries solveSingleVariable for %r', \
+                         self._solutionStackCounter, var1)
+                self._inc_solutionStackCounter()
+                solution = self.solveSingleVariable(eqtosolve, var1, \
+                                                    othersolvedvars, unknownvars = [])
+                log.info('[SOLVE %i] solvePairVariablesHalfAngle returns solution for %r', \
+                         self._solutionStackCounter, var1)
+                return solution
+            except self.CannotSolveError:
+                log.info('[SOLVE %i] Cannot use solveSingleVariable for %r', \
+                         self._solutionStackCounter, var1)
+            finally:
+                self._dec_solutionStackCounter()
 
         #complexity = [(self.codeComplexity(peq.as_expr()), peq) for peq in polyeqs]
         #complexity.sort(key = itemgetter(0))
@@ -11429,13 +11406,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         
         solutions = [None, None]
         linearsolution = None
-        for ileftvar in (0,1):
+        for ileftvar in (0, 1):
             if linearsolution is not None:
                 log.info('Found linearsolution')
                 break
             
             leftvar = varsyms[ileftvar].htvar
-            newpolyeqs = [Poly(eq,varsyms[1-ileftvar].htvar) for eq in polyeqs]
+            newpolyeqs = [Poly(eq, varsyms[1-ileftvar].htvar) for eq in polyeqs]
             maxdeglist = [max(peq.degree_list()) for peq in newpolyeqs]
             mindegree = min(maxdeglist)
             maxdegree = max(maxdeglist)
@@ -11449,24 +11426,26 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     
             for degree in range(mindegree, maxdegree+1):
                 if not (solutions[ileftvar] is None and linearsolution is None):
-                    log.info('Found either solutions[ileftvar] or linearsolution')
+                    log.info('Found either solutions[%i] or linearsolution', ileftvar)
                     break
                 
                 newpolyeqs2 = [peq for peq in newpolyeqs \
                                if max(peq.degree_list()) <= degree]
-                
-                if degree+1 <= len(newpolyeqs2):
+
+                neq = len(newpolyeqs2)
+                if degree+1 <= neq:
                     # To avoid wrong solutions, we get resultants for all equations
                     possibilities = []
-                    unusedindices = range(len(newpolyeqs2))
-                    for eqsindices in combinations(range(len(newpolyeqs2)), degree+1):
-                        Mall = zeros((degree+1, degree+1))
+                    unusedindices = range(neq)
+                    for eqsindices in combinations(unusedindices, degree+1):
+                        Mall = zeros(degree+1)
                         totalcomplexity = 0
                         for i, eqindex in enumerate(eqsindices):
                             eq = newpolyeqs2[eqindex]
-                            for j, c in eq.terms():
+                            for m, c in eq.terms():
                                 totalcomplexity += self.codeComplexity(c.expand())
-                                Mall[i, j[0]] = c
+                                j = m[0]
+                                Mall[i, j] = c
                         if degree >= 4 and totalcomplexity > 5000:
                             # the determinant will never finish otherwise
                             continue
@@ -11475,7 +11454,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         # for i in range(Mall.shape[0]):
                         #      for j in range(Mall.shape[1]):
                         #          Mall[i,j] = Poly(Mall[i,j], leftvar)
-
                         try:
                             Malldet = Mall.berkowitz_det()
                             # log.info('Try simplifying det(Mall)')
@@ -11506,12 +11484,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
                             unusedindices = [ind for ind in unusedindices if ind not in eqsindices]
                             if len(unusedindices) == 0:
-                                break # break degree in range(mindegree, maxdegree+1)
+                                break
 
                     if len(possibilities) > 1:
                         try:
+                            log.info('solvePairVariablesHalfAngle uses solveVariablesLinearly for %r', leftvar)
                             linearsolutions = self.solveVariablesLinearly(possibilities, othersolvedvars)
-                            log.info('solveVariablesLinearly has found some solution for %r', possibilities[0].gens)
+                            log.info('solveVariablesLinearly has found some solution for %r', leftvar)
                             
                             # if can solve for a unique solution linearly, then prioritize this over anything
                             prevsolution = AST.SolverBreak('solvePairVariablesHalfAngle fail')
@@ -11536,7 +11515,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             break
                         
                         except self.CannotSolveError:
-                            log.info('solveVariablesLinearly failed to find %r', possibilities[0].gens)
+                            log.info('solveVariablesLinearly failed to find %r', leftvar)
                             pass
                         
                     if len(possibilities) > 0:
@@ -11557,9 +11536,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         # take the solution with the smallest degree
         if solutions[0] is None:
             if solutions[1] is None:
-
                 log.info('solvePairVariablesHalfAngle has not found any solution yet.')
-                
                 pfinals  = None
                 ileftvar = None
             else:
@@ -11571,7 +11548,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         else:
             maxsol0deglist = max(solutions[0][0].degree_list())
             maxsol1deglist = max(solutions[1][0].degree_list())
-                
             if   maxsol1deglist < maxsol0deglist:
                 pfinals = solutions[1]
                 ileftvar = 1
@@ -11590,7 +11566,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 try:
                     Mall = None
                     numrepeating = None
-                    for ileftvar in range(2):
+                    for ileftvar in (0, 1):
                         # TODO, sometimes this works and sometimes this doesn't
                         try:
                             Mall, allmonoms = self.solveDialytically(newreducedeqs, ileftvar, \
@@ -11604,14 +11580,15 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     if Mall is None:
                         continue
                     
-                    shape=Mall[0].shape
+                    shape = Mall[0].shape
                     assert(shape[0] == 4 and shape[1] == 4)
                     Malltemp = [None]*len(Mall)
                     M = zeros(shape)
+
                     for idegree in range(len(Mall)):
-                        Malltemp[idegree] = zeros(shape)
-                        for i in range(shape[0]):
-                            for j in range(shape[1]):
+                        Malltemp[idegree] = zeros(4)
+                        for i in range(4):
+                            for j in range(4):
                                 if Mall[idegree][i,j] != S.Zero:
                                     if self.codeComplexity(Mall[idegree][i,j]) > 5:
                                         sym = self.gsymbolgen.next()
@@ -11629,13 +11606,19 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         else:
                             tempsymbols[i] = S.Zero
                             
-                    Mtemp = Matrix(4, 4,tempsymbols)                    
+                    Mtemp = Matrix(4, 4, tempsymbols)                    
                     dettemp = Mtemp.det()
                     log.info('Multiplying all determinant coefficients to solve %s', leftvar)
                     eqadds = []
+
+                    tempsubs2 = [(gconst, expr.as_expr()) for gconst, expr in tempsubs]
+                    det = Poly(dettemp.subs(tempsubs2), leftvar)
+
+                    """
                     for arg in dettemp.args:
                         eqmuls = [Poly(arg2.subs(tempsubs), leftvar) for arg2 in arg.args]
-                        
+
+                        prod1 = expand(arg.subs(tempsubs2).as_expr())
                         if sum(eqmuls[0].degree_list()) == 0:
                             eq = eqmuls.pop(0)
                             eqmuls[0] = eqmuls[0]*eq
@@ -11647,13 +11630,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                 eqmuls2.append(eqmuls[ioffset]*eqmuls[ioffset+1])
                                 ioffset += 2
                             eqmuls = eqmuls2
+                        checkifzero = expand(eqmuls[0].as_expr()) - prod1
+                        assert(checkifzero==S.Zero)
                         eqadds.append(eqmuls[0])
-                        
+
                     log.info('Done multiplying all determinant. Now convert to Poly')
-                    det = Poly(S.Zero, leftvar)
-                    for ieq, eq in enumerate(eqadds):
-                        # log.info('adding to det %d/%d', ieq, len(eqadds))
-                        det += eq
+                    det = sum(eq for eq in eqadds)
+                    """
                         
                     if len(Mall) <= 3:
                         # need to simplify further since self.globalsymbols can have important substitutions
