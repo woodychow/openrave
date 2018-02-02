@@ -4366,17 +4366,20 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         """
         Builds the 14 equations using only 5 unknowns. 
 
-        Method explained in [Raghavan1993]_. Basically take the position and one column/row so that the least number of variables are used.
+        Method explained in [Raghavan1993]_. 
 
-        .. [Raghavan1993] M Raghavan and B Roth, "Inverse Kinematics of the General 6R Manipulator and related Linkages",  Journal of Mechanical Design, Volume 115, Issue 3, 1993.
+        Basically take the position and one column/row so that the least number of variables are used.
+
+        .. [Raghavan1993] M Raghavan and B Roth, "Inverse Kinematics of the General 6R Manipulator and related Linkages",  
+        Journal of Mechanical Design, Volume 115, Issue 3, 1993.
 
         Called by solveFullIK_6DGeneral only.
         """
         
-        p0 = T0[0:3,3]
-        p1 = T1[0:3,3]
-        p = p0-p1
-        T = T0-T1
+        p0 = T0[0:3, 3]
+        p1 = T1[0:3, 3]
+        p  = p0 - p1
+        T  = T0 - T1
         numminvars = 100000
         for irow in range(3):
             hasvar = [var for var in solvejointvars if self.has(T[0:3,irow], var) or self.has(p, var)]
@@ -4386,7 +4389,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 l0 = T0[0:3, irow]
                 l1 = T1[0:3, irow]
                 
-            hasvar = [var for var in solvejointvars if self.has(T[irow,0:3], var) or self.has(p,var)]
+            hasvar = [var for var in solvejointvars if self.has(T[irow,0:3], var) or self.has(p, var)]
             numcurvars = len(hasvar)
             if numminvars > numcurvars and numcurvars > 0:
                 numminvars = numcurvars
@@ -4398,6 +4401,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             p1 = p1.subs(currentcasesubs)
             l0 = l0.subs(currentcasesubs)
             l1 = l1.subs(currentcasesubs)
+            
         return self.buildRaghavanRothEquations(p0, p1, l0, l1, \
                                                solvejointvars, simplify, currentcasesubs), \
                                                numminvars
@@ -4466,87 +4470,96 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         return polyeqs
     """
     
-    def buildRaghavanRothEquations(self, p0, p1, l0, l1, solvejointvars, \
-                                   simplify = True, currentcasesubs = None):
+    def buildRaghavanRothEquations(self, p0, p1, l0, l1, \
+                                   solvejointvars, \
+                                   simplify = True, \
+                                   currentcasesubs = None):
         """
         Called by buildRaghavanRothEquationsFromMatrix and solveFullIK_TranslationDirection5D.
         """
-        trigsubs = []
         polysubs = []
         polyvars = []
+        trigsubs = []
         for v in solvejointvars:
             polyvars.append(v)
             if self.IsHinge(v.name):
                 var = self.getVariable(v)
-                polysubs += [(cos(v),var.cvar),(sin(v),var.svar)]
-                polyvars += [var.cvar,var.svar]
-                trigsubs.append((var.svar**2,1-var.cvar**2))
-                trigsubs.append((var.svar**3,var.svar*(1-var.cvar**2)))
+                cvar, svar = var.cvar, var.svar
+                polysubs += [(cos(v), cvar), (sin(v), svar)]
+                polyvars += [cvar, svar]
+                trigsubs += [(svar**2,       1-cvar**2), \
+                             (svar**3, svar*(1-cvar**2)) ]
+                
         for v in self.freejointvars:
             if self.IsHinge(v.name):
-                trigsubs.append((sin(v)**2,1-cos(v)**2))
-                trigsubs.append((sin(v)**3,sin(v)*(1-cos(v)**2)))
+                trigsubs += [(sin(v)**2,         1-cos(v)**2), \
+                             (sin(v)**3, sin(v)*(1-cos(v)**2)) ]
         if currentcasesubs is not None:
             trigsubs += currentcasesubs
-        polysubsinv = [(b,a) for a,b in polysubs]
-        polyeqs = []
-        for i in range(14):
-            polyeqs.append([None,None])
-            
-        eqs = []
-        for i in range(3):
-            eqs.append([l0[i],l1[i]])
-        for i in range(3):
-            eqs.append([p0[i],p1[i]])
+        polysubsinv = [(b, a) for a, b in polysubs]
+
         l0xp0 = l0.cross(p0)
         l1xp1 = l1.cross(p1)
-        for i in range(3):
-            eqs.append([l0xp0[i],l1xp1[i]])
-        eqs.append([p0.dot(p0),p1.dot(p1)])
-        eqs.append([l0.dot(p0),l1.dot(p1)])
+        # The first 11 fundamental equations (l:3; p:3; lxp:3; p.p:1; l.l:1)
+        # The last three are below
+        eqs = [[l0[i], l1[i]] for i in range(3)] + \
+              [[p0[i], p1[i]] for i in range(3)] + \
+              [[l0xp0[i], l1xp1[i]] for i in range(3)] + \
+              [[p0.dot(p0), p1.dot(p1)]] + \
+              [[l0.dot(p0), l1.dot(p1)]]
+        assert(len(eqs) == 11)
+
         starttime = time.time()
-        usedvars = []
-        for j in range(2):
-            usedvars.append([var for var in polyvars if any([eq[j].subs(polysubs).has(var) for eq in eqs])])
-        for i in range(len(eqs)):
+        usedvars = [[var for var in polyvars \
+                     if any([eq[j].subs(polysubs).has(var) for eq in eqs])] for j in range(2)]
+
+        polyeqs = [[None, None]]*14
+        for i, eq in enumerate(eqs):
             self._CheckPreemptFn(progress = 0.05)
-            if not self.CheckEquationForVarying(eqs[i][0]) and \
-               not self.CheckEquationForVarying(eqs[i][1]):
-                for j in range(2):
+            if not self.CheckEquationForVarying(eq[0]) and \
+               not self.CheckEquationForVarying(eq[1]):
+                for j in (0, 1):
                     if polyeqs[i][j] is not None:
                         continue
-                    poly0 = Poly(eqs[i][j].subs(polysubs),*usedvars[j]).subs(trigsubs)
+                    poly0 = Poly(eq[j].subs(polysubs), *usedvars[j]).subs(trigsubs)
                     if self.codeComplexity(poly0.as_expr()) < 5000:
-                        poly1 = Poly(poly0.expand().subs(trigsubs),*usedvars[j])
+                        poly1 = Poly(poly0.expand().subs(trigsubs), *usedvars[j])
+                        # by default, simplify is True
                         if not simplify or poly1 == S.Zero:
                             polyeqs[i][j] = poly1
                         else:
                             polyeqs[i][j] = self.SimplifyTransformPoly(poly1)
                     else:
-                        polyeqs[i][j] = Poly(poly0.expand().subs(trigsubs),*usedvars[j])
-        #ppl0 = p0.dot(p0)*l0 - 2*l0.dot(p0)*p0
-        #ppl1 = p1.dot(p1)*l1 - 2*l1.dot(p1)*p1        
-        ppl0 = polyeqs[9][0].as_expr()*l0 - 2*polyeqs[10][0].as_expr()*p0 # p0.dot(p0)*l0 - 2*l0.dot(p0)*p0
-        ppl1 = polyeqs[9][1].as_expr()*l1 - 2*polyeqs[10][1].as_expr()*p1 # p1.dot(p1)*l1 - 2*l1.dot(p1)*p1
-        for i in range(3):
-            eqs.append([ppl0[i],ppl1[i]])
-        for i in range(11, len(eqs)):
-            if not self.CheckEquationForVarying(eqs[i][0]) and \
-               not self.CheckEquationForVarying(eqs[i][1]):
-                for j in range(2):
+                        polyeqs[i][j] = Poly(poly0.expand().subs(trigsubs), *usedvars[j])
+
+        # the last three fundamental equations (reflection; total 14 now)
+        # ppl0 = p0.dot(p0)*l0 - 2*l0.dot(p0)*p0
+        # ppl1 = p1.dot(p1)*l1 - 2*l1.dot(p1)*p1        
+        ppl0 = (polyeqs[9][0]*l0 - 2*polyeqs[10][0]*p0).as_expr()
+        ppl1 = (polyeqs[9][1]*l1 - 2*polyeqs[10][1]*p1).as_expr()
+        eqs += [[ppl0[i], ppl1[i]] for i in range(3)]
+        assert(len(eqs) == 14)
+        
+        for i, eq in enumerate(eqs[11:]):
+            i += 11
+            if not self.CheckEquationForVarying(eq[0]) and \
+               not self.CheckEquationForVarying(eq[1]):
+                for j in (0, 1):
                     if polyeqs[i][j] is not None:
                         continue
-                    poly0 = Poly(eqs[i][j].subs(polysubs),*usedvars[j]).subs(trigsubs)
+                    poly0 = Poly(eq[j].subs(polysubs), *usedvars[j]).subs(trigsubs)
                     if self.codeComplexity(poly0.as_expr()) < 5000:
-                        poly1 = Poly(poly0.expand().subs(trigsubs),*usedvars[j])
+                        poly1 = Poly(poly0.expand().subs(trigsubs), *usedvars[j])
+                        # by default, simplify is True
                         if not simplify or poly1 == S.Zero:
                             polyeqs[i][j] = poly1
                         else:
                             polyeqs[i][j] = self.SimplifyTransformPoly(poly1)
                     else:
-                        log.warn('raghavan roth equation (%d,%d) too complex', i, j)
-                        polyeqs[i][j] = Poly(poly0.expand().subs(trigsubs),*usedvars[j])
-        log.info('computed in %fs', time.time()-starttime)
+                        log.warn('Raghavan-Roth equation (%d, %d) too complex', i, j)
+                        polyeqs[i][j] = Poly(poly0.expand().subs(trigsubs), *usedvars[j])
+                        
+        log.info('Raghaven-Roth equstions constructed in %fs', time.time()-starttime)
         # prune any that have varying symbols
         # remove all fractions? having big integers could blow things up...
         return [[peq0, peq1] for peq0, peq1 in polyeqs \
@@ -9660,7 +9673,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
         gens = polyeqs[0].gens
         nvar = len(gens)
-        assert(nvar== 1)
+        assert(nvar == 1)
         log.debug('[SOLVE %i] solveVariablesLinearly:\n' + \
                   '        solvevariables  = %r\n' + \
                   '        othersolvedvars = %r', \
@@ -9807,10 +9820,19 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         # try to cross
         neweqs = []
         for (rank0, ps0), (rank1, ps1) in combinations(partialsolutions, 2):
+
+            """
+            ps0 contains solution of (c0*disc0, s0*disc0, disc0) derived from equations A, B
+            ps1 ...                  (c1*disc1, s1*disc1, disc1) ...                    C, D
+
+            One of C,D may be one of A,B, but not both.
+
+            Building csoleq, ssoleq below wishes to assert c0==c1 and s0==s1 while disc1!=0 and disc2!=0.
+            """
             
             # equate csol, ssol
-            csoleq = ps0[0]*ps1[2] - ps1[0]*ps0[2] # (c1-c2)*disc1*disc2
-            ssoleq = ps0[1]*ps1[2] - ps1[1]*ps0[2] # (s1-s2)*disc1*disc2
+            csoleq = ps0[0]*ps1[2] - ps1[0]*ps0[2] # (c0-c1)*disc0*disc1
+            ssoleq = ps0[1]*ps1[2] - ps1[1]*ps0[2] # (s0-s1)*disc0*disc1
             
             # check if disc == 0 but c*disc != 0 or s*disc != 0 (no solution)
             if self.equal( csoleq, S.Zero) or \
