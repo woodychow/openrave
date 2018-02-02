@@ -9647,10 +9647,20 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
     def solveVariablesLinearly(self, polyeqs, othersolvedvars, maxsolvabledegree = 4):
         """
         Called by solvePairVariablesHalfAngle only.
+
+        The call is 
+        linearsolutions = self.solveVariablesLinearly(possibilities, othersolvedvars)
+        where 
+        possibilities.append(possiblefinaleq)
+        possiblefinaleq = self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)
+        leftvar = varsyms[ileftvar].htvar
+
+        Hence polyeqs[0].gens contains a half tangent varible only.
         """
 
         gens = polyeqs[0].gens
         nvar = len(gens)
+        assert(nvar== 1)
         log.debug('[SOLVE %i] solveVariablesLinearly:\n' + \
                   '        solvevariables  = %r\n' + \
                   '        othersolvedvars = %r', \
@@ -9758,67 +9768,82 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
         Called by solvePairVariables only.
         """
-        cvar = Symbol('c%s' % solvevar.name)
-        svar = Symbol('s%s' % solvevar.name)
+        varsym = self.getVariable(solvevar)
+        cvar, svar = varsym.cvar, varsym.svar
         varsubs = [(cos(solvevar), cvar), (sin(solvevar), svar)]
         othervarsubs = [(sin(v)**2, 1-cos(v)**2) for v in othervars]
-        eqpolys = [Poly(eq.subs(varsubs), cvar, svar) for eq in raweqns]
+        eqpolys = [Poly(eq.subs(varsubs).subs(othervarsubs), cvar, svar) for eq in raweqns]
+        # polynomial contains cvar, svar only, NO var
         eqpolys = [eq for eq in eqpolys if sum(eq.degree_list()) == 1 and not eq.TC().has(solvevar)]
         #eqpolys.sort(lambda x,y: iksolver.codeComplexity(x) - iksolver.codeComplexity(y))
+
         partialsolutions = []
-        neweqs = []
-        for p0,p1 in combinations(eqpolys, 2):
+        for p0, p1 in combinations(eqpolys, 2):
             p0dict = p0.as_dict()
             p1dict = p1.as_dict()
 
             M = Matrix(2, 3, \
-                       [p0dict.get((1,0), S.Zero), \
-                        p0dict.get((0,1), S.Zero), p0.TC(), \
-                        p1dict.get((1,0), S.Zero), \
-                        p1dict.get((0,1), S.Zero), p1.TC()])
+                       [p0dict.get((1,0), S.Zero), p0dict.get((0,1), S.Zero), p0.TC(), \
+                        p1dict.get((1,0), S.Zero), p1dict.get((0,1), S.Zero), p1.TC()])
             M = M.subs(othervarsubs).expand()
+            """
+            [ M00  M01 ] [ cjx ]     [ -M02 ]
+                                  =
+            [ M10  M11 ] [ sjx ]     [ -M12 ]
+
+            partialsolution = [ c*disc, s*disc, disc ]
+            """
+            partialsolution = [ M[0,1]*M[1,2] - M[1,1]*M[0,2] , \
+                                M[1,0]*M[0,2] - M[0,0]*M[1,2] , \
+                                M[0,0]*M[1,1] - M[0,1]*M[1,0]   ]
             
-            partialsolution = [-M[1,1]*M[0,2]+M[0,1]*M[1,2], \
-                               M[1,0]*M[0,2]-M[0,0]*M[1,2] , \
-                               M[0,0]*M[1,1]-M[0,1]*M[1,0]]
-            
-            partialsolution = [eq.expand().subs(othervarsubs).expand() for eq in partialsolution]
+            partialsolution  = [eq.expand() for eq in partialsolution]
             rank = [self.codeComplexity(eq) for eq in partialsolution]
             partialsolutions.append([rank, partialsolution])
             # cos(A)**2 + sin(A)**2 - 1 = 0, useful equation but the squares introduce wrong solutions
-            #neweqs.append(partialsolution[0]**2+partialsolution[1]**2-partialsolution[2]**2)
-        # try to cross
+            # neweqs.append(partialsolution[0]**2 + partialsolution[1]**2 - partialsolution[2]**2)
         partialsolutions.sort(lambda x, y: int(min(x[0])-min(y[0])))
-        for (rank0,ps0),(rank1,ps1) in combinations(partialsolutions,2):
-            if self.equal(ps0[0]*ps1[2]-ps1[0]*ps0[2],S.Zero):
+        
+        # try to cross
+        neweqs = []
+        for (rank0, ps0), (rank1, ps1) in combinations(partialsolutions, 2):
+            
+            # equate csol, ssol
+            csoleq = ps0[0]*ps1[2] - ps1[0]*ps0[2] # (c1-c2)*disc1*disc2
+            ssoleq = ps0[1]*ps1[2] - ps1[1]*ps0[2] # (s1-s2)*disc1*disc2
+            
+            # check if disc == 0 but c*disc != 0 or s*disc != 0 (no solution)
+            if self.equal( csoleq, S.Zero) or \
+               self.equal( ssoleq, S.Zero) or \
+               (self.equal(ps0[2], S.Zero) and not (self.equal(ps0[0], S.Zero) and self.equal(ps0[1], S.Zero))) or \
+               (self.equal(ps1[2], S.Zero) and not (self.equal(ps1[0], S.Zero) and self.equal(ps1[1], S.Zero))):
                 continue
-            neweqs.append(ps0[0]*ps1[2]-ps1[0]*ps0[2])
-            neweqs.append(ps0[1]*ps1[2]-ps1[1]*ps0[2])
+
+            # TGN: is it possible csoleq is 0 while ssoleq is not, or vice versa?
+            neweqs += [csoleq, ssoleq]
             # probably a linear combination of the first two
-            #neweqs.append(ps0[0]*ps1[1]-ps1[0]*ps0[1])
+            # neweqs.append(ps0[0]*ps1[1] - ps1[0]*ps0[1])
             # too long
-            #neweqs.append(ps0[0]*ps1[0]+ps0[1]*ps1[1]-ps0[2]*ps1[2])
-            if len(neweqs) >= maxnumeqs:
+            # neweqs.append(ps0[0]*ps1[0] + ps0[1]*ps1[1] - ps0[2]*ps1[2])
+            if len(neweqs) >= maxnumeqs: # default is 2
                 break;
             
-        neweqs2 = [eq.expand().subs(othervarsubs).expand() for eq in neweqs]
-        
-        if douniquecheck:
+        neweqs = [eq.expand() for eq in neweqs]
+        if douniquecheck: # default
+            neweqs2 = []
             reducedeqs = []
-            i = 0
-            while i < len(neweqs2):
-                reducedeq = self.removecommonexprs(neweqs2[i])
-                if neweqs2[i] != S.Zero and \
+            for neweq in neweqs:
+                reducedeq = self.removecommonexprs(neweq)
+                if neweq != S.Zero and \
                    self.CheckExpressionUnique(reducedeqs, reducedeq):
                     reducedeqs.append(reducedeq)
-                    i += 1
-                else:
-                    eq = neweqs2.pop(i)
-        return neweqs2
+                    neweqs2.append(neweq)
+            neweqs = neweqs2
+        return neweqs
 
     def solveHighDegreeEquationsHalfAngle(self, lineareqs, var, tosubs = []):
         """
-        Solve a set of equations in one variable with half-angle substitution.
+        Solves a set of equations in one variable with half-angle substitution.
 
         Called by solvePairVariables, solveSingleVariable, (not sure if necessary) SolveAllEquations.
         """
@@ -9827,54 +9852,49 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                  self._solutionStackCounter, var)
 
         varsym = self.getVariable(var)
-        denom  = 1 + varsym.htvar**2
-        cnum   = 1 - varsym.htvar**2
-        snum   = 2 * varsym.htvar
-        dummysubs = [(varsym.cvar, cnum/denom), \
-                     (varsym.svar, snum/denom)  ]
-
-        trigsubs = [(varsym.svar**2, 1-varsym.cvar**2), \
-                    (varsym.svar**3, varsym.svar*(1-varsym.cvar**2))]
+        cvar, svar, htvar = varsym.cvar, varsym.svar, varsym.htvar
+        denom, cnum, snum = 1+htvar**2, 1-htvar**2, 2*htvar
+        trigsubs = [(svar**2, 1-cvar**2), (svar**3, svar*(1-cvar**2))]
 
         polyeqs = []
-        
         for eq in lineareqs:
             try:
-                peq = Poly(eq.subs(varsym.subs).subs(trigsubs), varsym.cvar, varsym.svar)
+                peq = Poly(eq.subs(varsym.subs).subs(trigsubs), cvar, svar)
             except PolynomialError, e:
                 raise self.CannotSolveError('solveHighDegreeEquationsHalfAngle: poly error (%r)' % eq)
-            
-            if peq.has(varsym.var):
+            if peq.has(var):
                 raise self.CannotSolveError('solveHighDegreeEquationsHalfAngle: expecting only sin and cos! %s' % peq)
-            
             if sum(peq.degree_list()) == 0:
                 continue
             
-            # check if all terms are multiples of cos/sin
+            # implicitly replace cvar by cnum/denom and svar by snum/denom
             maxdenom = max(monoms[0]+monoms[1] for monoms in peq.monoms())
-            eqnew = sum(simplify(c*cnum**monoms[0]*snum**monoms[1]*denom**(maxdenom-monoms[0]-monoms[1])) \
+            eqnew = sum(simplify(c * \
+                                 cnum**monoms[0] * \
+                                 snum**monoms[1] * \
+                                 denom**(maxdenom-monoms[0]-monoms[1])) \
                         for monoms, c in peq.terms() if c.evalf()!=S.Zero )
             # big fractions might make it difficult to reduce c to 0
-            polyeqs.append(Poly(eqnew, varsym.htvar))
+            polyeqs.append(Poly(eqnew, htvar))
 
         for peq in polyeqs:
-            # do some type of resultants, for now just choose first polynomial
+            # in future, will do some type of resultants
+            # for now just choose first feasible polynomial to solve for htvar
             finaleq = simplify(peq.as_expr()).expand()
-            pfinal = Poly(self.removecommonexprs(finaleq), \
-                          varsym.htvar)
+            pfinal = Poly(self.removecommonexprs(finaleq), htvar)
             pfinal = self.checkFinalEquation(pfinal, tosubs)
             if pfinal is not None and pfinal.degree(0) > 0:
-                jointsol = 2*atan(varsym.htvar)
                 solution = AST.SolverPolynomialRoots(jointname = varsym.name, \
                                                      poly = pfinal, \
-                                                     jointeval = [jointsol], \
+                                                     jointeval = [2*atan(htvar)], \
                                                      isHinge = self.IsHinge(varsym.name))
-                solution.AddHalfTanValue      = True
-                log.info('solveHighDegreeEquationsHalfAngle returns a solution for %r', var)
+                solution.AddHalfTanValue = True
+                log.info('[SOLVE %i] solveHighDegreeEquationsHalfAngle returns a solution for %r', \
+                         self._solutionStackCounter, var)
                 return solution
 
         raise self.CannotSolveError(('half-angle substitution for joint %s failed, ' + \
-                                    '%d equations examined') % (varsym.var, len(polyeqs)))
+                                    '%d equations examined') % (var, len(polyeqs)))
 
     @staticmethod
     def checkFactorPmI(coeffs, thresh = 1e-12):
@@ -9925,19 +9945,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         p = [p[0] for p, c in pfinal.terms() if p[0]>0]
         if len(p) > 0 and  min(p) > 0 and pfinal.TC() == S.Zero:
             min_p = min(p)
-            pfinalnew = Poly(S.Zero, htvar)
-            for m, c in pfinal.terms():
-                assert(m[0]-min_p>=0)
-                pfinalnew += c*htvar**(m[0]-min_p)
-            pfinal = pfinalnew
+            assert(all([m[0]-min_p>=0 for m, c in pfinal.terms()]))
+            pfinal = Poly(sum(c*htvar**(m[0]-min_p) for m, c in pfinal.terms()), htvar)
             
-        # while sum(pfinal.degree_list()) > 0 and pfinal.TC() == S.Zero:
-        #     pfinalnew = Poly(S.Zero, htvar)
-        #     for m,c in pfinal.terms():
-        #         if m[0] > 0:
-        #             pfinalnew += c*htvar**(m[0]-1)
-        #     pfinal = pfinalnew
-
         # Check if leading coefficient (LC) is non-zero for at least one solution
         if pfinal.LC().evalf() == S.Zero:
             # log.info('checkFinalEquation: ZERO constant; returns NO valid solution')
