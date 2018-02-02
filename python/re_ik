@@ -9,14 +9,14 @@ cp $CURR_IKFAST_DIR/databases/*.py $OPENRAVE_DIR/databases
 
 clear && clear
 
-#openrave.py --database inversekinematics \
-#            --robot=robotfiles/neuronics-katana.zae \
-#            --iktype=translationdirection5d \
-#            --manipname=arm \
-#            --numiktests=1000
+openrave.py --database inversekinematics \
+            --robot=robotfiles/neuronics-katana.zae \
+            --iktype=translationdirection5d \
+            --manipname=arm \
+            --numiktests=1000
 
 #openrave.py --database inversekinematics --robot=robotfiles/fail1.dae --numiktests=1000 
-openrave.py --database inversekinematics --robot=robotfiles/barrettsegway.robot.xml  --numiktests=1000 
+#openrave.py --database inversekinematics --robot=robotfiles/barrettsegway.robot.xml  --numiktests=1000 
 #openrave.py --database inversekinematics --robot=robotfiles/robots_mitsubishi-pa10.zae --numiktests=1000 
 #openrave.py --database inversekinematics --robot=robotfiles/cmu-permma.zae --numiktests=1000
 

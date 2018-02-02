@@ -4513,7 +4513,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         usedvars = [[var for var in polyvars \
                      if any([eq[j].subs(polysubs).has(var) for eq in eqs])] for j in range(2)]
 
-        polyeqs = [[None, None]]*14
+        polyeqs = [[None, None] for i in range(14)] # weird, not equivalent to [[None, None]]*14???
         for i, eq in enumerate(eqs):
             self._CheckPreemptFn(progress = 0.05)
             if not self.CheckEquationForVarying(eq[0]) and \
@@ -8810,35 +8810,38 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                  jointeval = jointeval, \
                                                  isHinge = self.IsHinge(othervar.name))] \
                                                  if len(jointeval) > 0 else []
-                        try:
-                            # checksimplezeroexpr can be simple like -cj4*r21 - r20*sj4
-                            # in which case the solutions would be
-                            # [-atan2(-r21, -r20), -atan2(-r21, -r20) + 3.14159265358979]
-                            eq = checksimplezeroexpr.subs([(sothervar, sin(othervar)), \
-                                                           (cothervar, cos(othervar))])
-                            log.info('[SOLVE %i] AddSolution calls solveSingleVariable to solve %r for %r', \
-                                     self._solutionStackCounter, eq, othervar)
-                            self._inc_solutionStackCounter()
-                            ss += self.solveSingleVariable([eq], othervar, othersolvedvars)
+                        
+                        eq = checksimplezeroexpr.subs([(sothervar, sin(othervar)), \
+                                                       (cothervar, cos(othervar))])
 
-                        except PolynomialError:
-                            log.info('[SOLVE %i] Cannot use solveSingleVariable to solve for %r: PolynomialError', \
-                                     self._solutionStackCounter, othervar)
-                            # checksimplezeroexpr was too complex
-                            pass
+                        # TGN: don't solve sum of Abs
+                        if not (eq.is_Add and eq.args[0].is_Function and eq.args[0].func == Abs):
+                            try:
+                                # checksimplezeroexpr can be simple like -cj4*r21 - r20*sj4
+                                # in which case the solutions would be
+                                # [-atan2(-r21, -r20), -atan2(-r21, -r20) + 3.14159265358979]
+                                log.info('[SOLVE %i] AddSolution calls solveSingleVariable to solve %r for %r', \
+                                         self._solutionStackCounter, eq, othervar)
+                                self._inc_solutionStackCounter()
+                                ss += self.solveSingleVariable([eq], othervar, othersolvedvars)
 
-                        except self.CannotSolveError, e:
-                            log.info('[SOLVE %i] Cannot use solveSingleVariable to solve for %r: %s', \
-                                     self._solutionStackCounter, othervar, e)
-                            # this is actually a little tricky
-                            # sometimes really good solutions can have a divide that looks like:
-                            # ((0.405 + 0.331*cj2)**2 + 0.109561*sj2**2 (manusarm_left)
-                            # This will never be 0, but the solution cannot be solved.
-                            # Instead of rejecting, add a condition to check if checksimplezeroexpr itself is 0 or not
-                            pass
+                            except PolynomialError:
+                                log.info('[SOLVE %i] Cannot use solveSingleVariable to solve for %r: PolynomialError', \
+                                         self._solutionStackCounter, othervar)
+                                # checksimplezeroexpr was too complex
+                                pass
 
-                        finally:
-                            self._dec_solutionStackCounter()
+                            except self.CannotSolveError, e:
+                                log.info('[SOLVE %i] Cannot use solveSingleVariable to solve for %r: %s', \
+                                         self._solutionStackCounter, othervar, e)
+                                # this is actually a little tricky
+                                # sometimes really good solutions can have a divide that looks like:
+                                # ((0.405 + 0.331*cj2)**2 + 0.109561*sj2**2 (manusarm_left)
+                                # This will never be 0, but the solution cannot be solved.
+                                # Instead of rejecting, add a condition to check if checksimplezeroexpr itself is 0 or not
+                                pass
+                            finally:
+                                self._dec_solutionStackCounter()
 
                         assert(len(ss)<=2)
                         # There are at most two items in ss: one from evaluating at angles [0,pi/2,pi,-pi/2],
@@ -9910,7 +9913,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # for now just choose first feasible polynomial to solve for htvar
             finaleq = simplify(peq.as_expr()).expand()
             pfinal = Poly(self.removecommonexprs(finaleq), htvar)
-            pfinal = self.checkFinalEquation(pfinal, tosubs)
+            # TGN: not sure whether this can be commented out
+            # pfinal = self.checkFinalEquation(pfinal, tosubs)
             if pfinal is not None and pfinal.degree(0) > 0:
                 solution = AST.SolverPolynomialRoots(jointname = varsym.name, \
                                                      poly = pfinal, \
@@ -9969,6 +9973,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         assert(len(pfinal.gens)==1)
         htvar = pfinal.gens[0]
 
+        printCheckMsg = False
+
         # remove all factors of (htvar-0)
         p = [p[0] for p, c in pfinal.terms() if p[0]>0]
         if len(p) > 0 and  min(p) > 0 and pfinal.TC() == S.Zero:
@@ -9978,14 +9984,17 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             
         # Check if leading coefficient (LC) is non-zero for at least one solution
         if pfinal.LC().evalf() == S.Zero:
-            # log.info('checkFinalEquation: ZERO constant; returns NO valid solution')
+            if printCheckMsg:
+                log.info('checkFinalEquation: ZERO constant; returns NO valid solution')
             return None
         elif pfinal.degree() == 0:
-            # log.info('checkFinalEquation: NONZERO constant; returns NO valid solution')
+            if printCheckMsg:
+                log.info('checkFinalEquation: NONZERO constant; returns NO valid solution')
             return None
         elif all([pfinal.LC().subs(tosubs).subs(self.globalsymbols).subs(testconsistentvalue).evalf()==S.Zero \
                 for testconsistentvalue in self.testconsistentvalues]):
-            # log.info('checkFinalEquation: ZERO for all sets of consistent values; returns NO valid solution')
+            if printCheckMsg:
+                log.info('checkFinalEquation: ZERO for all sets of consistent values; returns NO valid solution')
             return None
 
         # sanity check that polynomial can produce a solution and is not actually very small values
@@ -10016,14 +10025,16 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             has_weird_sym = [not self.isValidSolution(c) for c in nz_coeffs]
             if any(has_weird_sym):
                 # some variable plugged in the denominator is 0 in test values, yielding +/-oo or nan
-                # log.info('checkFinalEquation: value has I/oo/-oo/nan:\n' + \
-                #          '        %r', nz_coeffs)
+                if printCheckMsg:
+                    log.info('checkFinalEquation: value has I/oo/-oo/nan:\n' + \
+                             '        %r', nz_coeffs)
                 continue
 
             if Abs(nz_coeffs[0]) < thresh1:
                 # after plugging in test values, coefficient of highest order becomes 0
-                # log.info('checkFinalEquation: precision comparison NOT passed: %r < %r', \
-                #          Abs(nz_coeffs[0]), thresh1)
+                if printCheckMsg:
+                    log.info('checkFinalEquation: precision comparison NOT passed: %r < %r', \
+                             Abs(nz_coeffs[0]), thresh1)
                 continue
                 
             #for degree in range(pfinal.degree(0), -1, -1):
@@ -10045,8 +10056,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             
             if not all([c.is_number for c in nz_coeffs]):
                 # cannot evaluate
-                log.warn('checkFinalEquation: set found as True, as we cannot evaluate\n        %s', \
-                         "\n        ".join(str(x) for x in nz_coeffs if not x.is_number))
+                if printCheckMsg:
+                    log.warn('checkFinalEquation: set found as True, as we cannot evaluate\n        %s', \
+                             "\n        ".join(str(x) for x in nz_coeffs if not x.is_number))
                 found = True
                 break
 
@@ -10075,20 +10087,22 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 if any( [Abs(Im(root))              < thresh2 and \
                          Abs(Re(root)-realsolution) < thresh3 \
                          for root in r] ):
-                    # log.info('checkFinalEquation: precision comparison PASSED for root %r\n' + \
-                    #          '        %r', realsolution, r)
+                    if printCheckMsg:
+                        log.info('checkFinalEquation: precision comparison PASSED for root %r\n' + \
+                                 '        %r', realsolution, r)
                     found = True
                     break
                 else:
                     if any([not c.is_number for m,c in pfinal.terms()]):
+                        if printCheckMsg:
+                            log.info('checkFinalEquation: precision comparison NOT passed for root %r\n' + \
+                                     '        %r', realsolution, r)
                         pass
-                    #     log.info('checkFinalEquation: precision comparison NOT passed for root %r\n' + \
-                    #              '        %r', realsolution, r)
             else:
+                if printCheckMsg:
+                    log.info('checkFinalEquation: residual too large for %r, ' + \
+                             'precision comparison NOT passed', realsolution)
                 pass
-                #log.info('checkFinalEquation: residual too large for %r, ' + \
-                #         'precision comparison NOT passed', realsolution) 
-                    
             """
             # compute roots by numpy's polyroots
             # need to convert to float64 first, since X.evalf() is still a sympy object
@@ -10101,10 +10115,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             """
 
         if found:
-            log.info('checkFinalEquation returns VALID solution')
+            if printCheckMsg:
+                log.info('checkFinalEquation returns VALID solution')
         else:
-            pass
-            # log.info('checkFinalEquation returns NO valid solution')
+            if printCheckMsg:
+                log.info('checkFinalEquation returns NO valid solution')
             
         return pfinal if found else None
 
@@ -10288,9 +10303,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     continue
                 
                 try:
+                    # TGN: should we call this built-in linear solver elsewhere?
                     sol = solve(eqs, [svar, cvar])
                 except (PolynomialError, CoercionFailed), e:
-                    log.debug('solveSingleVariable failed to solve %r for %r: %s', \
+                    log.debug('solveSingleVariable failed to use SOLVE to solve %r for %r: %s', \
                               eqs, [svar, cvar], e)
                     continue
                 
@@ -10482,6 +10498,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             goodsolution += 1
                             
                     if len(solversolution.jointeval) == len(sollist) and len(sollist) > 0:
+                        log.info('[SOLVE %i] solveSingleVariable (M3) solves %r for %r', \
+                                 self._solutionStackCounter, eqs, var)
                         solutions.append(solversolution)
                         if goodsolution > 0:
                             hasgoodsolution = True
@@ -10493,7 +10511,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
             if len(solutions) > 0 or hasgoodsolution:
                 # found a solution without any divides, necessary for pr2 head_torso lookat3d ik
-                log.info('[SOLVE %i] solveSingleVariable (M3) returns a solution for %r', \
+                log.info('[SOLVE %i] solveSingleVariable (M3) returns a solution for %r using atan2', \
                          self._solutionStackCounter, var)
                 return solutions
 
@@ -10535,7 +10553,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             numcvar = self.countVariables(eqnew, cvar)
             numsvar = self.countVariables(eqnew, svar)
 
-            # (1) equation in form a*cjx + b*sjx + c
+            # (a) equation in form a*cjx + b*sjx + c
             if numcvar == 1 and numsvar == 1:
                 a = Wild('a', exclude = [svar, cvar])
                 b = Wild('b', exclude = [svar, cvar])
@@ -10566,13 +10584,15 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     if self.isValidSolution(constsol) and \
                        self.isValidSolution(asinsol):
                         #self.checkForDivideByZero(expandedsol)
+                        log.info('[SOLVE %i] solveSingleVariable (M4a) finds solution solving %r for %r using atan2 & asin', \
+                                 self._solutionStackCounter, eq, var)
                         solutions.append(AST.SolverSolution(var.name, \
                                                             jointeval = jointsolutions, \
                                                             isHinge = self.IsHinge(var.name)))
                         solutions[-1].equationsused = equationsused
                     continue
 
-            # (2) substitute cvar for svar and solve for cvar
+            # (b) substitute cvar for svar and solve for cvar
             if numcvar > 0:
                 try:
                     if numcvar == 1 or (numcvar == 2 and numsvar == 0):
@@ -10586,6 +10606,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         jointsolutions = [s for s in jointsolutions if self.isValidSolution(s)]
                         
                         if len(jointsolutions) > 0:
+                            log.info('[SOLVE %i] solveSingleVariable (M4b) finds solution solving %r for cos(%r)', \
+                                     self._solutionStackCounter, eq, var)
                             solutions.append(AST.SolverSolution(var.name, \
                                                                 jointevalcos = jointsolutions, \
                                                                 isHinge = self.IsHinge(var.name)))
@@ -10611,6 +10633,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         jointsolutions = [s for s in jointsolutions if self.isValidSolution(s)]
                         
                         if len(jointsolutions) > 0:
+                            log.info('[SOLVE %i] solveSingleVariable (M4c) finds solution solving %r for sin(%r)', \
+                                     self._solutionStackCounter, eq, var)                            
                             solutions.append(AST.SolverSolution(var.name,
                                                                 jointevalsin = jointsolutions, \
                                                                 isHinge = self.IsHinge(var.name)))
@@ -10636,6 +10660,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     if all([self.isValidSolution(s) and s != S.Zero \
                             for s in jointsolutions]) and \
                                 len(jointsolutions) > 0:
+                        log.info('[SOLVE %i] solveSingleVariable (M4d) finds solution solving %r for %r', \
+                                 self._solutionStackCounter, eq, var)
                         solutions.append(AST.SolverSolution(var.name, \
                                                             jointeval = jointsolutions, \
                                                             isHinge = self.IsHinge(var.name)))
@@ -10652,18 +10678,19 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                          self._solutionStackCounter, eqnew, var)
                 self._inc_solutionStackCounter()
                 solution = self.solveHighDegreeEquationsHalfAngle([eqnew], var, symbols)
+                log.info('[SOLVE %i] solveSingleVariable (M4e) finds solution solving %r for %r', \
+                         self._solutionStackCounter, eq, htvar)
                 solutions.append(solution.subs(symbols))
                 solutions[-1].equationsused = equationsused
             except self.CannotSolveError, e:
-                log.info('[SOLVE %i] Cannot use solveHighDegreeEquationsHalfAngle to solve for %r', \
-                         self._solutionStackCounter, var)
-                log.debug(e)
+                log.info('[SOLVE %i] Cannot use solveHighDegreeEquationsHalfAngle to solve for %r: %s', \
+                         self._solutionStackCounter, var, e)
             finally:
                 self._dec_solutionStackCounter()
 
         if len(solutions) > 0:
-            log.info('[SOLVE %i] solveSingleVariable (M4) returns a solution for %r', \
-                     self._solutionStackCounter, var)
+            log.info('[SOLVE %i] solveSingleVariable (M4) returns %i solution(s) for %r', \
+                     self._solutionStackCounter, len(solutions), var)
             return solutions
 
         try:
@@ -10672,15 +10699,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             self._inc_solutionStackCounter()
             solution = self.solveHighDegreeEquationsHalfAngle(eqns, var)
         except self.CannotSolveError, e:
-            log.info('[SOLVE %i] Cannot use solveHighDegreeEquationsHalfAngle to solve for %r', \
-                     self._solutionStackCounter, var)
-            log.debug(e)
+            log.info('[SOLVE %i] Cannot use solveHighDegreeEquationsHalfAngle to solve for %r: %s', \
+                     self._solutionStackCounter, var, e)
             raise self.CannotSolveError(e)
         finally:
             self._dec_solutionStackCounter()
             
-        log.info('[SOLVE %i] solveSingleVariable returns a solution for %r', \
-                 self._solutionStackCounter, var)
+        log.info('[SOLVE %i] solveSingleVariable (M5) returns a solution of %r for %r', \
+                 self._solutionStackCounter, htvar, var)
         return [solution]
 
     def solvePrismaticHingePairVariables(self, raweqns, \
@@ -10961,14 +10987,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             # take a linear combination to eliminate cj*cj, cj*sj
                             eq = (p*eq0value - pbase*eq1value).as_expr().subs(allsymbols)
                             if self.codeComplexity(eq) > 4000:
-                                # .. way too complex
+                                # too complex
                                 continue
                             eq = eq.expand()
                             if self.codeComplexity(eq) > 10000:
-                                # .. way too complex
+                                # too complex
                                 continue
                             if len(addedeqs) > 10 and self.codeComplexity(eq) > 2000:
-                                # .. already have enough...
+                                # have enough equations
                                 continue
                             if eq != S.Zero and self.CheckExpressionUnique(addedeqs, eq):
                                 eqnew, syms = self.groupTerms(eq, c0s0c1s1, symbolgen)
