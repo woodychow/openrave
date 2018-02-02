@@ -9649,10 +9649,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         Called by solvePairVariablesHalfAngle only.
         """
 
-        log.debug('solveVariablesLinearly:\n' + \
+        gens = polyeqs[0].gens
+        nvar = len(gens)
+        log.debug('[SOLVE %i] solveVariablesLinearly:\n' + \
                   '        solvevariables  = %r\n' + \
                   '        othersolvedvars = %r', \
-                  polyeqs[0].gens, \
+                  self._solutionStackCounter, gens, \
                   othersolvedvars)
 
         # number of monomials (excluding constants) in each equation
@@ -9664,84 +9666,74 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         #complexity = [(self.codeComplexity(peq.as_expr()),peq) for peq in polyeqs]
         #complexity.sort(key=itemgetter(0))
         #polyeqs = [peq[1] for peq in complexity]
-        
-        v = [self.getVariable(othervar) for othervar in othersolvedvars]
-        trigsubs            = self.jointlists([var.subs    for var in v])
-        trigsubsinv         = self.jointlists([var.subsinv for var in v])
-        othersolvedvarssyms = self.jointlists([var.vars    for var in v])
 
-        symbolscheck = []
-        for i,solvevar in enumerate(polyeqs[0].gens):
-            monom = [0]*len(polyeqs[0].gens)
-            monom[i] = 1
-            symbolscheck.append(tuple(monom))
-        solutions = []
+        # when nvar = 3, symbolscheck = [(1,0,0), (0,1,0), (0,0,1)] 
+        symbolscheck = [tuple(eye(nvar).extract([i], range(nvar))) for i in range(nvar)]
         
-        for degree in range(mindegree, maxdegree+1):
+        solutions = []
+        for degree in range(mindegree, min(maxdegree, maxsolvabledegree)+1):
             allindices = [i for i, n in enumerate(nummonoms) if n <= degree]
             if len(allindices) >= degree:
-                allmonoms = set()
-                for index in allindices:
-                    allmonoms = allmonoms.union(set(polyeqs[index].monoms()))
-                allmonoms = list(allmonoms)
-                allmonoms.sort()
+                allmonoms = list(set(self.jointlists([polyeqs[i].monoms() for i in allindices])))
                 if sum(allmonoms[0]) == 0:
                     allmonoms.pop(0)
+                nmonoms = len(allmonoms)
                 # allmonoms has to have symbols as a single variable
                 if not all([check in allmonoms for check in symbolscheck]):
                     continue
                 
-                if len(allmonoms) == degree:
-                    if degree > maxsolvabledegree:
-                        log.warn('Cannot handle linear solving for more than 4 equations')
-                        continue
-                    
-                    systemequations = []
-                    consts = []
-                    for index in allindices:
-                        pdict = polyeqs[index].as_dict()
-                        systemequations.append([pdict.get(monom, S.Zero) for monom in allmonoms])
-                        consts.append(-polyeqs[index].TC())
-                        
+                if nmonoms == degree:
+                    neq = len(allindices) 
+                    # systemequations is a list of neq sublists, each having nmonoms coefficients
+                    systemequations = [[polyeqs[index].as_dict().get(monom, S.Zero) for monom in allmonoms] for index in allindices]
+                    consts = [-polyeqs[index].TC() for index in allindices]
+
+                    exec(ipython_str, globals(), locals())
                     # generate at least two solutions in case the first solution has determinant = 0
                     solutions = []
-                    for startrow in range(len(systemequations)):
+                    for startrow, starteq in enumerate(systemequations):
                         rows = [startrow]
-                        M = Matrix(1,len(allmonoms), systemequations[rows[0]])
-                        for i in range(startrow+1, len(systemequations)):
-                            numequationsneeded = M.shape[1] - M.shape[0]
-                            if i+numequationsneeded > len(systemequations):
+                        M = Matrix(1, nmonoms, starteq)
+                        for i in range(startrow+1, neq):
+                            assert(M.shape[1] == nmonoms)
+                            neqneed = nmonoms - M.shape[0]
+                            if i + neqneed > neq:
                                 # cannot do anything
                                 break
-                            mergedsystemequations = list(systemequations[i])
-                            for j in range(1,numequationsneeded):
-                                mergedsystemequations += systemequations[i+j]
-                            M2 = M.col_join(Matrix(numequationsneeded,len(allmonoms),mergedsystemequations))
-                            complexity = 0
-                            for i2 in range(M2.rows):
-                                for j2 in range(M2.cols):
-                                    complexity += self.codeComplexity(M2[i2, j2])
+
+                            # a list of nmonoms * len(allindices) coefficients
+                            mergedsystemequations = self.jointlists([systemequations[i+j] \
+                                                                     for j in range(0, neqneed)])
+                            # vertically catenate
+                            M2 = M.col_join(Matrix(neqneed, \
+                                                   nmonoms, \
+                                                   mergedsystemequations))
+                            
+                            assert(M2.shape[0] == M2.shape[1] and M2.shape[1] == nmonoms)
                             if self.IsDeterminantNonZeroByEval(M2):
+                                # det(M2) != 0 for at least one set of consistent values
+                                complexity = sum(self.codeComplexity(M2[i2, j2]) \
+                                                 for i2 in range(M2.rows) \
+                                                 for j2 in range(M2.cols))
                                 if complexity < 5000:
                                     Mdet = M2.det()
-                                    if Mdet != S.Zero:
+                                    if Mdet != S.Zero: # suceess in building M
                                         M = M2
-                                        for j in range(numequationsneeded):
-                                            rows.append(i+j)
+                                        rows += [i+j for j in range(neqneed)]
                                         break
                                 else:
                                     log.warn('Found solution, but matrix is too complex and ' + \
                                              'determinant will most likely freeze (%d)', complexity)
                                 
-                        if M.shape[0] == M.shape[1]:
-                            Mdet = self.trigsimp(Mdet.subs(trigsubsinv)).subs(trigsubs)
-                            #Minv = M.inv()
-                            B = Matrix(M.shape[0],1,[consts[i] for i in rows])
+                        if M.shape[0] == M.shape[1]: # suceess above in building M
+                            Mdet = self.trigsimp(Mdet)
+                            # Minv = M.inv()
+                            b = Matrix(M.shape[0], 1, [consts[i] for i in rows])
                             Madjugate = M.adjugate()
                             solution = []
                             for check in symbolscheck:
-                                value = Madjugate[allmonoms.index(check),:]*B
-                                solution.append(self.trigsimp(value[0].subs(trigsubsinv)).subs(trigsubs))
+                                value = Madjugate[allmonoms.index(check),:] * b
+                                solution.append(self.trigsimp(value[0]))
                             solutions.append([Mdet, solution])
                             if len(solutions) >= 2:
                                 break
@@ -9756,7 +9748,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         
         return solutions
 
-    def solveSingleVariableLinearly(self,raweqns,solvevar,othervars,maxnumeqs=2,douniquecheck=True):
+    def solveSingleVariableLinearly(self, raweqns, solvevar, othervars, \
+                                    maxnumeqs = 2, \
+                                    douniquecheck = True):
         """
         Solves a linear system for one variable, assuming everything else is constant.
 
@@ -11635,24 +11629,31 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         eqadds.append(eqmuls[0])
 
                     log.info('Done multiplying all determinant. Now convert to Poly')
-                    det = sum(eq for eq in eqadds)
+
+                    det = Poly(S.Zero, leftvar) 
+                    for ieq, eq in enumerate(eqadds): 
+                        # log.info('adding to det %d/%d', ieq, len(eqadds)) 
+                        det += eq 
+
+                    # equivalent to
+                    # det = sum(eq for eq in eqadds)
                     """
                         
                     if len(Mall) <= 3:
                         # need to simplify further since self.globalsymbols can have important substitutions
                         # that can yield the entire determinant to zero
                         log.info('Attempt to simplify determinant')
-                        newdet = Poly(S.Zero,leftvar)
+                        newdet = Poly(S.Zero, leftvar)
                         for m, c in det.terms():
                             origComplexity = self.codeComplexity(c)
                             # 100 is a guess
                             if origComplexity < 100:
-                                neweq = c.subs(dictequations)
-                                if self.codeComplexity(neweq) < 100:
-                                    neweq = self._SubstituteGlobalSymbols(neweq).expand()
-                                    newComplexity = self.codeComplexity(neweq)
+                                newc = c.subs(dictequations)
+                                if self.codeComplexity(newc) < 100:
+                                    newc = self._SubstituteGlobalSymbols(newc).expand()
+                                    newComplexity = self.codeComplexity(newc)
                                     if newComplexity < origComplexity:
-                                        c = neweq
+                                        c = newc
                             newdet += c*leftvar**m[0]
                         det = newdet
                     if det.degree(0) <= 0:
@@ -11662,25 +11663,26 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 except self.CannotSolveError,e:
                     log.debug(e)
         else:
-            log.info('SolvePairVariableHalfAngle has found %d pfinals', len(pfinals))
-                    
-                    
+            log.info('[SOLVE %i] solvePairVariableHalfAngle has found %d pfinals', \
+                     self._solutionStackCounter, len(pfinals))
+
         if pfinals is None:
             raise self.CannotSolveError('solvePairVariablesHalfAngle: ' + \
                                         'failed to solve dialytically with %d equations'% \
                                         len(polyeqs))
 
-        log.info('SolvePairVariableHalfAngle has found %d pfinal(s)', len(pfinals))
-        jointsol = 2*atan(varsyms[ileftvar].htvar)
+        log.info('[SOLVE %i] solvePairVariableHalfAngle has found %d pfinal(s)', \
+                 self._solutionStackCounter, len(pfinals))
+        jointeval = 2*atan(varsyms[ileftvar].htvar)
 
         # Call AST SolverPolynomialRoots constructor
         solution = AST.SolverPolynomialRoots(jointname = varsyms[ileftvar].name, \
                                              poly      = pfinals[0], \
-                                             jointeval = [jointsol], \
+                                             jointeval = [jointeval], \
                                              isHinge   = self.IsHinge(varsyms[ileftvar].name))
         if len(pfinals) > 1:
             # verify with at least one solution
-            solution.postcheckfornonzeros = [peq.as_expr() for peq in pfinals[1:2]]
+            solution.postcheckfornonzeros = [pfinals[1].as_expr()]
             solution.polybackup = pfinals[1]
         solution.postcheckforrange = []
         solution.dictequations = dictequations
@@ -11695,7 +11697,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         return [solution]
     
     ## SymPy helper routines
-
     @staticmethod
     def isValidSolution(expr):
         """
@@ -11954,13 +11955,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
     
     def IsDeterminantNonZeroByEval(self, A, evalfirst = True):
         """
-        Checks if the determinant of A is non-zero by evaluating all the possible solutions.
+        Checks whether det(A) != 0 holds for at least one set of consistent values. 
+        Returns True if so and False otherwise.
 
-        :param evalfirst: if True, then call evalf() first before any complicated operation to avoid freezing
+        If EVALFIRST = True, then call evalf() first before any complicated operation to avoid freezing.
 
-        When A is known to be simple, set this to False to get more accurate results.
-
-        :return: True if there exist values where det(A) is not zero
+        When A is known to be simple, set EVALFIRST to False to get more accurate results.
         """
         # when translationdirection5d is used with direction that is 6+ digits,
         # the determinent gets small... pi_robot requires 0.0003**A.shape[0]
