@@ -4535,8 +4535,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         # the last three fundamental equations (reflection; total 14 now)
         # ppl0 = p0.dot(p0)*l0 - 2*l0.dot(p0)*p0
         # ppl1 = p1.dot(p1)*l1 - 2*l1.dot(p1)*p1        
-        ppl0 = (polyeqs[9][0]*l0 - 2*polyeqs[10][0]*p0).as_expr()
-        ppl1 = (polyeqs[9][1]*l1 - 2*polyeqs[10][1]*p1).as_expr()
+        ppl0 = polyeqs[9][0].as_expr()*l0 - 2*polyeqs[10][0].as_expr()*p0
+        ppl1 = polyeqs[9][1].as_expr()*l1 - 2*polyeqs[10][1].as_expr()*p1
         eqs += [[ppl0[i], ppl1[i]] for i in range(3)]
         assert(len(eqs) == 14)
         
@@ -9659,6 +9659,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 
     def solveVariablesLinearly(self, polyeqs, othersolvedvars, maxsolvabledegree = 4):
         """
+        Takes in a set of polynomial equations POLYEQS in a half tangent variable HTVAR.
+
+        Constructs a square linear system in monomials of HTVAR only, and solve for these monomials.
+
+        Returns a list of pairs (Mdet, adj(M)*b) that indicates how to find all monomials of HTVAR.
+
         Called by solvePairVariablesHalfAngle only.
 
         The call is 
@@ -9677,7 +9683,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         log.debug('[SOLVE %i] solveVariablesLinearly:\n' + \
                   '        solvevariables  = %r\n' + \
                   '        othersolvedvars = %r', \
-                  self._solutionStackCounter, gens, \
+                  self._solutionStackCounter, \
+                  polyeqs[0].gen, \
                   othersolvedvars)
 
         # number of monomials (excluding constants) in each equation
@@ -9706,7 +9713,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     continue
                 
                 if nmonoms == degree:
-                    neq = len(allindices) 
+                    neq = len(allindices)
+                    neqneed = nmonoms - 1
                     # systemequations is a list of neq sublists, each having nmonoms coefficients
                     systemequations = [[polyeqs[index].as_dict().get(monom, S.Zero) for monom in allmonoms] for index in allindices]
                     consts = [-polyeqs[index].TC() for index in allindices]
@@ -9717,14 +9725,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     for startrow, starteq in enumerate(systemequations):
                         rows = [startrow]
                         M = Matrix(1, nmonoms, starteq)
-                        for i in range(startrow+1, neq):
-                            assert(M.shape[1] == nmonoms)
-                            neqneed = nmonoms - M.shape[0]
-                            if i + neqneed > neq:
-                                # cannot do anything
-                                break
+                                                    
+                        for i in range(startrow+1, min(neq-nmonoms+2, neq)):
+                            assert(M.shape[0] == 1 and M.shape[1] == nmonoms)
 
-                            # a list of nmonoms * len(allindices) coefficients
+                            # a list of neqneed * len(allindices) coefficients
                             mergedsystemequations = self.jointlists([systemequations[i+j] \
                                                                      for j in range(0, neqneed)])
                             # vertically catenate
@@ -9736,8 +9741,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             if self.IsDeterminantNonZeroByEval(M2):
                                 # det(M2) != 0 for at least one set of consistent values
                                 complexity = sum(self.codeComplexity(M2[i2, j2]) \
-                                                 for i2 in range(M2.rows) \
-                                                 for j2 in range(M2.cols))
+                                                 for i2 in range(nmonoms) for j2 in range(nmonoms))
                                 if complexity < 5000:
                                     Mdet = M2.det()
                                     if Mdet != S.Zero: # suceess in building M
@@ -9747,17 +9751,17 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                 else:
                                     log.warn('Found solution, but matrix is too complex and ' + \
                                              'determinant will most likely freeze (%d)', complexity)
-                                
+                                    
+                        assert(M.shape[0] == nmonoms and M.shape[1] == nmonoms)     
                         if M.shape[0] == M.shape[1]: # suceess above in building M
                             Mdet = self.trigsimp(Mdet)
                             # Minv = M.inv()
-                            b = Matrix(M.shape[0], 1, [consts[i] for i in rows])
+                            b = Matrix(nmonoms, 1, [consts[i] for i in rows])
                             Madjugate = M.adjugate()
-                            solution = []
-                            for check in symbolscheck:
-                                value = Madjugate[allmonoms.index(check),:] * b
-                                solution.append(self.trigsimp(value[0]))
-                            solutions.append([Mdet, solution])
+                            # each entry [Mdet, adj(M)*b] indicates how to find all monomials
+                            solutions.append((Mdet, \
+                                              [self.trigsimp(b.dot(Madjugate[allmonoms.index(check), :])) \
+                                               for check in symbolscheck]))
                             if len(solutions) >= 2:
                                 break
                     if len(solutions) > 0:
@@ -9766,28 +9770,28 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         if len(solutions) == 0:            
             raise self.CannotSolveError('solveVariablesLinearly failed')
         else:
-            # exec(ipython_str)
             log.info('solveVariablesLinearly has found some solution.')
         
         return solutions
 
-    def solveSingleVariableLinearly(self, raweqns, solvevar, othervars, \
+    def solveSingleVariableLinearly(self, raweqns, var, othervars, \
                                     maxnumeqs = 2, \
                                     douniquecheck = True):
         """
-        Solves a linear system for one variable, assuming everything else is constant.
+        From RAWEQNS extracts (>=3) equations that are linear in cvar, svar.
 
-        Need >=3 equations.
+        Solves at least 2 sets of 2x2 linear systems in cvar, svar, and equates any two sets of solutions
+        to generate new equations NEWEQS and return them.
 
         Called by solvePairVariables only.
         """
-        varsym = self.getVariable(solvevar)
+        varsym = self.getVariable(var)
         cvar, svar = varsym.cvar, varsym.svar
-        varsubs = [(cos(solvevar), cvar), (sin(solvevar), svar)]
+        varsubs = [(cos(var), cvar), (sin(var), svar)]
         othervarsubs = [(sin(v)**2, 1-cos(v)**2) for v in othervars]
         eqpolys = [Poly(eq.subs(varsubs).subs(othervarsubs), cvar, svar) for eq in raweqns]
         # polynomial contains cvar, svar only, NO var
-        eqpolys = [eq for eq in eqpolys if sum(eq.degree_list()) == 1 and not eq.TC().has(solvevar)]
+        eqpolys = [eq for eq in eqpolys if sum(eq.degree_list()) == 1 and not eq.TC().has(var)]
         #eqpolys.sort(lambda x,y: iksolver.codeComplexity(x) - iksolver.codeComplexity(y))
 
         partialsolutions = []
@@ -9865,7 +9869,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
     def solveHighDegreeEquationsHalfAngle(self, lineareqs, var, tosubs = []):
         """
-        Solves a set of equations in one variable with half-angle substitution.
+        Solves a set of equations LINEAREQS in one joint variable VAR for its half tangent variable.
+
+        Current approach is to return an AST.SolverPolynomialRoots object that contains the first feasible polynomail in htvar.
 
         Called by solvePairVariables, solveSingleVariable, (not sure if necessary) SolveAllEquations.
         """
@@ -9911,8 +9917,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                      jointeval = [2*atan(htvar)], \
                                                      isHinge = self.IsHinge(varsym.name))
                 solution.AddHalfTanValue = True
-                log.info('[SOLVE %i] solveHighDegreeEquationsHalfAngle returns a solution for %r', \
-                         self._solutionStackCounter, var)
+                log.info('[SOLVE %i] solveHighDegreeEquationsHalfAngle returns a polynomial %r that solves %r.', \
+                         self._solutionStackCounter, pfinal, htvar)
                 return solution
 
         raise self.CannotSolveError(('half-angle substitution for joint %s failed, ' + \
