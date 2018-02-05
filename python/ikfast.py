@@ -610,14 +610,14 @@ class IKFastSolver(AutoReloader):
             clone.handleddegeneratecases = self.handleddegeneratecases[:] # deep copy
             return clone
         
-        def AddCasesWithConditions(self,newconds,currentcases):
+        def AddCasesWithConditions(self, newconds, currentcases):
             for case in newconds:
                 newcases = set(currentcases)
                 newcases.add(case)
                 assert(not self.CheckCases(newcases))
                 self.handleddegeneratecases.append(newcases)
                 
-        def AddCases(self,currentcases):
+        def AddCases(self, currentcases):
             if not self.CheckCases(currentcases):
                 self.handleddegeneratecases.append(currentcases)
             else:
@@ -630,10 +630,11 @@ class IKFastSolver(AutoReloader):
                     return True
             return False
         
-        def GetHandledConditions(self,currentcases):
+        def GetHandledConditions(self, currentcases):
             handledconds = []
             for handledcases in self.handleddegeneratecases:
-                if len(currentcases)+1==len(handledcases) and currentcases < handledcases:
+                if len(currentcases)+1 == len(handledcases) and \
+                   currentcases < handledcases:
                     handledconds.append((handledcases - currentcases).pop())
             return handledconds
         
@@ -725,7 +726,7 @@ class IKFastSolver(AutoReloader):
     
     def convertRealToRational(self, x, precision = None):
         """
-        Converts numpy's float number to sympy's Rational number (up to precision)
+        Converts numpy's float number X to sympy's Rational number (up to PRECISION).
         """
         if precision is None:
             precision = self.precision
@@ -737,6 +738,10 @@ class IKFastSolver(AutoReloader):
             return r0 if len(str(r0)) < len(str(r1)) else r1
 
     def ConvertRealToRationalEquation(self, eq, precision = None):
+        """
+        Recursively goes down the computational tree and converts those numpy's float numbers (occuring in EQ)
+        into sympy's Rational numbers (up to PRECISION).
+        """
         if eq.is_Add:
             neweq = sum(self.ConvertRealToRationalEquation(subeq, precision) for subeq in eq.args)
         elif eq.is_Mul:
@@ -7449,7 +7454,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # not translationdirection5d nor transform6d
             pass
 
-        eq = self.trigsimp(eq)
+        # eq = self.trigsimp(eq)
         if eq == origeq:
             # TGN: Sometimes eq is not "simplified" because global substitutions happen,
             #      not because _SimplifyRotation* functions don't work
@@ -8006,53 +8011,90 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
         Called by AddSolution only.
         """
-        constantSymbols = list(self.pvars if constantSymbols is None else constantSymbols)
-
-        constantSymbols += self.jointlists([[var, cos(var), sin(var)] if self.IsHinge(var.name) \
-                                            else [var] for var in othersolvedvars])
+        constantSymbols = list(self.pvars if constantSymbols is None else constantSymbols) + \
+                          self.jointlists([[var, cos(var), sin(var)] if self.IsHinge(var.name) \
+                                           else [var] for var in othersolvedvars])
+        constantSymbols = [constantSymbol for constantSymbol in constantSymbols \
+                           if any([eq.has(constantSymbol) for eq in AllEquations])]
         newsubsdict = {}
-        for eq in AllEquations:
-            if not eq.has(*unknownvars) and eq.has(*constantSymbols):
-                try:
-                    # TGN: comment out this since it's unused
-                    # reducedeq = self.SimplifyTransform(eq)
-                    # eq = reduceeq ???
-                    for constantSymbol in constantSymbols:
-                        if eq.has(constantSymbol):
-                            try:
-                                peq = Poly(eq, constantSymbol)
-                                if peq.degree(0) == 1:
-                                    # equation is only degree 1 in the variable
-                                    # and doesn't have any othersolvedvars multiplied with it
-                                    newsolution = solve(peq, constantSymbol)[0]
-                                    if constantSymbol not in newsubsdict or \
-                                       self.codeComplexity(newsolution) < self.codeComplexity(newsubsdict[constantSymbol]):
-                                        newsubsdict[constantSymbol] = newsolution
-                            except PolynomialError:
-                                pass
-                except PolynomialError, e: # expected from simplifyTransform
-                    pass
-                
+        usefulEquations = [eq for eq in AllEquations if not eq.has(*unknownvars) and eq.has(*constantSymbols)] 
+
+        #"""
+        for eq in usefulEquations:
+            try:
+                # TGN: comment out this since it's unused
+                # reducedeq = self.SimplifyTransform(eq)
+                # eq = reduceeq ???
+                for constantSymbol in constantSymbols:
+                    if eq.has(constantSymbol):
+                        try:
+                            peq = Poly(eq, constantSymbol)
+                            if peq.degree(0) == 1:
+                                # equation is only degree 1 in the variable
+                                # and doesn't have any othersolvedvars multiplied with it
+                                newsolution = solve(peq, constantSymbol)[0]
+                                if constantSymbol not in newsubsdict or \
+                                   self.codeComplexity(newsolution) < self.codeComplexity(newsubsdict[constantSymbol]):
+                                    newsubsdict[constantSymbol] = newsolution
+                        except PolynomialError:
+                            pass
+            except PolynomialError, e: # expected from simplifyTransform
+                pass
+        """
+        usedSymbols = []
+        for constantSymbol in constantSymbols:
+            if constantSymbol in usedSymbols:
+                continue
+            for eq in usefulEquations:
+                if eq.has(constantSymbol):
+                    try:
+                        peq = Poly(eq, constantSymbol)
+                        if peq.degree(0) == 1:
+                            pdict = peq.as_dict()
+                            if pdict[(1,)].is_number and pdict[(1,)]!=S.Zero: 
+                                newsolution = -pdict.get((0,),0)/pdict[(1,)] # ax+b = 0, a!=0  ==> x = -b/a
+                                if constantSymbol not in newsubsdict or \
+                                   self.codeComplexity(newsolution) < self.codeComplexity(newsubsdict[constantSymbol]):
+                                    newsubsdict[constantSymbol] = newsolution
+                    except PolynomialError:
+                        pass
+            if constantSymbol in newsubsdict:
+                usedSymbols += [usedSymbol for usedSymbol in constantSymbols \
+                                if newsubsdict[constantSymbol].has(usedSymbol)]
+        """
+
         # first substitute everything that doesn't have othersolvedvar or unknownvars
-        otherSubstitutions  = [(var, value) for (var, value) in newsubsdict.items() if     value.has(*constantSymbols)]
-        numberSubstitutions = [(var, value) for (var, value) in newsubsdict.items() if not value.has(*constantSymbols)]
-                
+        otherSubstitutions  = [(var, value) for (var, value) in newsubsdict.items() \
+                               if value.has(*constantSymbols)]
+        numberSubstitutions = [(var, value) for (var, value) in newsubsdict.items() \
+                               if not value.has(*constantSymbols)]
+
         NewEquations = []
         for eq in AllEquations:
-            if True: # not eq.has(*unknownvars):
+            if True: #not eq.has(*unknownvars):
                 neweq = eq.subs(numberSubstitutions).expand()
                 if neweq != S.Zero:
                     # don't expand here since otherSubstitutions could make it very complicated
                     neweq2 = neweq.subs(otherSubstitutions)
-                    if self.codeComplexity(neweq2) < self.codeComplexity(neweq)*2:
+                    if neweq2 == S.Zero:
+                        NewEquations.append(neweq)
+                        continue
+                    neweqComplexity  = self.codeComplexity(neweq)
+                    neweq2Complexity = self.codeComplexity(neweq2)
+                    if neweq2Complexity < neweqComplexity*2:
                         neweq2 = neweq2.expand()
-                        NewEquations.append(neweq2 if self.codeComplexity(neweq2) < self.codeComplexity(neweq) and \
-                                            neweq2 != S.Zero else \
-                                            neweq)
+                        neweq2Complexity = self.codeComplexity(neweq2)
+                        NewEquations.append(neweq2 if neweq2Complexity < neweqComplexity and \
+                                            neweq2 != S.Zero else neweq)
                     else:
                         NewEquations.append(neweq)
             else:
                 NewEquations.append(eq)
+        """
+        print AllEquations
+        print NewEquations
+        exec(ipython_str, globals(), locals())
+        """
         return NewEquations
 
     @staticmethod
@@ -9037,6 +9079,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             localsubstitutioneqs.append(toappend)
                                             handledconds.append(cond)
 
+            log.info('Append localsubstitutioneqs %r to flatzerosubstitutioneqs and zerosubstitutioneqs', \
+                      localsubstitutioneqs)
             flatzerosubstitutioneqs += localsubstitutioneqs
             zerosubstitutioneqs.append(localsubstitutioneqs)
             
@@ -9213,9 +9257,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                     possiblesub.append((Symbol('%s%d%d'%(possiblevarname, row, col)), S.Zero))
                                 
                             checkexpr = [[cond], evalcond, possiblesub, []]
-                            log.info('%r', flatzerosubstitutioneqs)
-                            log.info('%r', checkexpr)
-                            # exec(ipython_str, globals(), locals())
+                            log.info('Append %r to flatzerosubstitutioneqs and localsubstitutioneqs', checkexpr)
                             flatzerosubstitutioneqs.append(checkexpr)
                             localsubstitutioneqs.append(checkexpr)
                             handledconds.append(cond)
@@ -9264,8 +9306,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                      evalcond + evalcond2, \
                                                      possiblesub + possiblesub2, \
                                                      []]
-                                        log.info('%r', flatzerosubstitutioneqs)
-                                        log.info('%r', checkexpr)
+                                        log.info('Append %r to flatzerosubstitutioneqs and localsubstitutioneqs', checkexpr)
                                         flatzerosubstitutioneqs.append(checkexpr)
                                         localsubstitutioneqs.append(checkexpr)
                                         handledconds.append(cond + cond2)
@@ -9318,8 +9359,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                          evalcond + evalcond2, \
                                                          possiblesub + possiblesub2, \
                                                          []]
-                                            log.info('%r', flatzerosubstitutioneqs)
-                                            log.info('%r', checkexpr)
+                                            log.info('Append %r to flatzerosubstitutioneqs and localsubstitutioneqs', checkexpr)
                                             flatzerosubstitutioneqs.append(checkexpr)
                                             localsubstitutioneqs.append(checkexpr)
                                             handledconds.append(cond + cond2)
@@ -9381,8 +9421,16 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             
             #NewEquations = [eq.subs(self.npxyzsubs + self.rxpsubs).subs(othervarsubs) for eq in AllEquations]
             NewEquations = [eq.subs(othervarsubs) for eq in AllEquations]
+
+            NewEquationsClean = []
+            for eq in NewEquations:
+                if eq not in NewEquationsClean and \
+                   -eq not in NewEquationsClean and \
+                   eq != S.Zero:
+                    NewEquationsClean.append(eq)
+            NewEquations = list(NewEquationsClean)
             NewEquationsClean = self.PropagateSolvedConstants(NewEquations, othersolvedvars, curvars)
-            
+            exec(ipython_str, globals(), locals())
             try:
                 # forcing a value, so have to check if all equations in NewEquations that do not contain
                 # unknown variables are really 0
@@ -9401,6 +9449,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 if extrazerochecks is not None:
                     
                     newcases = set(currentcases).union(set(cond))
+                    if len(self.degeneratecases.handleddegeneratecases)>0:
+                        exec(ipython_str, globals(),locals())
                     if self.degeneratecases.CheckCases(newcases):
                         log.warn('already has handled cases %r', newcases)
                     else:
@@ -9443,6 +9493,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             if len(extradictequations) > 0:
                                 # have to re-substitute since some equations evaluated to zero
                                 NewEquationsClean = [eq.subs(extradictequations).expand() for eq in NewEquationsClean]
+
+                            # NewEquationsClean = [eq for eq in NewEquationsClean if eq.has(*curvars)]
                             try:
                                 log.info('[SOLVE %i] AddSolution calls SolveAllEquations to solve for %r', \
                                          self._solutionStackCounter, curvars)
@@ -9455,14 +9507,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                  currentcases = newcases, \
                                                                  currentcasesubs = newcasesubs, \
                                                                  unknownvars = unknownvars)
+                                accumequations.append(NewEquationsClean) # store the equations for debugging purposes
                             except self.CannotSolveError, e:
                                 log.info('[SOLVE %i] Cannot use SolveAllEquations for %r', \
-                                         self._solutionStackCounter, curvars)
+                                         self._solutionStackCounter-1, curvars)
                                 raise self.CannotSolveError(e)
                             finally:
                                 self._dec_solutionStackCounter()
-                            accumequations.append(NewEquationsClean) # store the equations for debugging purposes
-                            
                         else:
                             log.info('no new equations! probably can freely determine %r', curvars)
                             # unfortunately cannot add curvars as a FreeVariable
@@ -9481,7 +9532,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
                         # print flatzerosubstitutioneqs
                         log.info('depth = %d, c = %d, stackcounter = %d, iter = %d/%d\n' \
-                                 + '        add new cases: %s', \
+                                 + '        add new cases into self.degeneratecases: %s', \
                                  len(currentcases), scopecounter, \
                                  self._solutionStackCounter, \
                                  iflatzerosubstitutioneqs, len(flatzerosubstitutioneqs), \
@@ -10171,12 +10222,17 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # write eq as a polynomial in vars and group unrelevant terms as constx
             eqnew, symbols = self.groupTerms(eq.subs(varsym.subs), vars, symbolgen)
             try:
+                """
                 ps = Poly(eqnew, svar)
                 pc = Poly(eqnew, cvar)
                 if sum(ps.degree_list()) > 0 or \
                    sum(pc.degree_list()) > 0 or \
                    ps.TC() == S.Zero or \
                    pc.TC() == S.Zero:
+                    continue
+                """
+                if self.countVariables(eqnew, svar)>0 or \
+                   self.countVariables(eqnew, cvar)>0:
                     continue
             except PolynomialError:
                 continue
@@ -10197,9 +10253,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         hasdividebyzero = any([len(self.checkForDivideByZero(self._SubstituteGlobalSymbols(s))) > 0 \
                                                for s in jointsolutions])
                         if not hasdividebyzero:
-                            log.info('[SOLVE %i] solveSingleVariable (M1) has solved %r for %r', \
+                            log.info('[SOLVE %i] solveSingleVariable (M1) returns a solution that solves %r for %r', \
                                      self._solutionStackCounter, eq, var)
                             return returnfirstsolutions
+                        else:
+                            log.info('[SOLVE %i] solveSingleVariable (M1) finds a solution that solves %r for %r\n' + \
+                                     ' '*18 + 'Has divide-by-zero conditions', \
+                                     self._solutionStackCounter, eq, var)
                         
                 except NotImplementedError, e:
                     # when solve cannot solve an equation
@@ -10211,7 +10271,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     tempsolutions = solve(eqnew, htvar)
                     jointsolutions = []
                     for s in tempsolutions:
-                        htval = self.SimplifyTransform(self.trigsimp(s.subs(symbols)))
+                        htval = self.SimplifyTransform(s.subs(symbols))
+                        # htval = self.SimplifyTransform(self.trigsimp(s.subs(symbols)))
                         try:
                             # evaluating takes long time if htval.is_number
                             jointsolutions.append(2*atan(htval, evaluate = False))
@@ -10229,9 +10290,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         hasdividebyzero = any([len(self.checkForDivideByZero(self._SubstituteGlobalSymbols(s))) > 0 \
                                                for s in jointsolutions])
                         if not hasdividebyzero:
-                            log.info('[SOLVE %i] solveSingleVariable (M2) solves %r for %r', \
+                            log.info('[SOLVE %i] solveSingleVariable (M2) returns a solution that solves %r for %r', \
                                      self._solutionStackCounter, eq, var)
                             return returnfirstsolutions
+                        else:
+                            log.info('[SOLVE %i] solveSingleVariable (M2) finds a solution that solves %r for %r\n' + \
+                                     ' '*18 + 'Has divide-by-zero conditions', \
+                                     self._solutionStackCounter, eq, var)
+                            # exec(ipython_str, globals(), locals())
 
                 except NotImplementedError, e:
                     # when solve cannot solve an equation
@@ -10242,7 +10308,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # already computed some solutions, so return them
             # note that this means that all solutions have a divide-by-zero condition
             log.info('[SOLVE %i] solveSingleVariable (M1 or M2) returns a solution for %r\n' + \
-                     ' '*19 + 'All solutions have divide-by-zero conditions', \
+                     ' '*18 + 'All solutions have divide-by-zero conditions', \
                      self._solutionStackCounter, var)
             return returnfirstsolutions
         
