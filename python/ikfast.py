@@ -8019,7 +8019,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         newsubsdict = {}
         usefulEquations = [eq for eq in AllEquations if not eq.has(*unknownvars) and eq.has(*constantSymbols)] 
 
-        #"""
+        """
         for eq in usefulEquations:
             try:
                 # TGN: comment out this since it's unused
@@ -8061,14 +8061,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             if constantSymbol in newsubsdict:
                 usedSymbols += [usedSymbol for usedSymbol in constantSymbols \
                                 if newsubsdict[constantSymbol].has(usedSymbol)]
-        """
+        #"""
 
         # first substitute everything that doesn't have othersolvedvar or unknownvars
         otherSubstitutions  = [(var, value) for (var, value) in newsubsdict.items() \
                                if value.has(*constantSymbols)]
         numberSubstitutions = [(var, value) for (var, value) in newsubsdict.items() \
                                if not value.has(*constantSymbols)]
-
         NewEquations = []
         for eq in AllEquations:
             if True: #not eq.has(*unknownvars):
@@ -9079,8 +9078,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             localsubstitutioneqs.append(toappend)
                                             handledconds.append(cond)
 
-            log.info('Append localsubstitutioneqs %r to flatzerosubstitutioneqs and zerosubstitutioneqs', \
-                      localsubstitutioneqs)
+            log.info('Append %i localsubstitutioneqs %r to flatzerosubstitutioneqs and zerosubstitutioneqs', \
+                      len(localsubstitutioneqs), localsubstitutioneqs)
             flatzerosubstitutioneqs += localsubstitutioneqs
             zerosubstitutioneqs.append(localsubstitutioneqs)
             
@@ -9422,15 +9421,19 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             #NewEquations = [eq.subs(self.npxyzsubs + self.rxpsubs).subs(othervarsubs) for eq in AllEquations]
             NewEquations = [eq.subs(othervarsubs) for eq in AllEquations]
 
+            if any([eq.is_number and eq!=S.Zero for eq in NewEquations]):
+                log.info('Infeasible substitutions from othervarsubs; some equations are nonzero numbers.')
+                continue
+            
             NewEquationsClean = []
             for eq in NewEquations:
                 if eq not in NewEquationsClean and \
                    -eq not in NewEquationsClean and \
-                   eq != S.Zero:
+                   not eq.is_number:
                     NewEquationsClean.append(eq)
             NewEquations = list(NewEquationsClean)
             NewEquationsClean = self.PropagateSolvedConstants(NewEquations, othersolvedvars, curvars)
-            exec(ipython_str, globals(), locals())
+            
             try:
                 # forcing a value, so have to check if all equations in NewEquations that do not contain
                 # unknown variables are really 0
@@ -9447,10 +9450,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             extrazerochecks.append(expr.subs(solsubs).evalf(n=30))
                             
                 if extrazerochecks is not None:
-                    
                     newcases = set(currentcases).union(set(cond))
-                    if len(self.degeneratecases.handleddegeneratecases)>0:
-                        exec(ipython_str, globals(),locals())
                     if self.degeneratecases.CheckCases(newcases):
                         log.warn('already has handled cases %r', newcases)
                     else:
@@ -9496,8 +9496,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
                             # NewEquationsClean = [eq for eq in NewEquationsClean if eq.has(*curvars)]
                             try:
-                                log.info('[SOLVE %i] AddSolution calls SolveAllEquations to solve for %r', \
-                                         self._solutionStackCounter, curvars)
+                                log.info('[SOLVE %i] AddSolution calls SolveAllEquations to solve %r for %r', \
+                                         self._solutionStackCounter, NewEquationsClean, curvars)
                                 self._inc_solutionStackCounter()
                                 newtree = self.SolveAllEquations(NewEquationsClean, \
                                                                  curvars, \
@@ -9508,9 +9508,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                  currentcasesubs = newcasesubs, \
                                                                  unknownvars = unknownvars)
                                 accumequations.append(NewEquationsClean) # store the equations for debugging purposes
-                            except self.CannotSolveError, e:
-                                log.info('[SOLVE %i] Cannot use SolveAllEquations for %r', \
+                                log.info('[SOLVE %i] SolveAllEquations returns newtree in AddSolution for %r', \
                                          self._solutionStackCounter-1, curvars)
+                            except self.CannotSolveError, e:
+                                print NewEquationsClean
+                                log.info('[SOLVE %i] Cannot use SolveAllEquations to solve %r for %r: %s', \
+                                         self._solutionStackCounter-1, NewEquationsClean, curvars, e)
                                 raise self.CannotSolveError(e)
                             finally:
                                 self._dec_solutionStackCounter()
@@ -9530,7 +9533,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                              newtree, \
                                              dictequations)) # what about extradictequations?
 
-                        # print flatzerosubstitutioneqs
                         log.info('depth = %d, c = %d, stackcounter = %d, iter = %d/%d\n' \
                                  + '        add new cases into self.degeneratecases: %s', \
                                  len(currentcases), scopecounter, \
