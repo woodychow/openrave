@@ -1556,7 +1556,7 @@ class IKFastSolver(AutoReloader):
             
         return s0, s1, g_const, g_expr
 
-    def checkForDivideByZero(self, eq):
+    def checkForDivideByZero(self, eq, isPrimitive = True):
         """
         Collects a set of divide-by-zero equations in EQ.
 
@@ -1564,6 +1564,13 @@ class IKFastSolver(AutoReloader):
 
         (1) atan(x, y) in EQ yields either Abs(x)+Abs(y) or x*x+y*y, whichever is less complex;
         (2) 1/Abs(x**2+y**2)**(1/2) in EQ yields x**2+y**2.
+
+        (3) In M3 of solveSingleVarible, we write
+              atan2(sign(dummy)*s, sign(dummy)*c) 
+            = atan2(s,c) + pi/2*(1-sign(dummy))   with dummy!=0
+            so we need dummy in checkforzeros as well.
+
+        Called by ComputeSolutionComplexity and solveSingleVariable only.
         """
 
         if eq.is_number or eq.is_Symbol:
@@ -1571,11 +1578,15 @@ class IKFastSolver(AutoReloader):
         elif eq in self.check_div_zero_dict:
             self.check_div_zero_use += 1
             return self.check_div_zero_dict[eq]
-        
+
         checkforzeros = []
         try:
             if eq.is_Function:
-                if eq.func == atan2:
+                if eq.func == sign:
+                    pass
+                    # assert(0) if sign is not used with atan2
+                    # checkforzeros.append(eq.args[0]) if we add dummy in checkforzeros
+                elif eq.func == atan2:
                     # atan2 is only a problem when both numerator and denominator are 0!
                     #
                     # checkforzeros.append((eq.args[0]**2+eq.args[1]**2).expand())
@@ -1591,9 +1602,7 @@ class IKFastSolver(AutoReloader):
                             substitutedargs.append(argeq2)
                             
                     # has to be greater than 20 since some const coefficients can be simplified
-                    s0 = substitutedargs[0]
-                    s1 = substitutedargs[1]
-                    
+                    s0, s1 = substitutedargs
                     if self.codeComplexity(s0) < 30 and \
                        self.codeComplexity(s1) < 30 and \
                        (not s0.is_number or s0 == S.Zero) and \
@@ -1601,11 +1610,8 @@ class IKFastSolver(AutoReloader):
 
                         # print 'old s0  = ', s0
                         # print 'old s1  = ', s1
-
-                        """
-                        sumeq = s0**2 + s1**2
-                        testeq2 = abs(s0) + abs(s1)
-                        """
+                        # sumeq = s0**2 + s1**2
+                        # testeq2 = abs(s0) + abs(s1)
 
                         news0, news1, g_const, g_expr = self.mygcd(s0, s1)
                         
@@ -1613,9 +1619,8 @@ class IKFastSolver(AutoReloader):
                         # print 'g_const = ', g_const
                         # print 'new s0  = ', s0
                         # print 'new s1  = ', s1
-                        #if not(g_const==S.One and g_expr==S.One):
-                        #    exec(ipython_str, globals(), locals())
-
+                        # if not(g_const==S.One and g_expr==S.One):
+                        #     exec(ipython_str, globals(), locals())
 
                         if g_expr.is_number:
                             assert(g_expr  != S.Zero)
@@ -1625,18 +1630,15 @@ class IKFastSolver(AutoReloader):
                         else:
                             sumeq   = (news0*g_expr)**2 + (news1*g_expr)**2
                             testeq2 = abs(news0*g_expr) + abs(news1*g_expr)
-                        #"""
 
                         testeq = sumeq if self.codeComplexity(sumeq) >= 400 \
                                  else self.SimplifyAtan2(sumeq.expand())
                         testeqmin = testeq if self.codeComplexity(testeq) < self.codeComplexity(testeq2) \
                                     else testeq2
 
-                        # log.info('testeqmin = %r', testeqmin)
-
                         if testeqmin.is_Mul:
                             checkforzeros += [arg for arg in testeqmin.args \
-                                              if not (arg.is_number or arg.is_Symbol)]
+                                              if not arg.is_number]
                         else:
                             checkforzeros.append(testeqmin)
                                     
@@ -1651,9 +1653,9 @@ class IKFastSolver(AutoReloader):
                         )
 
             # originally, is_Mul, is_Add, is_Pow
-            checkforzeros += self.jointlists([self.checkForDivideByZero(arg) \
+            checkforzeros += self.jointlists([self.checkForDivideByZero(arg, False) \
                                          for arg in eq.args \
-                                         if not (arg.is_number or arg.is_Symbol)])
+                                         if not arg.is_number])
             # TGN: if eq.is_number, then the list is []; can eq.is_Poly???
                     
             if eq.is_Pow and eq.exp.is_number and eq.exp < 0:
@@ -1678,9 +1680,8 @@ class IKFastSolver(AutoReloader):
                 else:
                     newcheckforzeros.append(eqtemp)
             checkforzeros = newcheckforzeros
-            
-        self.check_div_zero_dict[eq] = checkforzeros
 
+        self.check_div_zero_dict[eq] = checkforzeros
         """
         if len(checkforzeros)>0:
             print eq
@@ -1690,44 +1691,31 @@ class IKFastSolver(AutoReloader):
         return checkforzeros
 
     def checkpow(self, expr, sexprs, unsolvedvars):
-
+        """
+        Used to be a sub-function inside ComputeSolutionComplexity. Refactored out.
+        """
         if expr in self.checkpow_expr_dict:
             # Look up value
             score = self.checkpow_expr_dict[expr]
-
         else:
             score = 0
             if expr.is_Pow:
                 sexprs.append(expr.base)
-            
                 if not (expr.base.is_finite is None or expr.base.is_finite):
-                    return oo # infinity
-                    
+                    return oo
                 if expr.exp.is_number and expr.exp < 0:
-                    # check if exprbase contains any variables that have already been solved
-                    # containsjointvar = expr.base.has(*solvedvars)
-                    # cancheckexpr = not expr.base.has(*unsolvedvars)
-                    score += 10000
-                    if expr.base.has(*unsolvedvars): #not cancheckexpr:
-                        score += 100000
-                            
+                    score += 110000 if expr.base.has(*unsolvedvars) else 10000
             elif not self.isValidSolution(expr):
-                score = oo # infinity
-
+                score = oo
             # Add to dictionary
             self.checkpow_expr_dict[expr] = score
-
         return score
 
     def ComputeSolutionComplexity(self, sol, solvedvars, unsolvedvars):
         """
-        For all solutions, check if there are divide-by-zero situations.
-        
-        Fills checkforzeros for the solution.
+        Checks for all solutions if there are divide-by-zero situations and fills checkforzeros for the solution.
 
-        TGN: This function only derives values for 
-
-        sol.checkforzeros and sol.score
+        Only derives values for sol.checkforzeros and sol.score
         """
 
         sol.checkforzeros = sol.getPresetCheckForZeros()
@@ -8046,6 +8034,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         usefulEquations = [eq for eq in AllEquations if not eq.has(*unknownvars) and eq.has(*constantSymbols)] 
 
         """
+        TGN: newsubsdict is baffling me: say we have pp - cj1 + 2*sj1 = 0 and cj1 + sj1 = a
+
+        Ends up a "new equation" (cj1-2*sj1) - (a-sj1) + 2*(a-cj1) = a+cj1-sj1 = 0
+
+        Should not do substitutions for every symbol!
+        """
+        
+        #"""
         for eq in usefulEquations:
             try:
                 # TGN: comment out this since it's unused
@@ -8085,9 +8081,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     except PolynomialError:
                         pass
             if constantSymbol in newsubsdict:
+                usedSymbols.append(constantSymbol)
                 usedSymbols += [usedSymbol for usedSymbol in constantSymbols \
                                 if newsubsdict[constantSymbol].has(usedSymbol)]
-        #"""
+        """
 
         # first substitute everything that doesn't have othersolvedvar or unknownvars
         otherSubstitutions  = [(var, value) for (var, value) in newsubsdict.items() \
@@ -8217,7 +8214,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             solutions.append((solution, curvar))
                             if self._printSolution:
                                 solution.show()
-                            # exec(ipython_str, globals(), locals())
                         else:
                             log.warn('solution did not have any equations')
 
@@ -8361,7 +8357,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         dummysolutions.append(solution)
                         if self._printSolution:
                             solution.show()
-                        # exec(ipython_str, globals(), locals())
                         
                 except self.CannotSolveError, e:
                     log.info('[SOLVE %i] Cannot use solveSingleVariables for %r: %s', \
@@ -8796,8 +8791,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             localsubstitutioneqs = []
             for checkzero in solution.checkforzeros:
                 if checkzero.has(*allcurvars):
-                    log.info('Ignore special check for zero since it has symbols %s: %s', \
-                             str(allcurvars), str(checkzero))
+                    log.info('Ignore special check for zero since it has current variables %r in %r', \
+                             allcurvars, checkzero)
                     continue
 
                 # Don't bother trying to extract something from CHECKFORZERO if its complexity is > 120,
@@ -8851,14 +8846,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                            handledconds += sumsquaresexprstozero
 
                 for checksimplezeroexpr in checksimplezeroexprs:
-                    # cannot do "if checksimplezeroexpr.has(*othersolvedvars)"
-                    # because apart from jX in othersolvedvars, sjX, cjX might be used
                     for othervar in othersolvedvars:
                         sothervar = self.getVariable(othervar).svar
                         cothervar = self.getVariable(othervar).cvar
                         if not checksimplezeroexpr.has(othervar, sothervar, cothervar):
                             continue
-                        # easy to check if the equation evaluates to zero at angles 0, pi/2, pi, -pi/2
+                        # below checksimplezeroexpr has either jX, sjX, or cjX
+                        # check if it evaluates to zero at angles jX = 0, pi/2, pi, -pi/2
                         jointeval = []
                         for value in [S.Zero, pi/2, pi, -pi/2]:
                             try:
@@ -8868,7 +8862,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                          (cothervar, cos(value).evalf(n=30))])
                                 if self.isValidSolution(checkzerosub) and \
                                    checkzerosub.evalf(n=30) == S.Zero:
+                                    log.info('%r evaluates at 0 when %r = %r', \
+                                             checksimplezeroexpr, othervar, value)
                                     jointeval.append(value)
+                                    
                             except (RuntimeError, AssertionError), e:
                                 log.warn('othervar %s = %f: %s', str(othervar), value, e)
 
@@ -8876,12 +8873,22 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                  jointeval = jointeval, \
                                                  isHinge = self.IsHinge(othervar.name))] \
                                                  if len(jointeval) > 0 else []
-                        
+
+                        hasSolvedByEval = False
+                        if len(jointeval) > 0:
+                            try:
+                                peq = Poly(checksimplezeroexpr, othervar, sothervar, cothervar)
+                                hasSolvedByEval = len(peq.monoms())==1 and \
+                                                  sum(peq.monoms()[0])==1 and \
+                                                  len(ss[0].jointeval)==2
+                            except PolynomialError:
+                                pass
+
                         eq = checksimplezeroexpr.subs([(sothervar, sin(othervar)), \
                                                        (cothervar, cos(othervar))])
-
                         # TGN: eq can be like Abs(...)+...+Abs(...). Don't solve sum of Abs for a variable
-                        if not (eq.is_Add and eq.args[0].is_Function and eq.args[0].func == Abs):
+                        if not (hasSolvedByEval or \
+                                (eq.is_Add and eq.args[0].is_Function and eq.args[0].func == Abs)):
                             try:
                                 # checksimplezeroexpr can be simple like -cj4*r21 - r20*sj4
                                 # in which case the solutions would be
@@ -8915,88 +8922,88 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         for s in ss:
                             # can actually simplify Positions and possibly get a new solution!
                             if s.jointeval is not None:
-                                for eq in s.jointeval:
-                                    eq = self._SubstituteGlobalSymbols(eq, originalGlobalSymbols)
+                                for jointeval in s.jointeval:
+                                    jointeval = self._SubstituteGlobalSymbols(jointeval, originalGlobalSymbols)
                                     # why checking for just number?
                                     # ok to check if solution doesn't contain any other variables?
                                     # if the equation is non-numerical, make sure it isn't deep in the degenerate cases
-                                    if eq.is_number \
+                                    if jointeval.is_number \
                                        or (len(currentcases) <= 1 and \
-                                           not eq.has(*allothersolvedvars) and \
-                                           self.codeComplexity(eq) < 100):
+                                           not jointeval.has(*allothersolvedvars) and \
+                                           self.codeComplexity(jointeval) < 100):
 
-                                        isimaginary = self.AreAllImaginaryByEval(eq) \
-                                                      or eq.evalf().has(I)
+                                        isimaginary = self.AreAllImaginaryByEval(jointeval) \
+                                                      or jointeval.evalf().has(I)
 
-                                        # TODO should use the fact that eq is imaginary
+                                        # TODO should use the fact that jointeval is imaginary
                                         if isimaginary:
-                                            log.warn('eq %s is imaginary, but currently do not support this', eq)
+                                            log.warn('jointeval %s is imaginary, but currently do not support this', jointeval)
                                             continue
 
-                                        if eq.is_number or eq.has(*allothersolvedvars):
-                                            sineq = sin(eq).evalf(n=30)
-                                            coseq = cos(eq).evalf(n=30)
+                                        if jointeval.is_number or jointeval.has(*allothersolvedvars):
+                                            jointevalsin = sin(jointeval).evalf(n=30)
+                                            jointevalcos = cos(jointeval).evalf(n=30)
                                             dictequations = []
                                         else:
                                             # not dependent on variables
                                             # so it could be in the form of atan(px,py),
                                             # so we convert to a global symbol since it never changes
                                             sym   = self.gsymbolgen.next()
-                                            sineq = self.gsymbolgen.next()
-                                            coseq = self.gsymbolgen.next()
-                                            dictequations = [(sym, eq), \
-                                                             (sineq, self.SimplifyAtan2(sin(eq))), \
-                                                             (coseq, self.SimplifyAtan2(cos(eq)))]
-                                            eq = sym
+                                            jointevalsin = self.gsymbolgen.next()
+                                            jointevalcos = self.gsymbolgen.next()
+                                            dictequations = [(sym, jointeval), \
+                                                             (jointevalsin, self.SimplifyAtan2(sin(jointeval))), \
+                                                             (jointevalcos, self.SimplifyAtan2(cos(jointeval)))]
+                                            jointeval = sym
                                             # exec(ipython_str, globals(), locals())
 
-                                        cond = Abs(othervar-eq.evalf(n=30))
+                                        cond = Abs(othervar-jointeval.evalf(n=30))
                                         if self.CheckExpressionUnique(handledconds, cond):
                                             evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
                                             toappend = [[cond], \
                                                         evalcond, \
-                                                        [(sothervar    , sineq),  \
-                                                         (sin(othervar), sineq),  \
-                                                         (cothervar    , coseq),  \
-                                                         (cos(othervar), coseq),  \
-                                                         (othervar     ,    eq)], \
+                                                        [(sothervar    , jointevalsin),  \
+                                                         (sin(othervar), jointevalsin),  \
+                                                         (cothervar    , jointevalcos),  \
+                                                         (cos(othervar), jointevalcos),  \
+                                                         (othervar     , jointeval)], \
                                                         dictequations]
                                             log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
                                             localsubstitutioneqs.append(toappend)
                                             handledconds.append(cond)
 
                             elif s.jointevalsin is not None:
-                                for eq in s.jointevalsin:
-                                    eq = self.SimplifyAtan2(self._SubstituteGlobalSymbols(eq, originalGlobalSymbols))
-                                    if eq.is_number or (len(currentcases) <= 1 and \
-                                                        not eq.has(*allothersolvedvars) and \
-                                                        self.codeComplexity(eq) < 100):
+                                for jointevalsin in s.jointevalsin:
+                                    jointevalsin = self.SimplifyAtan2(self._SubstituteGlobalSymbols(jointevalsin, originalGlobalSymbols))
+                                    if jointevalsin.is_number or (len(currentcases) <= 1 and \
+                                                                  not jointevalsin.has(*allothersolvedvars) and \
+                                                                  self.codeComplexity(jointevalsin) < 100):
                                         dictequations = []
                                         # DO NOT use asin(eq) because eq = (-pz**2/py**2)**(1/2) would produce imaginary numbers
                                         # cond = othervar - asin(eq).evalf(n=30)
                                         # cond = othervar - (pi-asin(eq).evalf(n=30))
 
-                                        # if eq is imaginary, then only solution is sothervar = 0 and eq = 0
-                                        isimaginary = self.AreAllImaginaryByEval(eq) \
-                                                      or eq.evalf().has(I)
+                                        # if jointevalsin is imaginary, then only solution is sothervar = 0 and jointevalsin = 0
+                                        isimaginary = self.AreAllImaginaryByEval(jointevalsin) \
+                                                      or jointevalsin.evalf().has(I)
                                         if isimaginary:
-                                            # test cj = 1 > 0, sj = eq = 0
-                                            cond = abs(sign(cothervar)-1) + abs(sothervar) + abs((eq**2).evalf(n=30))
+                                            # test cj = 1 > 0, sj = jointevalsin = 0
+                                            cond = abs(sign(cothervar)-1) + abs(sothervar) + abs((jointevalsin**2).evalf(n=30))
                                         else:
-                                            if not (eq.is_number or eq.has(*allothersolvedvars)):
+                                            if not (jointevalsin.is_number or jointevalsin.has(*allothersolvedvars)):
                                                 sym = self.gsymbolgen.next()
-                                                dictequations.append((sym, eq))
-                                                eq = sym
-                                            # test cj > 0, sj = eq
-                                            cond = abs(sign(cothervar)-1) + abs(sothervar-eq.evalf(n=30))
+                                                dictequations.append((sym, jointevalsin))
+                                                jointevalsin = sym
+                                            # test cj > 0, sj = jointevalsin
+                                            cond = abs(sign(cothervar)-1) + abs(sothervar-jointevalsin.evalf(n=30))
 
                                         if self.CheckExpressionUnique(handledconds, cond):
                                             evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
 
                                             # case: angle = 0
                                             sineq, coseq, othereq = (S.Zero, S.One, S.Zero) if isimaginary \
-                                                                    else (eq, sqrt(S.One-eq*eq).evalf(n=30), \
-                                                                          asin(eq).evalf(n=30))
+                                                                    else (jointevalsin, sqrt(S.One-jointevalsin*jointevalsin).evalf(n=30), \
+                                                                          asin(jointevalsin).evalf(n=30))
                                             toappend = [[cond], \
                                                         evalcond, \
                                                         [(sothervar    ,   sineq), \
@@ -9010,19 +9017,19 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             localsubstitutioneqs.append(toappend)
                                             handledconds.append(cond)
 
-                                        # if isimaginary, test cj = -1 < 0, sj = eq = 0;
-                                        #      otherwise, test cj < 0, sj = eq 
-                                        cond = abs(sign(cothervar)+1) + (abs(sothervar) + abs((eq**2).evalf(n=30)) \
+                                        # if isimaginary, test cj = -1 < 0, sj = jointevalsin = 0;
+                                        #      otherwise, test cj < 0, sj = jointevalsin 
+                                        cond = abs(sign(cothervar)+1) + (abs(sothervar) + abs((jointevalsin**2).evalf(n=30)) \
                                                                          if isimaginary else \
-                                                                         abs(sothervar-eq.evalf(n=30)))
+                                                                         abs(sothervar-jointevalsin.evalf(n=30)))
 
                                         if self.CheckExpressionUnique(handledconds, cond):
                                             evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
 
                                             # case: angle = pi
                                             sineq, coseq, othereq = (S.Zero, -S.One, pi.evalf(n=30)) if isimaginary \
-                                                                    else (eq, -sqrt(S.One-eq*eq).evalf(n=30), \
-                                                                          (pi-asin(eq)).evalf(n=30))
+                                                                    else (jointevalsin, -sqrt(S.One-jointevalsin*jointevalsin).evalf(n=30), \
+                                                                          (pi-asin(jointevalsin)).evalf(n=30))
                                             toappend = [[cond], \
                                                         evalcond, \
                                                         [(sothervar    ,   sineq), \
@@ -9036,37 +9043,37 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             handledconds.append(cond)
 
                             elif s.jointevalcos is not None:
-                                for eq in s.jointevalcos:
-                                    eq = self.SimplifyAtan2(self._SubstituteGlobalSymbols(eq, originalGlobalSymbols))
-                                    if eq.is_number or (len(currentcases) <= 1 and \
-                                                        not eq.has(*allothersolvedvars) and \
-                                                        self.codeComplexity(eq) < 100):
+                                for jointevalcos in s.jointevalcos:
+                                    jointevalcos = self.SimplifyAtan2(self._SubstituteGlobalSymbols(jointevalcos, originalGlobalSymbols))
+                                    if jointevalcos.is_number or (len(currentcases) <= 1 and \
+                                                        not jointevalcos.has(*allothersolvedvars) and \
+                                                        self.codeComplexity(jointevalcos) < 100):
 
                                         dictequations = []
                                         # DO NOT use acos(eq) because eq = (-pz**2/px**2)**(1/2) would produce imaginary numbers
                                         # cond = othervar - acos(eq).evalf(n=30)
                                         # cond = othervar + acos(eq).evalf(n=30)
-                                        isimaginary = self.AreAllImaginaryByEval(eq) or \
-                                                      eq.evalf().has(I)
+                                        isimaginary = self.AreAllImaginaryByEval(jointevalcos) or \
+                                                      jointevalcos.evalf().has(I)
 
                                         if isimaginary:
-                                            # test sj = 1 > 0, cj = eq = 0
-                                            cond = abs(sign(sothervar)-1) + abs(cothervar) + abs((eq**2).evalf(n=30))
+                                            # test sj = 1 > 0, cj = jointevalcos = 0
+                                            cond = abs(sign(sothervar)-1) + abs(cothervar) + abs((jointevalcos**2).evalf(n=30))
                                         else:
-                                            if not (eq.is_number or eq.has(*allothersolvedvars)):
+                                            if not (jointevalcos.is_number or jointevalcos.has(*allothersolvedvars)):
                                                 sym = self.gsymbolgen.next()
-                                                dictequations.append((sym, eq))
-                                                eq = sym
-                                            # test sj = 1, cj = eq
-                                            cond = abs(sign(sothervar)-1) + abs(cothervar-eq.evalf(n=30))
+                                                dictequations.append((sym, jointevalcos))
+                                                jointevalcos = sym
+                                            # test sj = 1, cj = jointevalcos
+                                            cond = abs(sign(sothervar)-1) + abs(cothervar-jointevalcos.evalf(n=30))
 
                                         if self.CheckExpressionUnique(handledconds, cond):
                                             evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
                                             
                                             # case: angle = pi/2
                                             sineq, coseq, othereq = (S.One, S.Zero, (pi/2).evalf(n=30)) if isimaginary \
-                                                                    else (sqrt(S.One-eq*eq).evalf(n=30), eq, \
-                                                                          acos(eq).evalf(n=30))
+                                                                    else (sqrt(S.One-jointevalcos*jointevalcos).evalf(n=30), jointevalcos, \
+                                                                          acos(jointevalcos).evalf(n=30))
                                             toappend = [[cond], \
                                                         evalcond, \
                                                         [(sothervar    ,   sineq), \
@@ -9079,18 +9086,18 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                             localsubstitutioneqs.append(toappend)
                                             handledconds.append(cond)
 
-                                        # if isimaginary, test sj = -1 < 0, cj = eq = 0;
-                                        #      otherwise, test sj < 0, cj = eq
-                                        cond = abs(sign(sothervar)+1) + (abs(cothervar) + abs((eq**2).evalf(n=30)) \
+                                        # if isimaginary, test sj = -1 < 0, cj = jointevalcos = 0;
+                                        #      otherwise, test sj < 0, cj = jointevalcos
+                                        cond = abs(sign(sothervar)+1) + (abs(cothervar) + abs((jointevalcos**2).evalf(n=30)) \
                                                                          if isimaginary else \
-                                                                         abs(cothervar-eq.evalf(n=30)))
+                                                                         abs(cothervar-jointevalcos.evalf(n=30)))
                                         if self.CheckExpressionUnique(handledconds, cond):
                                             evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
                                             
                                             # case: angle = -pi/2
                                             sineq, coseq, othereq = (-S.One, S.Zero, (-pi/2).evalf(n=30)) if isimaginary \
-                                                                    else (-sqrt(S.One-eq*eq).evalf(n=30), eq, \
-                                                                          (-acos(eq)).evalf(n=30))
+                                                                    else (-sqrt(S.One-jointevalcos*jointevalcos).evalf(n=30), jointevalcos, \
+                                                                          (-acos(jointevalcos)).evalf(n=30))
                                             toappend = [[cond], \
                                                         evalcond, \
                                                         [(sothervar    ,   sineq), \
@@ -9597,17 +9604,16 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         return prevbranch    
     
     def _SubstituteGlobalSymbols(self, eq, globalsymbols = None):
+        """
+        Performs substitutions in EQ using GLOBALSYMBOLS and returns a (new if different) equation NEWEQ.
+        """
         if globalsymbols is None:
             globalsymbols = self.globalsymbols
-        preveq = eq
-        while True:
-            neweq = preveq.subs(globalsymbols)
-            if preveq == neweq:
-                return neweq
-            elif self.isValidSolution(neweq):
-                preveq = neweq
-            else: # neweq is not valid
-                raise self.CannotSolveError('Equation %r is not valid' % neweq)
+        neweq = eq.subs(globalsymbols)
+        if self.isValidSolution(neweq):
+            return neweq
+        else:
+            raise self.CannotSolveError('Equation %r is not valid' % neweq)
     
     def _AddToGlobalSymbols(self, var, eq):
         """
@@ -9951,7 +9957,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         """
         Solves a set of equations LINEAREQS in one joint variable VAR for its half tangent variable.
 
-        Current approach is to return an AST.SolverPolynomialRoots object that contains the first feasible polynomail in htvar.
+        Current approach is to return an AST.SolverPolynomialRoots object that contains the first feasible polynomial in htvar.
 
         Called by solvePairVariables, solveSingleVariable, (not sure if necessary) SolveAllEquations.
         """
@@ -10215,6 +10221,26 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         SolveAllEquations
         AddSolution
         solvePairVariablesHalfAngle
+
+        Use the following methods to attempt solving for VAR.
+        (1) Solve a single equation in VAR or HTVAR only, where CVAR, SVAR do not occur.
+            Returns solution for (1a) VAR; (1b) HTVAR if found.
+
+        (2) Solve each combination of two equations in CVAR and SVAR.
+            Each equation is either linear in CVAR and SVAR, or quadratic in one variable when the other does not occur.
+            In most cases, atan2 and atan2check are used, and divide-by-zero cases appear.
+
+        (3) Solve a single equation in CVAR, SVAR in the following forms:
+            (3a) a*CVAR + b*SVAR + c. atan2 and asin are used.
+            (3b) substitute CVAR for SVAR and solve for CVAR
+            (3c) substitute SVAR for CVAR and solve for SVAR
+            (3d) neither CVAR nor SVAR occurs and solve for VAR (1a???)
+            (3e) replace CVAR, SVAR by HTVAR and use solveHighDegreeEquationsHalfAngle to solve for HTVAR
+
+        (4) Call solveHighDegreeEquationsHalfAngle to solve the first feasible equation in the set of equations.
+
+        Remarks: solveHighDegreeEquationsHalfAngle returns an AST.SolverPolynomialRoots object that contains 
+                 the polynomial in HTVAR corresponding to the first feasible equation.
         """
 
         log.info('[SOLVE %i] Starting solveSingleVariable for %r', \
@@ -10242,7 +10268,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
         # prioritize finding a solution when var is alone
         returnfirstsolutions = []
-        
+
+        ## (1) Solve a single equation in var or htvar only, where cvar, svar do not occur
         for eq in eqns:
             symbolgen = cse_main.numbered_symbols('const')
             # write eq as a polynomial in vars and group unrelevant terms as constx
@@ -10255,6 +10282,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                    sum(pc.degree_list()) > 0 or \
                    ps.TC() == S.Zero or \
                    pc.TC() == S.Zero:
+                    exec(ipython_str, globals(), locals())
                     continue
                 """
                 if self.countVariables(eqnew, svar)>0 or \
@@ -10262,7 +10290,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     continue
             except PolynomialError:
                 continue
-            
+
             numvar = self.countVariables(eqnew, var)
             if numvar in [1, 2]:
                 try:
@@ -10279,11 +10307,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         hasdividebyzero = any([len(self.checkForDivideByZero(self._SubstituteGlobalSymbols(s))) > 0 \
                                                for s in jointsolutions])
                         if not hasdividebyzero:
-                            log.info('[SOLVE %i] solveSingleVariable (M1) returns a solution that solves %r for %r', \
+                            log.info('[SOLVE %i] solveSingleVariable (M1a) returns a solution that solves %r for %r', \
                                      self._solutionStackCounter, eq, var)
                             return returnfirstsolutions
                         else:
-                            log.info('[SOLVE %i] solveSingleVariable (M1) finds a solution that solves %r for %r\n' + \
+                            log.info('[SOLVE %i] solveSingleVariable (M1a) finds a solution that solves %r for %r\n' + \
                                      ' '*18 + 'Has divide-by-zero conditions', \
                                      self._solutionStackCounter, eq, var)
                         
@@ -10316,36 +10344,37 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         hasdividebyzero = any([len(self.checkForDivideByZero(self._SubstituteGlobalSymbols(s))) > 0 \
                                                for s in jointsolutions])
                         if not hasdividebyzero:
-                            log.info('[SOLVE %i] solveSingleVariable (M2) returns a solution that solves %r for %r', \
-                                     self._solutionStackCounter, eq, var)
+                            log.info('[SOLVE %i] solveSingleVariable (M1b) returns a solution that solves %r for %r', \
+                                     self._solutionStackCounter, eq, htvar)
                             return returnfirstsolutions
                         else:
-                            log.info('[SOLVE %i] solveSingleVariable (M2) finds a solution that solves %r for %r\n' + \
+                            log.info('[SOLVE %i] solveSingleVariable (M1b) finds a solution that solves %r for %r\n' + \
                                      ' '*18 + 'Has divide-by-zero conditions', \
-                                     self._solutionStackCounter, eq, var)
+                                     self._solutionStackCounter, eq, htvar)
                             # exec(ipython_str, globals(), locals())
 
                 except NotImplementedError, e:
                     # when solve cannot solve an equation
                     log.warn(e)
 
-        # finished eq for-loop using methods 1 & 2
+        # finished eq for-loop using Method 1a & 1b
         if len(returnfirstsolutions) > 0:
             # already computed some solutions, so return them
             # note that this means that all solutions have a divide-by-zero condition
-            log.info('[SOLVE %i] solveSingleVariable (M1 or M2) returns a solution for %r\n' + \
+            log.info('[SOLVE %i] solveSingleVariable (M1) returns a solution for %r\n' + \
                      ' '*18 + 'All solutions have divide-by-zero conditions', \
                      self._solutionStackCounter, var)
             return returnfirstsolutions
-        
+
+        ## (2) Solve a pair of equations in cvar, svar
         solutions = []
         if len(eqns) > 1:
             neweqns = []
             listsymbols = []
             symbolgen = cse_main.numbered_symbols('const')
             for eq in eqns:
-                neweq, symbols = self.groupTerms(eq.subs(varsym.subs), \
-                                                [cvar, svar, var], symbolgen)
+                eq = eq.subs(varsym.subs)
+                neweq, symbols = self.groupTerms(eq, [cvar, svar, var], symbolgen)
                 try:
                     # remove coupled equations
                     if any([(m[0]>0) + (m[1]>0) + (m[2]>0) > 1 \
@@ -10356,9 +10385,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 
                 try:
                     # ignore any equations with degree 3 or more
-                    if max(Poly(neweq, svar).degree_list()) > maxdegree or \
-                       max(Poly(neweq, cvar).degree_list()) > maxdegree:
-                        log.debug('ignoring equation: ', neweq)
+                    if Poly(neweq, svar).degree() > maxdegree or \
+                       Poly(neweq, cvar).degree() > maxdegree:
+                        log.debug('Degree > %i; ignore equation %r', maxdegree, neweq)
                         continue
                 except PolynomialError:
                     continue
@@ -10374,10 +10403,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 
                 rank = self.codeComplexity(neweq) + \
                        sum(self.codeComplexity(s[1]) for s in symbols)
+                # each entry of NEWEQNS is (complexity, neweq)
                 neweqns.append((rank, neweq))
                 listsymbols += symbols
                 
-            # Need two equations for two variables: each entry is (complexity, [eq0==0, eq1==0])
+            # Need two equations for two variables: each entry of EQCOMBINATIONS is (complexity, [eq0==0, eq1==0])
             eqcombinations = [(eq0[0] + eq1[0], \
                                [Eq(eq0[1],0), Eq(eq1[1],0)]) \
                               for eq0, eq1 in combinations(neweqns, 2)]
@@ -10403,10 +10433,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     continue
                 
                 if sol is not None:
+                    # sol is a dictionary if there is one solution, a list if there are more than one
                     sollist = ([(sol[svar], sol[cvar])] if \
                                sol.has_key(svar) and \
-                               sol.has_key(cvar) else []) if \
-                               hasattr(sol, 'has_key') else sol
+                               sol.has_key(cvar) else []) \
+                               if hasattr(sol, 'has_key') else sol
                         
                     solversolution = AST.SolverSolution(var.name, \
                                                         jointeval = [], \
@@ -10420,62 +10451,54 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         soldiff = svarsol_subbed - cvarsol_subbed
                         soldiffComplexity = self.codeComplexity(soldiff)
                         if soldiffComplexity < 1000 and soldiff.expand() == S.Zero:
+                            # TGN: what does S.Zero mean? svar = cvar = +/- 1/sqrt(2)??
                             break
                         
                         svarComplexity = self.codeComplexity(svarsol_subbed)
                         cvarComplexity = self.codeComplexity(cvarsol_subbed)
                         
                         if svarComplexity < 600 and \
-                           svarsol_subbed.expand() == S.Zero and \
                            cvarComplexity < 600 and \
-                           Abs(cvarsol_subbed.expand()) != S.One:
-                            # TGN: this used to be ... - S.One != S.Zero
-                            break
-                        
-                        if cvarComplexity < 600 and \
-                           cvarsol_subbed.expand() == S.Zero and \
-                           svarComplexity < 600 and \
-                           Abs(svarsol_subbed.expand()) != S.One:
+                           ((svarsol_subbed.expand() == S.Zero and \
+                             Abs(cvarsol_subbed.expand()) != S.One) or \
+                            (cvarsol_subbed.expand() == S.Zero and \
+                             Abs(svarsol_subbed.expand()) != S.One)):
                             # TGN: this used to be ... - S.One != S.Zero
                             break
                         
                         # check the numerator and denominator if solutions are the same or for possible divide by zeros
-                        svarfrac = list(fraction(svarsol_subbed))
-                        cvarfrac = list(fraction(cvarsol_subbed))
+                        svarnum, svardenom = fraction(svarsol_subbed)
+                        cvarnum, cvardenom = fraction(cvarsol_subbed)
                         
-                        if self.equal(svarfrac[0], cvarfrac[0]) and \
-                           self.equal(svarfrac[1], cvarfrac[1]):
+                        if self.equal(svarnum, cvarnum) and \
+                           self.equal(svardenom, cvardenom):
                             break
                         
                         if not (\
-                                self.isValidSolution(svarfrac[0]) and \
-                                self.isValidSolution(svarfrac[1]) and \
-                                self.isValidSolution(cvarfrac[0]) and \
-                                self.isValidSolution(cvarfrac[1]) ):
+                                self.isValidSolution(svarnum) and \
+                                self.isValidSolution(svardenom) and \
+                                self.isValidSolution(cvarnum) and \
+                                self.isValidSolution(cvardenom) ):
                             continue
                         
                         # check if there exists at least one test solution with non-zero denominators
-                        if len(tosubs) == 0:
-                            testeqs = [svarfrac[1].subs(othersubs), \
-                                       cvarfrac[1].subs(othersubs)]
-                        else:
-                            testeqs = [svarfrac[1].subs(tosubs).subs(othersubs), \
-                                       cvarfrac[1].subs(tosubs).subs(othersubs)]
+                        testeqs = [svardenom.subs(tosubs).subs(othersubs), \
+                                   cvardenom.subs(tosubs).subs(othersubs)]
+
                         testsuccess = False
-                        
                         for testconsistentvalue in self.testconsistentvalues:
                             values = [testeq.subs(self.globalsymbols).subs(testconsistentvalue).evalf() \
                                       for testeq in testeqs]
-                            if all([value!=S.Zero for value in values]):
+                            if all([value != S.Zero for value in values]):
                                 testsuccess = True
                                 break
                             
                         if not testsuccess:
                             continue
-                        scomplexity = self.codeComplexity(svarfrac[0]) + \
-                                      self.codeComplexity(svarfrac[1])
-                        ccomplexity = self.codeComplexity(cvarfrac[0]) + \
-                                      self.codeComplexity(cvarfrac[1])
+                        scomplexity = self.codeComplexity(svarnum) + \
+                                      self.codeComplexity(svardenom)
+                        ccomplexity = self.codeComplexity(cvarnum) + \
+                                      self.codeComplexity(cvardenom)
                         
                         if scomplexity > 1200 or ccomplexity > 1200:
                             log.debug('equation too complex for single variable solution (%d, %d) ' + \
@@ -10483,35 +10506,33 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             break
 
                         # long fractions can take long time to simplify, so we check the length of equation
-                        if scomplexity < 500 and len(str(svarfrac[1])) < 600:
-                            svarfrac[1] = simplify(svarfrac[1])
-                        if self.chop(svarfrac[1])== 0:
+                        if scomplexity < 500 and len(str(svardenom)) < 600:
+                            svardenom = simplify(svardenom)
+                        if ccomplexity < 500 and len(str(cvardenom)) < 600:
+                            cvardenom = simplify(cvardenom)
+                        if self.chop(svardenom)== 0 or self.chop(cvardenom)== 0:
                             break
-                        if ccomplexity < 500 and len(str(cvarfrac[1])) < 600:
-                            cvarfrac[1] = simplify(cvarfrac[1])
-                        if self.chop(cvarfrac[1])== 0:
-                            break
-                        # sometimes the returned simplest solution makes really gross approximations
 
+                        # sometimes the returned simplest solution makes really gross approximations
                         # self.SimplifyTransform could help reduce denoms further...
-                        svarfracsimp_denom = self.SimplifyTransform(self.trigsimp(svarfrac[1]))
-                        cvarfracsimp_denom = self.SimplifyTransform(self.trigsimp(cvarfrac[1]))
+                        svarfracsimp_denom = self.SimplifyTransform(self.trigsimp(svardenom))
+                        cvarfracsimp_denom = self.SimplifyTransform(self.trigsimp(cvardenom))
 
                         denomsequal = self.equal(svarfracsimp_denom, cvarfracsimp_denom)
                         if not denomsequal:
                            if self.equal(svarfracsimp_denom, -cvarfracsimp_denom):
-                               cvarfrac[0] = -cvarfrac[0]
+                               cvarnum = -cvarnum
                                cvarfracsimp_denom = -cvarfracsimp_denom
                                denomsequal = True
                         """
                            else: # TGN checks if one is a multiple of another
                                lcmsc = lcm(svarfracsimp_denom, cvarfracsimp_denom)
                                if lcmsc == svarfracsimp_denom:
-                                   cvarfrac[0] *= lcmsc/cvarfracsimp_denom
+                                   cvarnum *= lcmsc/cvarfracsimp_denom
                                    cvarfracsimp_denom = lcmsc
                                    denomsequal = True
                                elif lcmsc == cvarfracsimp_denom:
-                                   svarfrac[0] *= lcmsc/svarfracsimp_denom
+                                   svarnum *= lcmsc/svarfracsimp_denom
                                    svarfracsimp_denom = lcmsc
                                    denomsequal = True
                         """
@@ -10525,30 +10546,37 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             log.debug('denoms of %s''s svar and cvar are different: %r, %r', \
                                       var.name, svarfracsimp_denom, cvarfracsimp_denom)
 
-                        svarsolsimp = self.SimplifyTransform(self.trigsimp(svarfrac[0]))#*denom)
-                        cvarsolsimp = self.SimplifyTransform(self.trigsimp(cvarfrac[0]))#*denom)
+                        svarsolsimp = self.SimplifyTransform(self.trigsimp(svarnum))#*denom)
+                        cvarsolsimp = self.SimplifyTransform(self.trigsimp(cvarnum))#*denom)
 
                         # If both denominators are the same and they are not numbers, we use atan2 here and
                         # CodeGenerator._WriteExprCode will use IKatan2WithCheck to check the solution,
-                        # being more robust against NaNs: once 
+                        # which is more robust against NaNs
                         #
                         # Otherwise, we use atan2check(x,y) and CodeGenerator._WriteExprCode will check if
-                        # Abs(x), Abs(y) < IKFAST_ATAN2_MAGTHRESH, and
+                        # Abs(x), Abs(y) <  IKFAST_ATAN2_MAGTHRESH, and
                         # Abs(x*x+y*y-1) <= IKFAST_SINCOS_THRESH
+                        # which CANNOT hold at the same time!!
+                        #
+                        # TGN: what did it attempt to check in the first place???
 
                         if denomsequal and not svarfracsimp_denom.is_number:
                             solversolution.FeasibleIsZeros = False
                             solversolution.presetcheckforzeros.append(svarfracsimp_denom)
                             #   atan2(sign(dummy)*s, sign(dummy)*c) 
                             # = atan2(s,c) + pi/2*(1-sign(dummy))   with dummy!=0
+                            # TGN: then we will need to add dummy into checkforzeros; what to do?
                             expandedsol = atan2(svarsolsimp, cvarsolsimp) + \
                                           pi/2*(-S.One + sign(svarfracsimp_denom))
+                            # expandedsol = atan2(svarsolsimp*svarfracsimp_denom, \
+                            #                    cvarsolsimp*svarfracsimp_denom)
                         else:
                             svarsolsimp /= svarfracsimp_denom
                             cvarsolsimp /= cvarfracsimp_denom
                             
-                            if svarsolsimp.is_number and cvarsolsimp.is_number:
-                                if Abs(svarsolsimp**2+cvarsolsimp**2-S.One).evalf() > 1e-10:
+                            if svarsolsimp.is_number and \
+                               cvarsolsimp.is_number and \
+                               Abs(svarsolsimp**2 + cvarsolsimp**2 - S.One).evalf() > 1e-10:
                                     log.debug('%s solution: atan2(%s, %s), sin/cos not on circle; ignore', \
                                               var.name, svarsolsimp, cvarsolsimp)
                                     continue
@@ -10573,7 +10601,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
                         solversolution.jointeval.append(expandedsol)
                         
-                        if unknownvars is not None:
+                        if len(unknownvars)>0:
                             unsolvedsymbols = self.jointlists([self.getVariable(unknownvar).vars \
                                                                for unknownvar in unknownvars if unknownvar != var])
                             solversolution.equationsused = [eq for eq in eqns \
@@ -10590,7 +10618,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             goodsolution += 1
                             
                     if len(solversolution.jointeval) == len(sollist) and len(sollist) > 0:
-                        log.info('[SOLVE %i] solveSingleVariable (M3) solves %r for %r', \
+                        log.info('[SOLVE %i] solveSingleVariable (M2) solves %r for %r', \
                                  self._solutionStackCounter, eqs, var)
                         solutions.append(solversolution)
                         if goodsolution > 0:
@@ -10603,11 +10631,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
             if len(solutions) > 0 or hasgoodsolution:
                 # found a solution without any divides, necessary for pr2 head_torso lookat3d ik
-                log.info('[SOLVE %i] solveSingleVariable (M3) returns a solution for %r using atan2', \
+                log.info('[SOLVE %i] solveSingleVariable (M2) returns a solution for %r using atan2', \
                          self._solutionStackCounter, var)
                 return solutions
 
-        # solve one equation
+        ## (3) solve one equation at a time
         for eq in eqns:
             symbolgen = cse_main.numbered_symbols('const')
             eqnew, symbols = self.groupTerms(eq.subs(varsym.subs), \
@@ -10676,7 +10704,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     if self.isValidSolution(constsol) and \
                        self.isValidSolution(asinsol):
                         #self.checkForDivideByZero(expandedsol)
-                        log.info('[SOLVE %i] solveSingleVariable (M4a) finds solution solving %r for %r using atan2 & asin', \
+                        log.info('[SOLVE %i] solveSingleVariable (M3a) finds solution solving %r for %r using atan2 & asin', \
                                  self._solutionStackCounter, eq, var)
                         solutions.append(AST.SolverSolution(var.name, \
                                                             jointeval = jointsolutions, \
@@ -10698,7 +10726,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         jointsolutions = [s for s in jointsolutions if self.isValidSolution(s)]
                         
                         if len(jointsolutions) > 0:
-                            log.info('[SOLVE %i] solveSingleVariable (M4b) finds solution solving %r for cos(%r)', \
+                            log.info('[SOLVE %i] solveSingleVariable (M3b) finds solution solving %r for cos(%r)', \
                                      self._solutionStackCounter, eq, var)
                             solutions.append(AST.SolverSolution(var.name, \
                                                                 jointevalcos = jointsolutions, \
@@ -10711,7 +10739,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     # when solve cannot solve an equation
                     log.warn(e)
 
-            # (3) substitute svar for cvar and solve for svar
+            # (c) substitute svar for cvar and solve for svar
             if numsvar > 0:
                 try:
                     if numsvar == 1 or (numsvar == 2 and numcvar == 0):
@@ -10725,7 +10753,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         jointsolutions = [s for s in jointsolutions if self.isValidSolution(s)]
                         
                         if len(jointsolutions) > 0:
-                            log.info('[SOLVE %i] solveSingleVariable (M4c) finds solution solving %r for sin(%r)', \
+                            log.info('[SOLVE %i] solveSingleVariable (M3c) finds solution solving %r for sin(%r)', \
                                      self._solutionStackCounter, eq, var)                            
                             solutions.append(AST.SolverSolution(var.name,
                                                                 jointevalsin = jointsolutions, \
@@ -10738,7 +10766,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     # when solve cannot solve an equation
                     log.warn(e)
 
-            # (4) neither cvar nor svar occurs
+            # (d) neither cvar nor svar occurs
+            # Hasn't this been solved by M1???
             if numcvar == 0 and numsvar == 0:
                 try:
                     tempsolutions = solve(eqnew, var)
@@ -10752,7 +10781,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     if all([self.isValidSolution(s) and s != S.Zero \
                             for s in jointsolutions]) and \
                                 len(jointsolutions) > 0:
-                        log.info('[SOLVE %i] solveSingleVariable (M4d) finds solution solving %r for %r', \
+                        log.info('[SOLVE %i] solveSingleVariable (M3d) finds solution solving %r for %r', \
                                  self._solutionStackCounter, eq, var)
                         solutions.append(AST.SolverSolution(var.name, \
                                                             jointeval = jointsolutions, \
@@ -10764,13 +10793,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     log.warn(e)
                 continue
 
-            # (5) try high-order solver
+            # (e) try high-order solver
             try:
                 log.info('[SOLVE %i] solveSingleVariable tries solveHighDegreeEquationsHalfAngle to solve %r for %r', \
-                         self._solutionStackCounter, eqnew, var)
+                         self._solutionStackCounter, eqnew, htvar)
                 self._inc_solutionStackCounter()
                 solution = self.solveHighDegreeEquationsHalfAngle([eqnew], var, symbols)
-                log.info('[SOLVE %i] solveSingleVariable (M4e) finds solution solving %r for %r', \
+                log.info('[SOLVE %i] solveSingleVariable (M3e) finds solution solving %r for %r', \
                          self._solutionStackCounter, eq, htvar)
                 solutions.append(solution.subs(symbols))
                 solutions[-1].equationsused = equationsused
@@ -10781,24 +10810,25 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 self._dec_solutionStackCounter()
 
         if len(solutions) > 0:
-            log.info('[SOLVE %i] solveSingleVariable (M4) returns %i solution(s) for %r', \
+            log.info('[SOLVE %i] solveSingleVariable (M3) returns %i solution(s) for %r', \
                      self._solutionStackCounter, len(solutions), var)
             return solutions
 
+        ## (4) Use high degree solver for htvar
         try:
             log.info('[SOLVE %i] solveSingleVariable tries solveHighDegreeEquationsHalfAngle to solve %r for %r', \
-                     self._solutionStackCounter, eqns, var)
+                     self._solutionStackCounter, eqns, htvar)
             self._inc_solutionStackCounter()
             solution = self.solveHighDegreeEquationsHalfAngle(eqns, var)
         except self.CannotSolveError, e:
             log.info('[SOLVE %i] Cannot use solveHighDegreeEquationsHalfAngle to solve for %r: %s', \
-                     self._solutionStackCounter, var, e)
+                     self._solutionStackCounter, htvar, e)
             raise self.CannotSolveError(e)
         finally:
             self._dec_solutionStackCounter()
             
-        log.info('[SOLVE %i] solveSingleVariable (M5) returns a solution of %r for %r', \
-                 self._solutionStackCounter, htvar, var)
+        log.info('[SOLVE %i] solveSingleVariable (M4) returns a solution of %r', \
+                 self._solutionStackCounter, htvar)
         return [solution]
 
     def solvePrismaticHingePairVariables(self, raweqns, \

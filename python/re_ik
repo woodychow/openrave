@@ -20,11 +20,11 @@ clear && clear
 #            --iktype=translationdirection5d \
 #            --numiktests=1000
 
-#openrave.py --database inversekinematics --robot=robotfiles/barrettsegway.robot.xml \
-#            --numiktests=1000
-
-openrave.py --database inversekinematics --robot=robotfiles/fail2.robot.xml \
+openrave.py --database inversekinematics --robot=robotfiles/barrettsegway.robot.xml \
             --numiktests=1000
+
+#openrave.py --database inversekinematics --robot=robotfiles/fail2.robot.xml \
+#            --numiktests=1000
 
 
 #openrave.py --database inversekinematics --robot=robotfiles/robots_mitsubishi-pa10.zae --numiktests=1000 
