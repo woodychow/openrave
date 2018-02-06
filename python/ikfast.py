@@ -602,6 +602,15 @@ class IKFastSolver(AutoReloader):
             return [(self.var,value)]+[(s,v.subs(self.var,value).evalf()) for v,s in self.subs]
 
     class DegenerateCases:
+        """
+        Collects a list of handled degenerate cases.
+        Each entry in the list is a set of equations that prescribe one degenerate case.
+        This class contains methods to 
+        - check if a case is in the list of handled cases,
+        - add a new case if it is not in the list,
+        - remove a case if it is in the list (return True if removal succeeds)
+        - 
+        """
         def __init__(self):
             self.handleddegeneratecases = []
             
@@ -609,40 +618,57 @@ class IKFastSolver(AutoReloader):
             clone = IKFastSolver.DegenerateCases()
             clone.handleddegeneratecases = self.handleddegeneratecases[:] # deep copy
             return clone
+
+        def CheckCases(self, currentcases):
+            """
+            Called by AddSolution.
+            """
+            return currentcases in self.handleddegeneratecases
+
+        def AddCases(self, currentcases):
+            """
+            Called at the end of the flatzerosubstitutioneqs for-loop in AddSolution.
+            """
+            if not currentcases in self.handleddegeneratecases:
+                self.handleddegeneratecases.append(currentcases)
+            else: # sometimes this can happen, but it isn't a bug, just bad bookkeeping
+                log.warn('case already added')
+
+        def GetHandledConditions(self, currentcases):
+            """
+            Extracts HANDLEDCASES that is a superset of CURRENTCASES with exactly one "difference" element more.
+            Returns HANDLEDCONDS with all such difference elements.
+
+            Called in the middle of AddSolution.
+            """
+            handledconds = [(handledcases - currentcases).pop() \
+                            for handledcases in self.handleddegeneratecases \
+                            if len(currentcases)+1 == len(handledcases) and \
+                            currentcases < handledcases]
+            return handledconds
         
+        """    
         def AddCasesWithConditions(self, newconds, currentcases):
             for case in newconds:
                 newcases = set(currentcases)
                 newcases.add(case)
+                # newcases should not have been in self.handleddegeneratecases
                 assert(not self.CheckCases(newcases))
                 self.handleddegeneratecases.append(newcases)
-                
-        def AddCases(self, currentcases):
-            if not self.CheckCases(currentcases):
-                self.handleddegeneratecases.append(currentcases)
-            else:
-                log.warn('case already added') # sometimes this can happen, but it isn't a bug, just bad bookkeeping
-                
+
         def RemoveCases(self, currentcases):
-            for i, handledcases in enumerate(self.handleddegeneratecases):
-                if handledcases == currentcases:
-                    self.handleddegeneratecases.pop(i)
-                    return True
-            return False
-        
-        def GetHandledConditions(self, currentcases):
-            handledconds = []
-            for handledcases in self.handleddegeneratecases:
-                if len(currentcases)+1 == len(handledcases) and \
-                   currentcases < handledcases:
-                    handledconds.append((handledcases - currentcases).pop())
-            return handledconds
-        
-        def CheckCases(self,currentcases):
-            for handledcases in self.handleddegeneratecases:
-                if handledcases == currentcases:
-                    return True
-            return False
+            if currentcases in self.handleddegeneratecases:
+                self.handleddegeneratecases.remove(currentcases)
+                return True
+            else:
+                return False
+
+            # for i, handledcases in enumerate(self.handleddegeneratecases):
+            #     if handledcases == currentcases:
+            #         self.handleddegeneratecases.pop(i)
+            #         return True
+            # return False
+        """
 
     # Constructor of IKFastSolver
     def __init__(self, kinbody = None, \
@@ -8821,7 +8847,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                         for sumsquaresexpr in sumsquaresexprstozero], \
                                        []]
                            log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
-                           # exec(ipython_str, globals(), locals())
                            localsubstitutioneqs.append(toappend)
                            handledconds += sumsquaresexprstozero
 
@@ -8855,7 +8880,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         eq = checksimplezeroexpr.subs([(sothervar, sin(othervar)), \
                                                        (cothervar, cos(othervar))])
 
-                        # TGN: don't solve sum of Abs
+                        # TGN: eq can be like Abs(...)+...+Abs(...). Don't solve sum of Abs for a variable
                         if not (eq.is_Add and eq.args[0].is_Function and eq.args[0].func == Abs):
                             try:
                                 # checksimplezeroexpr can be simple like -cj4*r21 - r20*sj4
@@ -8885,7 +8910,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                 self._dec_solutionStackCounter()
 
                         assert(len(ss)<=2)
-                        # There are at most two items in ss: one from evaluating at angles [0,pi/2,pi,-pi/2],
+                        # There are at most two items in ss: one from evaluating at angles [0, pi/2, pi, -pi/2],
                         #                                    the other from solveSingleVariable
                         for s in ss:
                             # can actually simplify Positions and possibly get a new solution!
@@ -9088,8 +9113,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     newvars = curvars[:]
                     newvars.remove(var)
                     # degenreate cases should get restored here since once we go down a particular branch, there's no turning back
-                    olddegeneratecases = self.degeneratecases
-                    self.degeneratecases = olddegeneratecases.Clone()
+                    olddegeneratecases = self.degeneratecases.Clone()
                     if len(newvars)>0:
                         log.info('[SOLVE %i] To obtain next solution, AddSolution calls SolveAllEquations to solve for %r', \
                                  self._solutionStackCounter, newvars)
@@ -10379,10 +10403,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     continue
                 
                 if sol is not None:
-                    sollist = [(sol[svar], sol[cvar])] if \
-                              sol.has_key(svar) and \
-                              sol.has_key(cvar) else [] if \
-                              hasattr(sol, 'has_key') else sol
+                    sollist = ([(sol[svar], sol[cvar])] if \
+                               sol.has_key(svar) and \
+                               sol.has_key(cvar) else []) if \
+                               hasattr(sol, 'has_key') else sol
                         
                     solversolution = AST.SolverSolution(var.name, \
                                                         jointeval = [], \
