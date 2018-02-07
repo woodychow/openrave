@@ -2210,7 +2210,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         # MAIN FUNCTION
         chaintree = solvefn(self, LinksRaw, jointvars, isolvejointvars)
         if self.useleftmultiply:
-            chaintree.leftmultiply(Tleft=self.multiplyMatrix(LinksLeft), Tleftinv=self.multiplyMatrix(LinksLeftInv[::-1]))
+            chaintree.leftmultiply(Tleft = self.multiplyMatrix(LinksLeft), \
+                                   Tleftinv = self.multiplyMatrix(LinksLeftInv[::-1]))
         chaintree.dictequations += self.globalsymbols.items()
         return chaintree
 
@@ -3520,7 +3521,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
     def RoundEquationTerms(self, eq, epsilon = None):
         """
-        Recursively go down the computational graph, and round constants below epsilon as S.Zero
+        Recursively goes down the computational graph, and rounds constants below epsilon as S.Zero.
         """
         
         # TGN moved it here
@@ -3540,8 +3541,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         elif eq.is_number:
             # TGN: the rounding happens here. Since epsilon is only checked and modified here
             #      with the same value each time, we can move its assignment to top
-            #if epsilon is None:
-            #    epsilon = 5*(10**-self.precision)
+            # if epsilon is None:
+            #     epsilon = 5*(10**-self.precision)
             neweq = eq if abs(eq.evalf())>epsilon else S.Zero
         else:
             neweq = eq
@@ -8012,10 +8013,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                      [AST.SolverBreak('verifyAllEquations')], \
                                      anycondition = False)] if len(extrazerochecks) > 0 else tree
 
-    def PropagateSolvedConstants(self, AllEquations, othersolvedvars, unknownvars, \
+    def PropagateSolvedConstants(self, AllEquations, \
+                                 unknownvars, \
+                                 othersolvedvars, \
                                  constantSymbols = None):
         """
-        Sometimes equations can be like "npz" or "pp - 1", meaning npz = 0 and pp = 1. 
+        Sometimes equations can be like "npz" or "pp-1", meaning npz = 0 and pp = 1. 
         
         We check these constraints and apply them to the rest of the equations.
 
@@ -8036,7 +8039,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         """
         TGN: newsubsdict is baffling me: say we have pp - cj1 + 2*sj1 = 0 and cj1 + sj1 = a
 
-        Ends up a "new equation" (cj1-2*sj1) - (a-sj1) + 2*(a-cj1) = a+cj1-sj1 = 0
+        Ends up with a "new equation" (cj1-2*sj1) - (a-sj1) + 2*(a-cj1) = a - cj1 - sj1 = 0
 
         Should not do substitutions for every symbol!
         """
@@ -8063,6 +8066,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             except PolynomialError, e: # expected from simplifyTransform
                 pass
         """
+        # TGN's modification below that resolves the substitution problem makes thing slow, why?
+
         usedSymbols = []
         for constantSymbol in constantSymbols:
             if constantSymbol in usedSymbols:
@@ -8761,10 +8766,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         
         allcurvars         = self.jointlists([self.getVariable(v).vars for v in curvars])
         allothersolvedvars = self.jointlists([self.getVariable(v).vars for v in othersolvedvars])
-        
-        prevbranch = lastbranch = []
+
+        # used when appending an AST.SolverBreak object
+        lastbranch = []
+        prevbranchCreated = False
+        # dictionary that stores {var: prevbranch} where prevbranch is returned by SolveAllEquations
         nextsolutions = {}
-            
+        
         if self.degeneratecases is None:
             self.degeneratecases = self.DegenerateCases()
         handledconds = self.degeneratecases.GetHandledConditions(currentcases)
@@ -8780,12 +8788,16 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         addhandleddegeneratecases = [] # for bookkeeping/debugging
         
         # iterate in reverse order and put the most recently processed solution at the front.
+        usedsolutions = usedsolutions[::-1]
         # There is a problem with this algorithm transferring the degenerate cases correctly.
         # Although the zeros of the first equation are checked, they are not added as conditions to the later equations,
         # so that the later equations will also use variables as unknowns
         # (even though they are determined to be specific constants). This is most apparent in rotations.
         
-        for solution, var in usedsolutions[::-1]:
+        for solution, var in usedsolutions:
+            # each usedsolution is either a (SolverSolution object       , variable) pair or
+            #                             a (SolverPolynomialRoots object, variable) pair
+            
             # there are divide by zeros, so check if they can be explicitly solved for joint variables
             checkforzeros = []
             localsubstitutioneqs = []
@@ -9117,13 +9129,12 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             
             if not var in nextsolutions:
                 try:
-                    newvars = curvars[:]
-                    newvars.remove(var)
-                    # degenreate cases should get restored here since once we go down a particular branch, there's no turning back
+                    newvars = [v for v in curvars if v!=var]
+                    # back up degenreate cases by deep copy
                     olddegeneratecases = self.degeneratecases.Clone()
                     if len(newvars)>0:
-                        log.info('[SOLVE %i] To obtain next solution, AddSolution calls SolveAllEquations to solve for %r', \
-                                 self._solutionStackCounter, newvars)
+                        log.info('[SOLVE %i] To obtain next solution, AddSolution calls SolveAllEquations to solve for %r using', \
+                                 self._solutionStackCounter, newvars, othersolvedvars+[var])
                         self._inc_solutionStackCounter()
                         nextsolutions[var] = self.SolveAllEquations(AllEquations, \
                                                                     curvars = newvars, \
@@ -9139,13 +9150,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 finally:
                     self._dec_solutionStackCounter()                                            
                     addhandleddegeneratecases += olddegeneratecases.handleddegeneratecases
+                    # restore degenerate cases
                     self.degeneratecases = olddegeneratecases
                     
             if len(checkforzeros) > 0:
-                hascheckzeros = True                
+                hascheckzeros = True
                 solvercheckzeros = AST.SolverCheckZeros(jointname = var.name, \
                                                         jointcheckeqs = checkforzeros, \
-                                                        zerobranch = prevbranch, \
+                                                        zerobranch = prevbranch if prevbranchCreated else lastbranch, \
                                                         nonzerobranch = [solution] + nextsolutions[var], \
                                                         thresh = solution.GetZeroThreshold(), \
                                                         anycondition = True)
@@ -9156,6 +9168,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 prevbranch = [solvercheckzeros]
             else:
                 prevbranch = [solution] + nextsolutions[var]
+            prevbranchCreated = True
 
         log.info('[SOLVE %i] Finished analyzing %i usedsolutions in AddSolution.', \
                  self._solutionStackCounter, len(usedsolutions))
@@ -9163,7 +9176,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         if len(prevbranch) == 0:
             raise self.CannotSolveError('AddSolution fails to add solution!')
 
-        maxlevel2scopecounter = 300 # used to limit how deep the hierarchy goes or otherwise IK can get too big
+        # used to limit how deep the hierarchy goes or otherwise IK can get too big
+        maxlevel2scopecounter = 300
+        # by default self.maxcasedepth = 3, so len(currentcases) is at most 3
         if len(currentcases) >= self.maxcasedepth or \
            (scopecounter > maxlevel2scopecounter and \
             len(currentcases) >= 2):
@@ -9177,7 +9192,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             varlist =  [(var, eq if eq.is_Symbol or eq.is_number else \
                          self.SimplifyAtan2(self._SubstituteGlobalSymbols(eq, originalGlobalSymbols))) \
                         for var, eq in currentcasesubs]
-            
+
+            assert(len(lastbranch) == 0)
             lastbranch.append(AST.SolverBreak('%d cases reached' % self.maxcasedepth, \
                                               varlist, \
                                               othersolvedvars, \
@@ -9192,7 +9208,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # count the number of rotation symbols seen in the current cases
             if self._iktype == 'transform6d' or \
                self._iktype == 'rotation3d':
-                rotsymbols = self.new_r + list(self.Tee[:3,:3])
+                rotsymbols = self.new_r + list(self.Tee[0:3,0:3])
                 numRotSymbolsInCases = len([var for var, eq in currentcasesubs if var in rotsymbols])
             else:
                 rotsymbols = []
@@ -9201,8 +9217,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             # if not equations found, try setting two variables at once
             # also try setting px, py, or pz to 0 (barrettwam4 lookat)
             # sometimes can get the following: cj3**2*sj4**2 + cj4**2
-            threshnumsolutions = 1 # number of solutions to take usedsolutions[:threshnumsolutions] for the dual values
-            for isolution, (solution, var) in enumerate(usedsolutions[::-1]):
+            
+            threshnumsolutions = 1 # number of solutions to take from usedsolutions
+            for isolution, (solution, var) in enumerate(usedsolutions):
                 if isolution < len(usedsolutions) - threshnumsolutions and \
                    len(flatzerosubstitutioneqs) > 0:
                     # have at least one zero condition...
@@ -9218,15 +9235,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     
                     possiblesubs = []
                     ishinge = []
-                    for preal in self.Tee[:3,3]:
-                        if checkzero.has(preal):
+                    for preal in self.Tee[0:3,3]:
+                        if checkzero.has(preal): # px, py, pz
                             possiblesubs.append([(preal, S.Zero)])
                             ishinge.append(False)
                             
-                    # have to be careful with the rotations since they are dependent on each other.
+                    # Variables in the rotation matrix might depend on each other.
                     # E.g. If r00 = r01 = 0, then r02 = 1 or -1 and r12 = r22 = 0.
                     # Then r10, r12, r20, r21 is a 2D rotation matrix
-                    
                     if numRotSymbolsInCases < 2:
                         for preal in rotsymbols:
                             if checkzero.has(preal):
@@ -9276,8 +9292,14 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             log.info('c = %d, adding case %s = %s in %s', \
                                      scopecounter, possiblevar, possiblevalue, checkzero)
                             
-                            # if the variable is 1 and part of the rotation matrix, can deduce other variables
+                            # If some variable in the rotation matrix is 1 or -1,
+                            # then four other variables (two in the same row, two in the same column) are 0
+                            # E.g. add constraints new_r02 = new_r12 = new_r20 = new_r21 = 0
+                            #      if we see newr_22 = 1 or -1 in constraints
+                            #
+                            # TGN: it seems to me it never gets into here
                             if possiblevar in rotsymbols and (possiblevalue == S.One or possiblevalue == -S.One):
+                                assert(0)
                                 row1 = int(possiblevar.name[-2])
                                 col1 = int(possiblevar.name[-1])
                                 otherrows = [row for row in [0,1,2] if row!=row1]
@@ -9295,9 +9317,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         
                         # try another possiblesub
                         for ipossiblesub2, possiblesub2 in enumerate(possiblesubs[ipossiblesub+1:]):
+                            # adjust index
+                            ipossiblesub2 += ipossiblesub + 1
                             possiblevar2, possiblevalue2 = possiblesub2[0]
-                            if possiblevar == possiblevar2:
-                                # same var, so skip
+                            if possiblevar == possiblevar2: # same var, skip
                                 continue
                             try:
                                 eq2 = eq.subs(possiblesub2).evalf(n=30)
@@ -9305,94 +9328,91 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                 # most likely doing (1/x).subs(x,0) produces a RuntimeError (infinite recursion...)
                                 log.warn(e)
                                 continue
-                            
-                            if not self.isValidSolution(eq2):
+                            if not (self.isValidSolution(eq2) and eq2 == S.Zero):
                                 continue
-                            
-                            if eq2 == S.Zero:
-                                possiblevar2, possiblevalue2 = possiblesub2[0]
-                                cond2 = Abs(possiblevar2 - possiblevalue2.evalf(n=30))
-                                if not self.CheckExpressionUnique(handledconds, cond2):
-                                    # already present, so don't use it for double expressions
-                                    continue
-                                
-                                # don't combine the conditions like cond+cond2
-                                # instead test them individually so we can reduce the solution tree
-                                
-                                evalcond2 = Abs(self.mapvaluepmpi(possiblevar2-possiblevalue2)) \
-                                            if ishinge[ipossiblesub+ipossiblesub2+1] else cond2 # + evalcond
-                                #cond2 += cond
-                                
-                                if self.CheckExpressionUnique(handledconds, cond+cond2):
-                                    # if the variables are both part of the rotation matrix and both zeros,
-                                    # then we can deduce other rotation variables
-                                    if self._iktype == 'transform6d' and \
-                                       possiblevar in rotsymbols and \
-                                       possiblevalue == S.Zero and \
-                                       possiblevar2 in rotsymbols and \
-                                       possiblevalue2 == S.Zero:
-                                        
-                                        checkexpr = [[cond + cond2], \
-                                                     evalcond + evalcond2, \
-                                                     possiblesub + possiblesub2, \
-                                                     []]
-                                        log.info('Append %r to flatzerosubstitutioneqs and localsubstitutioneqs', checkexpr)
-                                        flatzerosubstitutioneqs.append(checkexpr)
-                                        localsubstitutioneqs.append(checkexpr)
-                                        handledconds.append(cond + cond2)
-                                        
-                                        row1 = int(possiblevar. name[-2])
-                                        col1 = int(possiblevar. name[-1])
-                                        row2 = int(possiblevar2.name[-2])
-                                        col2 = int(possiblevar2.name[-1])
-                                        possiblevarname = possiblevar.name[:-2]
 
-                                        # possiblevarname == 'new_r'
-                                        # add constraints new_r02 = new_r12 = 0
-                                        # if we see new_r20 = new_r21 = 0 in constraints, and vice versa
-                                        if row1 == row2:
-                                            assert(col1 != col2)
-                                            col3 = 3 - col1 - col2
-                                            otherrows = [row for row in [0, 1, 2] if row!=row1]
-                                            checkexpr[2] += [(Symbol('%s%d%d' % \
-                                                                     (possiblevarname, row, col3)), \
-                                                              S.Zero) for row in otherrows]
-                                            ra, rb, rc, rd = [Symbol('%s%d%d'%(possiblevarname, row, col)) \
-                                                              for row, col in \
-                                                              product(otherrows, [col1, col2])]
-                                            checkexpr[2] += [(rb**2, S.One-ra**2), \
-                                                             (rb**3, rb-rb*ra**2), \
-                                                             (rc**2, S.One-ra**2)  ]
-                                            
-                                        elif col1 == col2:
-                                            assert(row1 != row2)
-                                            row3 = 3 - row1 - row2
-                                            othercols = [col for col in [0, 1, 2] if col!=col1]
-                                            checkexpr[2] += [(Symbol('%s%d%d' % \
-                                                                     (possiblevarname, row3, col)), \
-                                                              S.Zero) for col in othercols]
-                                            ra, rb, rc, rd = [Symbol('%s%d%d'%(possiblevarname, row, col))
-                                                              for col, row in \
-                                                              product(othercols, [row1, row2])]
-                                            checkexpr[2] += [(rb**2, S.One-ra**2), \
-                                                             (rb**3, rb-rb*ra**2), \
-                                                             (rc**2, S.One-ra**2)  ]
-                                            
-                                        log.info('dual constraint %s\n' + \
-                                                 '	in %s', \
-                                                 ("\n"+" "*24).join(str(x) for x in list(checkexpr[2])), \
-                                                 checkzero)
-                                    else:
-                                        # shouldn't have any rotation vars
-                                        if not (possiblevar in rotsymbols or possiblevar2 in rotsymbols):
-                                            checkexpr = [[cond + cond2], \
-                                                         evalcond + evalcond2, \
-                                                         possiblesub + possiblesub2, \
-                                                         []]
-                                            log.info('Append %r to flatzerosubstitutioneqs and localsubstitutioneqs', checkexpr)
-                                            flatzerosubstitutioneqs.append(checkexpr)
-                                            localsubstitutioneqs.append(checkexpr)
-                                            handledconds.append(cond + cond2)
+                            assert(eq2 == S.Zero)
+                            possiblevar2, possiblevalue2 = possiblesub2[0]
+                            cond2 = Abs(possiblevar2 - possiblevalue2.evalf(n=30))
+                            if not ( self.CheckExpressionUnique(handledconds, cond2) and \
+                                     self.CheckExpressionUnique(handledconds, cond+cond2) ):
+                                continue
+
+                            # test cond, cond2 separately to reduce solution tree
+                            evalcond2 = Abs(self.mapvaluepmpi(possiblevar2-possiblevalue2)) \
+                                        if ishinge[ipossiblesub2] else cond2
+                            
+                            # If both variables in the rotation matrix are 0 and are in the same row/col,
+                            # then two other variables in the same col/row are 0
+                            if (self._iktype == 'transform6d' or \
+                                self._iktype == 'rotation3d') and \
+                                possiblevar in rotsymbols and \
+                                possiblevalue == S.Zero and \
+                                possiblevar2 in rotsymbols and \
+                                possiblevalue2 == S.Zero:
+
+                                checkexpr = [[cond + cond2], \
+                                             evalcond + evalcond2, \
+                                             possiblesub + possiblesub2, \
+                                             []]
+                                log.info('Append %r to flatzerosubstitutioneqs and localsubstitutioneqs', checkexpr)
+                                flatzerosubstitutioneqs.append(checkexpr)
+                                localsubstitutioneqs.append(checkexpr)
+                                handledconds.append(cond + cond2)
+
+                                row1 = int(possiblevar. name[-2])
+                                col1 = int(possiblevar. name[-1])
+                                row2 = int(possiblevar2.name[-2])
+                                col2 = int(possiblevar2.name[-1])
+                                possiblevarname = possiblevar.name[:-2]
+
+                                # possiblevarname == 'new_r'
+                                # add constraints new_r02 = new_r12 = 0
+                                # if we see new_r20 = new_r21 = 0 in constraints, and vice versa
+                                if row1 == row2:
+                                    assert(col1 != col2)
+                                    col3 = 3 - col1 - col2
+                                    otherrows = [row for row in [0, 1, 2] if row!=row1]
+                                    checkexpr[2] += [(Symbol('%s%d%d' % \
+                                                             (possiblevarname, row, col3)), \
+                                                      S.Zero) for row in otherrows]
+                                    ra, rb, rc, rd = [Symbol('%s%d%d'%(possiblevarname, row, col)) \
+                                                      for row, col in \
+                                                      product(otherrows, [col1, col2])]
+                                    checkexpr[2] += [(rb**2, S.One-ra**2), \
+                                                     (rb**3, rb-rb*ra**2), \
+                                                     (rc**2, S.One-ra**2)  ]
+
+                                elif col1 == col2:
+                                    assert(row1 != row2)
+                                    row3 = 3 - row1 - row2
+                                    othercols = [col for col in [0, 1, 2] if col!=col1]
+                                    checkexpr[2] += [(Symbol('%s%d%d' % \
+                                                             (possiblevarname, row3, col)), \
+                                                      S.Zero) for col in othercols]
+                                    ra, rb, rc, rd = [Symbol('%s%d%d'%(possiblevarname, row, col))
+                                                      for col, row in \
+                                                      product(othercols, [row1, row2])]
+                                    checkexpr[2] += [(rb**2, S.One-ra**2), \
+                                                     (rb**3, rb-rb*ra**2), \
+                                                     (rc**2, S.One-ra**2)  ]
+
+                                log.info('dual constraint %s\n' + \
+                                         '	in %s', \
+                                         ("\n"+" "*24).join(str(x) for x in list(checkexpr[2])), \
+                                         checkzero)
+                            else:
+                                # not 'transform6d' nor 'rotation3d'; shouldn't have any rotation vars
+                                if not (possiblevar  in rotsymbols or \
+                                        possiblevar2 in rotsymbols):
+                                    checkexpr = [[cond + cond2], \
+                                                 evalcond + evalcond2, \
+                                                 possiblesub + possiblesub2, \
+                                                 []]
+                                    log.info('Append %r to flatzerosubstitutioneqs and localsubstitutioneqs', checkexpr)
+                                    flatzerosubstitutioneqs.append(checkexpr)
+                                    localsubstitutioneqs.append(checkexpr)
+                                    handledconds.append(cond + cond2)
                                             
                 zerosubstitutioneqs[isolution] += localsubstitutioneqs
         # test the solutions
@@ -9433,17 +9453,15 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 #                 if not duplicatesub:
 #                     flatzerosubstitutioneqs.append([cond,evalcond,othervarsubs,dictequations])
 
-        trysubstitutions = self.ppsubs + self.npxyzsubs + self.rxpsubs \
-                           if self._iktype == 'transform6d' or \
-                              self._iktype == 'rotation3d' else \
-                              self.ppsubs
+        trysubstitutions = self.ppsubs + (self.npxyzsubs + self.rxpsubs \
+                                          if self._iktype == 'transform6d' or \
+                                          self._iktype == 'rotation3d' else [])
             
         log.debug('c = %d, %d zero-substitution(s):\n        %s', \
                   scopecounter, len(flatzerosubstitutioneqs), \
                   ("\n"+" "*8).join(str(x) for x in list(flatzerosubstitutioneqs)))
         
-        for iflatzerosubstitutioneqs, \
-            (cond, evalcond, othervarsubs, dictequations) in enumerate(flatzerosubstitutioneqs):
+        for i, (cond, evalcond, othervarsubs, dictequations) in enumerate(flatzerosubstitutioneqs):
             # have to convert to fractions before substituting!
             if not all([self.isValidSolution(v) for s, v in othervarsubs]):
                 continue
@@ -9463,7 +9481,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                    not eq.is_number:
                     NewEquationsClean.append(eq)
             NewEquations = list(NewEquationsClean)
-            NewEquationsClean = self.PropagateSolvedConstants(NewEquations, othersolvedvars, curvars)
+            NewEquationsClean = self.PropagateSolvedConstants(NewEquations, curvars, othersolvedvars)
             
             try:
                 # forcing a value, so have to check if all equations in NewEquations that do not contain
@@ -9480,97 +9498,97 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             # can set that symbol to zero and create a new set of equations!
                             extrazerochecks.append(expr.subs(solsubs).evalf(n=30))
                             
-                if extrazerochecks is not None:
-                    newcases = set(currentcases).union(set(cond))
-                    if self.degeneratecases.CheckCases(newcases):
-                        log.warn('already has handled cases %r', newcases)
-                    else:
-                        log.info('depth = %d, c = %d, stackcounter = %d, iter = %d/%d\n' +\
-                                 '        start new cases: %s', \
-                                 len(currentcases), scopecounter, \
-                                 self._solutionStackCounter, \
-                                 iflatzerosubstitutioneqs, len(flatzerosubstitutioneqs), \
-                                 ("\n"+" "*25).join(str(x) for x in list(newcases)))
-                        
-                        if len(NewEquationsClean) > 0:
-                            # ONLY place that updates currentcasesubs
-                            newcasesubs = currentcasesubs + othervarsubs
+                if extrazerochecks is None:
+                    continue
+                
+                newcases = currentcases.union(cond)
+                if self.degeneratecases.CheckCases(newcases):
+                    log.warn('already has handled cases %r', newcases)
+                    continue
+                
+                log.info('depth = %d, c = %d, stackcounter = %d, iter = %d/%d\n' +\
+                         '        start new cases: %s', \
+                         len(currentcases), scopecounter, \
+                         self._solutionStackCounter, \
+                         i, len(flatzerosubstitutioneqs), \
+                         ("\n"+" "*25).join(str(x) for x in list(newcases)))
 
-                            # empty global symbols dictionary
-                            self.globalsymbols = {}
-                            for casesub in newcasesubs:
-                                self._AddToGlobalSymbols(casesub[0], casesub[1])
-                            extradictequations = []
-                            
-                            for s, v in trysubstitutions:
-                                neweq = v.subs(newcasesubs)
-                                if neweq != v:
-                                    # should we make sure we're not adding it a second time?
-                                    newcasesubs.append((s, neweq))
-                                    extradictequations.append((s, neweq))
-                                    self._AddToGlobalSymbols(s, neweq)
-                                    
-                            for var, eq in chain(originalGlobalSymbols.items(), dictequations):
-                                neweq = eq.subs(othervarsubs)
-                                if not self.isValidSolution(neweq):
-                                    raise self.CannotSolveError(('equation %s is invalid ' + \
-                                                                 'because of the following substitutions: ' + \
-                                                                 '%s') % (eq, othervarsubs))
-                                
-                                if neweq == S.Zero:
-                                    extradictequations.append((var, S.Zero))
-                                self._AddToGlobalSymbols(var, neweq)
-                                
-                            if len(extradictequations) > 0:
-                                # have to re-substitute since some equations evaluated to zero
-                                NewEquationsClean = [eq.subs(extradictequations).expand() for eq in NewEquationsClean]
+                if len(NewEquationsClean) == 0:
+                    log.info('No new equations! We can probably freely determine %r', curvars)
+                    # Unfortunately we cannot set curvars as a Free Variable.
+                    # Otherwise all remaining variables will have complex dependencies.
+                    # Instead, add seveal jointevals to demonstrate its freedom.
+                    newtree = [AST.SolverSolution(curvar.name, \
+                                                  jointeval = [S.Zero, pi/2, pi, -pi/2], \
+                                                  isHinge = self.IsHinge(curvar.name)) \
+                               for curvar in curvars] + endbranchtree
+                else:
+                    # ONLY place that updates currentcasesubs
+                    newcasesubs = currentcasesubs + othervarsubs
 
-                            # NewEquationsClean = [eq for eq in NewEquationsClean if eq.has(*curvars)]
-                            try:
-                                log.info('[SOLVE %i] AddSolution calls SolveAllEquations to solve %r for %r', \
-                                         self._solutionStackCounter, NewEquationsClean, curvars)
-                                self._inc_solutionStackCounter()
-                                newtree = self.SolveAllEquations(NewEquationsClean, \
-                                                                 curvars, \
-                                                                 othersolvedvars, \
-                                                                 solsubs, \
-                                                                 endbranchtree, \
-                                                                 currentcases = newcases, \
-                                                                 currentcasesubs = newcasesubs, \
-                                                                 unknownvars = unknownvars)
-                                accumequations.append(NewEquationsClean) # store the equations for debugging purposes
-                                log.info('[SOLVE %i] SolveAllEquations returns newtree in AddSolution for %r', \
-                                         self._solutionStackCounter-1, curvars)
-                            except self.CannotSolveError, e:
-                                print NewEquationsClean
-                                log.info('[SOLVE %i] Cannot use SolveAllEquations to solve %r for %r: %s', \
-                                         self._solutionStackCounter-1, NewEquationsClean, curvars, e)
-                                raise self.CannotSolveError(e)
-                            finally:
-                                self._dec_solutionStackCounter()
-                        else:
-                            log.info('no new equations! probably can freely determine %r', curvars)
-                            # unfortunately cannot add curvars as a FreeVariable
-                            # because all the remaining variables will have complex dependencies
-                            # therefore, iterate a couple of jointevals
-                            newtree = []
-                            for curvar in curvars:
-                                newtree.append(AST.SolverSolution(curvar.name, \
-                                                                  jointeval = [S.Zero, pi/2, pi, -pi/2], \
-                                                                  isHinge = self.IsHinge(curvar.name)))
-                            newtree += endbranchtree
-                            
-                        zerobranches.append(([evalcond] + extrazerochecks, \
-                                             newtree, \
-                                             dictequations)) # what about extradictequations?
+                    # empty global symbols dictionary
+                    self.globalsymbols = {}
+                    for casesub in newcasesubs:
+                        self._AddToGlobalSymbols(casesub[0], casesub[1])
+                    extradictequations = []
 
-                        log.info('depth = %d, c = %d, stackcounter = %d, iter = %d/%d\n' \
-                                 + '        add new cases into self.degeneratecases: %s', \
-                                 len(currentcases), scopecounter, \
-                                 self._solutionStackCounter, \
-                                 iflatzerosubstitutioneqs, len(flatzerosubstitutioneqs), \
-                                 ("\n"+" "*23).join(str(x) for x in list(newcases)))
-                        self.degeneratecases.AddCases(newcases)
+                    for s, v in trysubstitutions:
+                        neweq = v.subs(newcasesubs)
+                        if neweq != v:
+                            # should we make sure we're not adding it a second time?
+                            newcasesubs.append((s, neweq))
+                            extradictequations.append((s, neweq))
+                            self._AddToGlobalSymbols(s, neweq)
+
+                    for var, eq in chain(originalGlobalSymbols.items(), dictequations):
+                        neweq = eq.subs(othervarsubs)
+                        if not self.isValidSolution(neweq):
+                            raise self.CannotSolveError(('equation %s is invalid ' + \
+                                                         'because of the following substitutions: ' + \
+                                                         '%s') % (eq, othervarsubs))
+                        if neweq == S.Zero:
+                            extradictequations.append((var, S.Zero))
+                        self._AddToGlobalSymbols(var, neweq)
+
+                    if len(extradictequations) > 0:
+                        # have to re-substitute since some equations evaluated to zero
+                        NewEquationsClean = [eq.subs(extradictequations).expand() for eq in NewEquationsClean]
+
+                    NewEquationsClean = [eq for eq in NewEquationsClean if eq.has(*curvars)]
+                    try:
+                        log.info('[SOLVE %i] AddSolution calls SolveAllEquations to solve NewEquationsClean %r for %r', \
+                                 self._solutionStackCounter, NewEquationsClean, curvars)
+                        self._inc_solutionStackCounter()
+                        newtree = self.SolveAllEquations(NewEquationsClean, \
+                                                         curvars, \
+                                                         othersolvedvars, \
+                                                         solsubs, \
+                                                         endbranchtree, \
+                                                         currentcases = newcases, \
+                                                         currentcasesubs = newcasesubs, \
+                                                         unknownvars = unknownvars)
+                        accumequations.append(NewEquationsClean) # store the equations for debugging purposes
+                        log.info('[SOLVE %i] SolveAllEquations returns newtree in AddSolution for %r', \
+                                 self._solutionStackCounter-1, curvars)
+                    except self.CannotSolveError, e:
+                        print NewEquationsClean
+                        log.info('[SOLVE %i] Cannot use SolveAllEquations to solve %r for %r: %s', \
+                                 self._solutionStackCounter-1, NewEquationsClean, curvars, e)
+                        raise self.CannotSolveError(e)
+                    finally:
+                        self._dec_solutionStackCounter()
+
+                zerobranches.append(([evalcond] + extrazerochecks, \
+                                     newtree, \
+                                     dictequations)) # what about extradictequations?
+
+                log.info('depth = %d, c = %d, stackcounter = %d, iter = %d/%d\n' \
+                         + '        add new cases into self.degeneratecases: %s', \
+                         len(currentcases), scopecounter, \
+                         self._solutionStackCounter, \
+                         i, len(flatzerosubstitutioneqs), \
+                         ("\n"+" "*23).join(str(x) for x in list(newcases)))
+                self.degeneratecases.AddCases(newcases)
                         
             except self.CannotSolveError, e:
                 log.debug(e)
@@ -9583,7 +9601,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             branchconds = AST.SolverBranchConds(zerobranches + \
                                                 [(None, \
                                                   [AST.SolverBreak('branch miss %r'%curvars, \
-                                                                   [(var,self._SubstituteGlobalSymbols(eq, originalGlobalSymbols)) \
+                                                                   [(var, \
+                                                                     self._SubstituteGlobalSymbols(eq, \
+                                                                                                   originalGlobalSymbols)) \
                                                                     for var, eq in currentcasesubs], \
                                                                    othersolvedvars, \
                                                                    solsubs, \
@@ -9599,6 +9619,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                               othersolvedvars, \
                                               solsubs, \
                                               endbranchtree))
+        assert(id(prevbranch)!=id(lastbranch))
         if self._isUnderAnalysis:
             exec(ipython_str, globals(), locals())
         return prevbranch    
@@ -12106,42 +12127,44 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
     def IsAnyImaginaryByEval(self, eq):
         """
-        Checks if an equation ever evaluates to an imaginary number
+        Checks if an equation EQ ever evaluates to an imaginary number for some set of test consistent values.
 
-        TGN: these two functions are shaky because 
+        TGN: these two functions seem shaky because 
 
-        value.is_complex and not value.is_real
+        VALUE.IS_COMPLEX AND NOT VALUE.IS_REAL
 
         is True ONLY if value is purely imaginary, like I, -3*I
 
-        If value = 3+I, I+oo, -oo, then value.is_complex is None, and so is value.is_complex and not value.is_real
+        If value = 3+I, I+oo, -oo, then value.is_complex is None, and so is VALUE.IS_COMPLEX AND NOT VALUE.IS_REAL.
 
-        If value = Float(3), S.One, S.Zero, then the logical expression evaluates to False
+        If value = Float(3), S.One, or S.Zero, then the logical expression evaluates to False.
+
+        TGN uses VALUE.HAS(I).
         """
         for testconsistentvalue in self.testconsistentvalues:
             value = eq.subs(testconsistentvalue).evalf()
-            if value.is_complex and not value.is_real:
+            if value.has(I) or (value.is_complex and not value.is_real):
                 return True
             
         return False
 
     def AreAllImaginaryByEval(self, eq):
         """
-        Checks if an equation ever evaluates to an imaginary number.
+        Checks if an expression EQ ALWAYS evaluates to imaginary numbers for all sets of test consistent values.
 
-        TGN: See in the previous function
+        Returns False if EQ evaluates to a real number for some sets; True if all numbers evaluated to are imaginary.
+
+        TGN: See comments in the previous function.
         """
         for testconsistentvalue in self.testconsistentvalues:
             value = eq.subs(testconsistentvalue).evalf()
-            if not value.is_complex or value.is_real:
-            # if not (value.is_complex and not value.is_real):
+            if not value.has(I) or not (value.is_complex and not value.is_real):
                 return False
-            
         return True
     
     def IsDeterminantNonZeroByEval(self, A, evalfirst = True):
         """
-        Checks whether det(A) != 0 holds for at least one set of consistent values. 
+        Checks whether det(A) != 0 holds for some set of test consistent values. 
         Returns True if so and False otherwise.
 
         If EVALFIRST = True, then call evalf() first before any complicated operation to avoid freezing.

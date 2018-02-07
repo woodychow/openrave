@@ -18,3 +18,10 @@ python/Doxyfile
 *.log
 *.out
 test/.openravetest
+python/html
+python/latex/*
+latex/doxygen.sty
+latex/Makefile
+latex/namespacemyrelpath.tex
+latex/namespaces.tex
+latex/refman.tex
