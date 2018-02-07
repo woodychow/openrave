@@ -8000,217 +8000,241 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         return True
 
     def verifyAllEquations(self, AllEquations, unsolvedvars, solsubs, \
-                           tree = None):        
-        extrazerochecks = []
-        for expr in AllEquations:
-            if not self.isValidSolution(expr):
-                raise self.CannotSolveError('verifyAllEquations: equation is not valid: %s' % (str(expr)))
-            
-            if not expr.has(*unsolvedvars) and self.CheckExpressionUnique(extrazerochecks, expr):
-                extrazerochecks.append(self.removecommonexprs(expr.subs(solsubs).evalf()))
-        
-        return [AST.SolverCheckZeros('verify', extrazerochecks, tree, \
-                                     [AST.SolverBreak('verifyAllEquations')], \
-                                     anycondition = False)] if len(extrazerochecks) > 0 else tree
+                           tree = None):
+        """
+        Checks if every equation in AllEquations is valid, i.e., no oo, -oo, I, or nan.
 
-    def extractSubstitutionEqs(self, s, \
+        If so, test if some equations do not contain UNSOLVEDVARS. 
+        If there are such, encapsulate them in [AST.SolverCheckZeros(...)] and returns; otherwise returns TREE.
+
+        Raises CannotSolveError if some equation is invalid.
+        """
+        extrazerochecks = []
+        for eq in AllEquations:
+            if not self.isValidSolution(eq):
+                raise self.CannotSolveError('verifyAllEquations: equation is not valid: %r' % eq)
+            
+            if not eq.has(*unsolvedvars) and self.CheckExpressionUnique(extrazerochecks, eq):
+                extrazerochecks.append(self.removecommonexprs(eq.subs(solsubs).evalf()))
+        
+        return tree if len(extrazerochecks)==0 \
+            else [AST.SolverCheckZeros(jointname = 'verify', \
+                                       jointcheckeqs = extrazerochecks, \
+                                       zerobranch = tree, \
+                                       nonzerobranch = [AST.SolverBreak('verifyAllEquations')], \
+                                       anycondition = False)]
+    
+    def extractSubstitutionEqs(self, sol, \
                                originalGlobalSymbols, \
                                currentcases, \
                                handledconds,
                                allothersolvedvars, \
-                               othervar, \
-                               sothervar, \
-                               cothervar):
+                               var):
+        """
+        Refactored from AddSolution. 
+
+        Depending on which value (jointeval, jointevalsin, or jointevalcos) is contained in sol, 
+        extracts members of LOCALSUBSTITUTIONEQN and HANDLEDCONDS in output TOAPPENDOUT and CONDOUT,
+        which are appended after returned.
+        """
+        varsym = self.getVariable(var)
+        cvar, svar = varsym.cvar, varsym.svar
+        # output
         toappendout = []
         condout = []
+
         # can actually simplify Positions and possibly get a new solution!
-        if s.jointeval is not None:
-            for jointeval in s.jointeval:
+        if sol.jointeval is not None:
+            for jointeval in sol.jointeval:
                 jointeval = self._SubstituteGlobalSymbols(jointeval, originalGlobalSymbols)
                 # why checking for just number?
                 # ok to check if solution doesn't contain any other variables?
                 # if the equation is non-numerical, make sure it isn't deep in the degenerate cases
-                if jointeval.is_number \
-                   or (len(currentcases) <= 1 and \
-                       not jointeval.has(*allothersolvedvars) and \
-                       self.codeComplexity(jointeval) < 100):
+                if not(jointeval.is_number \
+                       or (len(currentcases) <= 1 and \
+                           not jointeval.has(*allothersolvedvars) and \
+                           self.codeComplexity(jointeval) < 100)):
+                    continue
 
-                    isimaginary = self.AreAllImaginaryByEval(jointeval) \
-                                  or jointeval.evalf().has(I)
+                isimaginary = self.AreAllImaginaryByEval(jointeval) \
+                              or jointeval.evalf().has(I)
 
-                    # TODO should use the fact that jointeval is imaginary
-                    if isimaginary:
-                        log.warn('jointeval %s is imaginary, but currently do not support this', jointeval)
-                        continue
+                # TODO should use the fact that jointeval is imaginary
+                if isimaginary:
+                    log.warn('jointeval %s is imaginary, but currently do not support this', jointeval)
+                    continue
 
-                    if jointeval.is_number or jointeval.has(*allothersolvedvars):
-                        jointevalsin = sin(jointeval).evalf(n=30)
-                        jointevalcos = cos(jointeval).evalf(n=30)
-                        dictequations = []
-                    else:
-                        # not dependent on variables
-                        # so it could be in the form of atan(px,py),
-                        # so we convert to a global symbol since it never changes
-                        sym   = self.gsymbolgen.next()
-                        jointevalsin = self.gsymbolgen.next()
-                        jointevalcos = self.gsymbolgen.next()
-                        dictequations = [(sym, jointeval), \
-                                         (jointevalsin, self.SimplifyAtan2(sin(jointeval))), \
-                                         (jointevalcos, self.SimplifyAtan2(cos(jointeval)))]
-                        jointeval = sym
+                if jointeval.is_number or jointeval.has(*allothersolvedvars):
+                    jointevalsin = sin(jointeval).evalf(n=30)
+                    jointevalcos = cos(jointeval).evalf(n=30)
+                    dictequations = []
+                else:
+                    # not dependent on variables
+                    # so it could be in the form of atan(px,py),
+                    # so we convert to a global symbol since it never changes
+                    sym   = self.gsymbolgen.next()
+                    jointevalsin = self.gsymbolgen.next()
+                    jointevalcos = self.gsymbolgen.next()
+                    dictequations = [(sym, jointeval), \
+                                     (jointevalsin, self.SimplifyAtan2(sin(jointeval))), \
+                                     (jointevalcos, self.SimplifyAtan2(cos(jointeval)))]
+                    jointeval = sym
 
-                    cond = Abs(othervar-jointeval.evalf(n=30))
-                    if self.CheckExpressionUnique(handledconds, cond):
-                        evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
-                        toappend = [[cond], \
-                                    evalcond, \
-                                    [(sothervar    , jointevalsin),  \
-                                     (sin(othervar), jointevalsin),  \
-                                     (cothervar    , jointevalcos),  \
-                                     (cos(othervar), jointevalcos),  \
-                                     (othervar     , jointeval)], \
-                                    dictequations]
-                        log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
-                        toappendout.append(toappend)
-                        condout.append(cond)
+                cond = Abs(var-jointeval.evalf(n=30))
+                if self.CheckExpressionUnique(handledconds, cond):
+                    evalcond = self.mapvaluepmpi(cond) if self.IsHinge(var.name) else cond
+                    toappend = [[cond], \
+                                evalcond, \
+                                [(svar    , jointevalsin),  \
+                                 (sin(var), jointevalsin),  \
+                                 (cvar    , jointevalcos),  \
+                                 (cos(var), jointevalcos),  \
+                                 (var     , jointeval)], \
+                                dictequations]
+                    log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
+                    toappendout.append(toappend)
+                    condout.append(cond)
 
-        elif s.jointevalsin is not None:
-            for jointevalsin in s.jointevalsin:
+        elif sol.jointevalsin is not None:
+            for jointevalsin in sol.jointevalsin:
                 jointevalsin = self.SimplifyAtan2(self._SubstituteGlobalSymbols(jointevalsin, originalGlobalSymbols))
-                if jointevalsin.is_number or (len(currentcases) <= 1 and \
-                                              not jointevalsin.has(*allothersolvedvars) and \
-                                              self.codeComplexity(jointevalsin) < 100):
-                    dictequations = []
-                    # DO NOT use asin(eq) because eq = (-pz**2/py**2)**(1/2) would produce imaginary numbers
-                    # cond = othervar - asin(eq).evalf(n=30)
-                    # cond = othervar - (pi-asin(eq).evalf(n=30))
+                if not(jointevalsin.is_number or (len(currentcases) <= 1 and \
+                                                  not jointevalsin.has(*allothersolvedvars) and \
+                                                  self.codeComplexity(jointevalsin) < 100)):
+                    continue
+                
+                dictequations = []
+                # DO NOT use asin(eq) because eq = (-pz**2/py**2)**(1/2) would produce imaginary numbers
+                # cond = var - asin(eq).evalf(n=30)
+                # cond = var - (pi-asin(eq).evalf(n=30))
 
-                    # if jointevalsin is imaginary, then only solution is sothervar = 0 and jointevalsin = 0
-                    isimaginary = self.AreAllImaginaryByEval(jointevalsin) \
-                                  or jointevalsin.evalf().has(I)
-                    if isimaginary:
-                        # test cj = 1 > 0, sj = jointevalsin = 0
-                        cond = abs(sign(cothervar)-1) + abs(sothervar) + abs((jointevalsin**2).evalf(n=30))
-                    else:
-                        if not (jointevalsin.is_number or jointevalsin.has(*allothersolvedvars)):
-                            sym = self.gsymbolgen.next()
-                            dictequations.append((sym, jointevalsin))
-                            jointevalsin = sym
-                        # test cj > 0, sj = jointevalsin
-                        cond = abs(sign(cothervar)-1) + abs(sothervar-jointevalsin.evalf(n=30))
+                # if jointevalsin is imaginary, then only solution is svar = 0 and jointevalsin = 0
+                isimaginary = self.AreAllImaginaryByEval(jointevalsin) \
+                              or jointevalsin.evalf().has(I)
+                if isimaginary:
+                    # test cj = 1 > 0, sj = jointevalsin = 0
+                    cond = abs(sign(cvar)-1) + abs(svar) + abs((jointevalsin**2).evalf(n=30))
+                else:
+                    if not (jointevalsin.is_number or jointevalsin.has(*allothersolvedvars)):
+                        sym = self.gsymbolgen.next()
+                        dictequations.append((sym, jointevalsin))
+                        jointevalsin = sym
+                    # test cj > 0, sj = jointevalsin
+                    cond = abs(sign(cvar)-1) + abs(svar-jointevalsin.evalf(n=30))
 
-                    if self.CheckExpressionUnique(handledconds, cond):
-                        evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
+                if self.CheckExpressionUnique(handledconds, cond):
+                    evalcond = self.mapvaluepmpi(cond) if self.IsHinge(var.name) else cond
 
-                        # case: angle = 0
-                        sineq, coseq, othereq = (S.Zero, S.One, S.Zero) if isimaginary \
-                                                else (jointevalsin, sqrt(S.One-jointevalsin*jointevalsin).evalf(n=30), \
-                                                      asin(jointevalsin).evalf(n=30))
-                        toappend = [[cond], \
-                                    evalcond, \
-                                    [(sothervar    ,   sineq), \
-                                     (sin(othervar),   sineq), \
-                                     (cothervar    ,   coseq), \
-                                     (cos(othervar),   coseq), \
-                                     (othervar     , othereq)], \
-                                    dictequations]
+                    # case: angle = 0
+                    sineq, coseq, othereq = (S.Zero, S.One, S.Zero) if isimaginary \
+                                            else (jointevalsin, sqrt(S.One-jointevalsin*jointevalsin).evalf(n=30), \
+                                                  asin(jointevalsin).evalf(n=30))
+                    toappend = [[cond], \
+                                evalcond, \
+                                [(svar    ,   sineq), \
+                                 (sin(var),   sineq), \
+                                 (cvar    ,   coseq), \
+                                 (cos(var),   coseq), \
+                                 (var     , othereq)], \
+                                dictequations]
 
-                        log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
-                        toappendout.append(toappend)
-                        condout.append(cond)
+                    log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
+                    toappendout.append(toappend)
+                    condout.append(cond)
 
-                    # if isimaginary, test cj = -1 < 0, sj = jointevalsin = 0;
-                    #      otherwise, test cj < 0, sj = jointevalsin 
-                    cond = abs(sign(cothervar)+1) + (abs(sothervar) + abs((jointevalsin**2).evalf(n=30)) \
-                                                     if isimaginary else \
-                                                     abs(sothervar-jointevalsin.evalf(n=30)))
+                # if isimaginary, test cj = -1 < 0, sj = jointevalsin = 0;
+                #      otherwise, test cj < 0, sj = jointevalsin 
+                cond = abs(sign(cvar)+1) + (abs(svar) + abs((jointevalsin**2).evalf(n=30)) \
+                                                 if isimaginary else \
+                                                 abs(svar-jointevalsin.evalf(n=30)))
 
-                    if self.CheckExpressionUnique(handledconds, cond):
-                        evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
+                if self.CheckExpressionUnique(handledconds, cond):
+                    evalcond = self.mapvaluepmpi(cond) if self.IsHinge(var.name) else cond
 
-                        # case: angle = pi
-                        sineq, coseq, othereq = (S.Zero, -S.One, pi.evalf(n=30)) if isimaginary \
-                                                else (jointevalsin, -sqrt(S.One-jointevalsin*jointevalsin).evalf(n=30), \
-                                                      (pi-asin(jointevalsin)).evalf(n=30))
-                        toappend = [[cond], \
-                                    evalcond, \
-                                    [(sothervar    ,   sineq), \
-                                     (sin(othervar),   sineq), \
-                                     (cothervar    ,   coseq), \
-                                     (cos(othervar),   coseq), \
-                                     (othervar     , othereq)], \
-                                    dictequations]
-                        log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
-                        toappendout.append(toappend)
-                        condout.append(cond)
+                    # case: angle = pi
+                    sineq, coseq, othereq = (S.Zero, -S.One, pi.evalf(n=30)) if isimaginary \
+                                            else (jointevalsin, -sqrt(S.One-jointevalsin*jointevalsin).evalf(n=30), \
+                                                  (pi-asin(jointevalsin)).evalf(n=30))
+                    toappend = [[cond], \
+                                evalcond, \
+                                [(svar    ,   sineq), \
+                                 (sin(var),   sineq), \
+                                 (cvar    ,   coseq), \
+                                 (cos(var),   coseq), \
+                                 (var     , othereq)], \
+                                dictequations]
+                    log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
+                    toappendout.append(toappend)
+                    condout.append(cond)
 
-        elif s.jointevalcos is not None:
-            for jointevalcos in s.jointevalcos:
+        elif sol.jointevalcos is not None:
+            for jointevalcos in sol.jointevalcos:
                 jointevalcos = self.SimplifyAtan2(self._SubstituteGlobalSymbols(jointevalcos, originalGlobalSymbols))
-                if jointevalcos.is_number or (len(currentcases) <= 1 and \
-                                    not jointevalcos.has(*allothersolvedvars) and \
-                                    self.codeComplexity(jointevalcos) < 100):
+                if not(jointevalcos.is_number or (len(currentcases) <= 1 and \
+                                                  not jointevalcos.has(*allothersolvedvars) and \
+                                                  self.codeComplexity(jointevalcos) < 100)):
+                    continue
 
-                    dictequations = []
-                    # DO NOT use acos(eq) because eq = (-pz**2/px**2)**(1/2) would produce imaginary numbers
-                    # cond = othervar - acos(eq).evalf(n=30)
-                    # cond = othervar + acos(eq).evalf(n=30)
-                    isimaginary = self.AreAllImaginaryByEval(jointevalcos) or \
-                                  jointevalcos.evalf().has(I)
+                dictequations = []
+                # DO NOT use acos(eq) because eq = (-pz**2/px**2)**(1/2) would produce imaginary numbers
+                # cond = var - acos(eq).evalf(n=30)
+                # cond = var + acos(eq).evalf(n=30)
+                isimaginary = self.AreAllImaginaryByEval(jointevalcos) or \
+                              jointevalcos.evalf().has(I)
 
-                    if isimaginary:
-                        # test sj = 1 > 0, cj = jointevalcos = 0
-                        cond = abs(sign(sothervar)-1) + abs(cothervar) + abs((jointevalcos**2).evalf(n=30))
-                    else:
-                        if not (jointevalcos.is_number or jointevalcos.has(*allothersolvedvars)):
-                            sym = self.gsymbolgen.next()
-                            dictequations.append((sym, jointevalcos))
-                            jointevalcos = sym
-                        # test sj = 1, cj = jointevalcos
-                        cond = abs(sign(sothervar)-1) + abs(cothervar-jointevalcos.evalf(n=30))
+                if isimaginary:
+                    # test sj = 1 > 0, cj = jointevalcos = 0
+                    cond = abs(sign(svar)-1) + abs(cvar) + abs((jointevalcos**2).evalf(n=30))
+                else:
+                    if not (jointevalcos.is_number or jointevalcos.has(*allothersolvedvars)):
+                        sym = self.gsymbolgen.next()
+                        dictequations.append((sym, jointevalcos))
+                        jointevalcos = sym
+                    # test sj = 1, cj = jointevalcos
+                    cond = abs(sign(svar)-1) + abs(cvar-jointevalcos.evalf(n=30))
 
-                    if self.CheckExpressionUnique(handledconds, cond):
-                        evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
+                if self.CheckExpressionUnique(handledconds, cond):
+                    evalcond = self.mapvaluepmpi(cond) if self.IsHinge(var.name) else cond
 
-                        # case: angle = pi/2
-                        sineq, coseq, othereq = (S.One, S.Zero, (pi/2).evalf(n=30)) if isimaginary \
-                                                else (sqrt(S.One-jointevalcos*jointevalcos).evalf(n=30), jointevalcos, \
-                                                      acos(jointevalcos).evalf(n=30))
-                        toappend = [[cond], \
-                                    evalcond, \
-                                    [(sothervar    ,   sineq), \
-                                     (sin(othervar),   sineq), \
-                                     (cothervar    ,   coseq), \
-                                     (cos(othervar),   coseq), \
-                                     (othervar     , othereq)], \
-                                    dictequations]
-                        log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
-                        toappendout.append(toappend)
-                        condout.append(cond)
+                    # case: angle = pi/2
+                    sineq, coseq, othereq = (S.One, S.Zero, (pi/2).evalf(n=30)) if isimaginary \
+                                            else (sqrt(S.One-jointevalcos*jointevalcos).evalf(n=30), jointevalcos, \
+                                                  acos(jointevalcos).evalf(n=30))
+                    toappend = [[cond], \
+                                evalcond, \
+                                [(svar    ,   sineq), \
+                                 (sin(var),   sineq), \
+                                 (cvar    ,   coseq), \
+                                 (cos(var),   coseq), \
+                                 (var     , othereq)], \
+                                dictequations]
+                    log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
+                    toappendout.append(toappend)
+                    condout.append(cond)
 
-                    # if isimaginary, test sj = -1 < 0, cj = jointevalcos = 0;
-                    #      otherwise, test sj < 0, cj = jointevalcos
-                    cond = abs(sign(sothervar)+1) + (abs(cothervar) + abs((jointevalcos**2).evalf(n=30)) \
-                                                     if isimaginary else \
-                                                     abs(cothervar-jointevalcos.evalf(n=30)))
-                    if self.CheckExpressionUnique(handledconds, cond):
-                        evalcond = self.mapvaluepmpi(cond) if self.IsHinge(othervar.name) else cond
+                # if isimaginary, test sj = -1 < 0, cj = jointevalcos = 0;
+                #      otherwise, test sj < 0, cj = jointevalcos
+                cond = abs(sign(svar)+1) + (abs(cvar) + abs((jointevalcos**2).evalf(n=30)) \
+                                                 if isimaginary else \
+                                                 abs(cvar-jointevalcos.evalf(n=30)))
+                if self.CheckExpressionUnique(handledconds, cond):
+                    evalcond = self.mapvaluepmpi(cond) if self.IsHinge(var.name) else cond
 
-                        # case: angle = -pi/2
-                        sineq, coseq, othereq = (-S.One, S.Zero, (-pi/2).evalf(n=30)) if isimaginary \
-                                                else (-sqrt(S.One-jointevalcos*jointevalcos).evalf(n=30), jointevalcos, \
-                                                      (-acos(jointevalcos)).evalf(n=30))
-                        toappend = [[cond], \
-                                    evalcond, \
-                                    [(sothervar    ,   sineq), \
-                                     (sin(othervar),   sineq), \
-                                     (cothervar    ,   coseq), \
-                                     (cos(othervar),   coseq), \
-                                     (othervar     , othereq)], \
-                                    dictequations]
-                        log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
-                        toappendout.append(toappend)
-                        condout.append(cond)
+                    # case: angle = -pi/2
+                    sineq, coseq, othereq = (-S.One, S.Zero, (-pi/2).evalf(n=30)) if isimaginary \
+                                            else (-sqrt(S.One-jointevalcos*jointevalcos).evalf(n=30), jointevalcos, \
+                                                  (-acos(jointevalcos)).evalf(n=30))
+                    toappend = [[cond], \
+                                evalcond, \
+                                [(svar    ,   sineq), \
+                                 (sin(var),   sineq), \
+                                 (cvar    ,   coseq), \
+                                 (cos(var),   coseq), \
+                                 (var     , othereq)], \
+                                dictequations]
+                    log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
+                    toappendout.append(toappend)
+                    condout.append(cond)
                         
         return toappendout, condout
 
@@ -8822,9 +8846,32 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     currentcasesubs = [], \
                     unknownvars     = []):
         """
-        Take the least complex solution of a set of solutions and resume solving.
+        Step 1: Search for a SOLUTION in SOLUTIONS that satisfies the following conditions in priority order.
+                (1) Has no CHECKFORZEROS equation AND solves variable(s) uniquely.
+                (2) Has no CHECKFORZEROS equation but has >1 formula in the solving.
+                If there is such a SOLUTION, then call solveAllEquations with the remaining variables 
+                and returns what it returns.
 
-        Called by SolveAllEquations and also calls it recursively.
+        Step 2: Every SOLUTION (remaining) has some CHECKFORZEROS equations. Extracts at most 3 solutions that
+                have different sets of CHECKFORZEROS equations. Call these USEDSOLUTIONS and reverse it.
+
+        Step 3: For each CHECKFORZEROS equation, derive CHECKSIMPLEZEROEXPRS. If it contains an OTHERVAR,
+                then try finding at what values this variable yields this expression = 0. This is done by 
+                evaluating at 0, pi/2, pi, -pi/2 and, if necessary, calling solveSingleVariable.
+
+                The at-most-two solutions for OTHERVAR are used to extract substitution equations by calling
+                EXTRACTSUBSTITUTIONEQS. Those substitutions and conditions are appended to LOCALSUBSTITUTIONEQN 
+                and HANDLEDCONDS.
+
+        Step 4: For each variable in USEDSOLUTIONS, call SolveAllEquations to go 1 level deep to find NEXTSOLUTIONS,
+                a dictionary that stores solutions in the next level. It is then used to construct an 
+                AST.SolverCheckZeros object that encapsulates NEXTSOLUTIONS[OTHERVAR].
+
+                So far all USEDSOLUTIONS are analyzed.
+
+        TBW
+
+        Called by SolveAllEquations only and also calls it recursively.
         """
 
         assert(all(Symbol(sol[0].jointname)==sol[1] for sol in solutions))
@@ -8856,42 +8903,38 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         solutions.sort(lambda x, y: x[0].score-y[0].score)
         hasonesolution = False
         
-        for solution in solutions:
-            checkforzeros = solution[0].checkforzeros
-            hasonesolution = solution[0].numsolutions() == 1
+        for solution, var in solutions:
+            checkforzeros = solution.checkforzeros
             # search for a solution that (1) has no checkforzeros equation (2) solves uniquely a variable
-            if len(checkforzeros) == 0 and hasonesolution:
-                # did find a good solution, so take it. Make sure to check any zero branches
-                var     = solution[1]
-                newvars = curvars[:]
-                newvars.remove(var)
-                log.info('[SOLVE %i] hasonesolution = True, len(checkforzeros) = 0\n' + \
-                         ' '*18 + 'Use solution for %r\n' + \
-                         ' '*18 + 'AddSolution calls SolveAllEquations to solve for %r', \
-                         self._solutionStackCounter, var, newvars)
-                try:
-                    self._inc_solutionStackCounter()
-                    prevbranch = self.SolveAllEquations(AllEquations, \
-                                                        curvars = newvars, \
-                                                        othersolvedvars = othersolvedvars+[var], \
-                                                        solsubs = solsubs + self.getVariable(var).subs, \
-                                                        endbranchtree = endbranchtree, \
-                                                        currentcases = currentcases, \
-                                                        currentcasesubs = currentcasesubs, \
-                                                        unknownvars = unknownvars)
-                    prevbranch = [solution[0].subs(solsubs)] + prevbranch                    
-                    if self._isUnderAnalysis:
-                        exec(ipython_str, globals(), locals())
-                    return prevbranch
-                except self.CannotSolveError, e:
-                    log.info(e)
-                    log.info('[SOLVE %i] Cannot use SolveAllEquations for %r', \
-                             self._solutionStackCounter, newvars)
-                    hasonesolution = False # did not solve, reset
-                    continue
-                    # raise self.CannotSolveError(e)
-                finally:
-                    self._dec_solutionStackCounter()
+            if not(len(checkforzeros) == 0 and solution.numsolutions() == 1):
+                continue
+            # TGN: what does "make sure to check any zero branches" mean
+            newvars = [v for v in curvars if v != var]
+            log.info('[SOLVE %i] hasonesolution = True, len(checkforzeros) = 0\n' + \
+                     ' '*18 + 'Use solution for %r\n' + \
+                     ' '*18 + 'AddSolution calls SolveAllEquations to solve for %r', \
+                     self._solutionStackCounter, var, newvars)
+            try:
+                self._inc_solutionStackCounter()
+                prevbranch = self.SolveAllEquations(AllEquations, \
+                                                    curvars = newvars, \
+                                                    othersolvedvars = othersolvedvars + [var], \
+                                                    solsubs = solsubs + self.getVariable(var).subs, \
+                                                    endbranchtree = endbranchtree, \
+                                                    currentcases = currentcases, \
+                                                    currentcasesubs = currentcasesubs, \
+                                                    unknownvars = unknownvars)
+                prevbranch = [solution.subs(solsubs)] + prevbranch                    
+                if self._isUnderAnalysis:
+                    exec(ipython_str, globals(), locals())
+                return prevbranch
+            except self.CannotSolveError, e:
+                log.info(e)
+                log.info('[SOLVE %i] Cannot use SolveAllEquations for %r', \
+                         self._solutionStackCounter, newvars)
+                continue
+            finally:
+                self._dec_solutionStackCounter()
 
         # TGN: The logic of hasonesolution in original code seems wrong to me
         #
@@ -8901,38 +8944,36 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         #      Then hasonesolution is True, and we skip the below "if" block and can no longer
         #      "check again except without the number of solutions requirement" to find solutions[1].
 
-        if True: #not hasonesolution:
-            # search for a solution that (1) has no checkforzeros equation
-            for solution in solutions:
-                checkforzeros = solution[0].checkforzeros
-                if len(checkforzeros) == 0:
-                    # did find a good solution, so take it. Make sure to check any zero branches
-                    var = solution[1]
-                    newvars = curvars[:]
-                    newvars.remove(var)
-                    log.info('[SOLVE %i] hasonesolution = False, len(checkforzeros) = 0\n' + \
-                             ' '*18 + 'Use solution for %r\n' + \
-                             ' '*18 + 'AddSolution calls SolveAllEquations to solve for %r', \
-                             self._solutionStackCounter, var, newvars)
-                    try:
-                        self._inc_solutionStackCounter()
-                        prevbranch = self.SolveAllEquations(AllEquations, \
-                                                            curvars = newvars, \
-                                                            othersolvedvars = othersolvedvars + [var], \
-                                                            solsubs = solsubs + self.getVariable(var).subs, \
-                                                            endbranchtree = endbranchtree, \
-                                                            currentcases = currentcases, \
-                                                            currentcasesubs = currentcasesubs, \
-                                                            unknownvars = unknownvars)
-                        prevbranch = [solution[0].subs(solsubs)] + prevbranch
-                        if self._isUnderAnalysis:                    
-                            exec(ipython_str, globals(), locals())
-                        return prevbranch
-                    except self.CannotSolveError, e:
-                        continue
-                        # raise self.CannotSolveError(e)
-                    finally:
-                        self._dec_solutionStackCounter()
+        for solution, var in solutions:
+            checkforzeros = solution.checkforzeros
+            if len(checkforzeros) == 0:
+                # did find a good solution, so take it. Make sure to check any zero branches
+                newvars = [v for v in curvars if v != var]
+                log.info('[SOLVE %i] hasonesolution = False, len(checkforzeros) = 0\n' + \
+                         ' '*18 + 'Use solution for %r\n' + \
+                         ' '*18 + 'AddSolution calls SolveAllEquations to solve for %r', \
+                         self._solutionStackCounter, var, newvars)
+                try:
+                    self._inc_solutionStackCounter()
+                    prevbranch = self.SolveAllEquations(AllEquations, \
+                                                        curvars = newvars, \
+                                                        othersolvedvars = othersolvedvars + [var], \
+                                                        solsubs = solsubs + self.getVariable(var).subs, \
+                                                        endbranchtree = endbranchtree, \
+                                                        currentcases = currentcases, \
+                                                        currentcasesubs = currentcasesubs, \
+                                                        unknownvars = unknownvars)
+                    prevbranch = [solution.subs(solsubs)] + prevbranch
+                    if self._isUnderAnalysis:                    
+                        exec(ipython_str, globals(), locals())
+                    return prevbranch
+                except self.CannotSolveError, e:
+                    log.info(e)
+                    log.info('[SOLVE %i] Cannot use SolveAllEquations for %r', \
+                             self._solutionStackCounter, newvars)
+                    continue
+                finally:
+                    self._dec_solutionStackCounter()
 
         # back up global symbols, restored at the end
         originalGlobalSymbols = self.globalsymbols
@@ -8957,7 +8998,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     usedsolutions.append((solution, var))
                     if len(usedsolutions) >= 3:
                         # don't need more than 3 solutions (used to be 2, but lookat barrettwam4 proved that wrong)
-                        # TGN: try finding all
+                        # TGN: try finding all?
                         break
         
         allcurvars         = self.jointlists([self.getVariable(v).vars for v in curvars])
@@ -9055,8 +9096,9 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
                 for checksimplezeroexpr in checksimplezeroexprs:
                     for othervar in othersolvedvars:
-                        sothervar = self.getVariable(othervar).svar
-                        cothervar = self.getVariable(othervar).cvar
+                        othervarsym = self.getVariable(othervar)
+                        sothervar = othervarsym.svar
+                        cothervar = othervarsym.cvar
                         if not checksimplezeroexpr.has(othervar, sothervar, cothervar):
                             continue
                         # below checksimplezeroexpr has either jX, sjX, or cjX
@@ -9081,14 +9123,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                  jointeval = jointeval, \
                                                  isHinge = self.IsHinge(othervar.name))] \
                                                  if len(jointeval) > 0 else []
-
                         hasSolvedByEval = False
                         if len(jointeval) > 0:
                             try:
                                 peq = Poly(checksimplezeroexpr, othervar, sothervar, cothervar)
                                 hasSolvedByEval = len(peq.monoms())==1 and \
                                                   sum(peq.monoms()[0])==1 and \
-                                                  len(ss[0].jointeval)==2
+                                                  len(jointeval)>=2
                             except PolynomialError:
                                 pass
 
@@ -9106,21 +9147,15 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                 self._inc_solutionStackCounter()
                                 ss += self.solveSingleVariable([eq], othervar, othersolvedvars)
 
-                            except PolynomialError:
-                                log.info('[SOLVE %i] Cannot use solveSingleVariable to solve for %r: PolynomialError', \
-                                         self._solutionStackCounter, othervar)
-                                # checksimplezeroexpr was too complex
-                                pass
-
-                            except self.CannotSolveError, e:
+                            except (PolynomialError, self.CannotSolveError), e:
                                 log.info('[SOLVE %i] Cannot use solveSingleVariable to solve for %r: %s', \
                                          self._solutionStackCounter, othervar, e)
+                                pass
                                 # this is actually a little tricky
                                 # sometimes really good solutions can have a divide that looks like:
                                 # ((0.405 + 0.331*cj2)**2 + 0.109561*sj2**2 (manusarm_left)
                                 # This will never be 0, but the solution cannot be solved.
                                 # Instead of rejecting, add a condition to check if checksimplezeroexpr itself is 0 or not
-                                pass
                             finally:
                                 self._dec_solutionStackCounter()
 
@@ -9133,9 +9168,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                                                                currentcases, \
                                                                                handledconds, \
                                                                                allothersolvedvars, \
-                                                                               othervar, \
-                                                                               sothervar, \
-                                                                               cothervar)
+                                                                               othervar)
                             localsubstitutioneqs += toappendout
                             handledconds += condout
 
@@ -9285,7 +9318,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             possiblesubs.append([(othervar, S.Zero)])
                             ishinge.append(False)
                             continue
-                                    
+
                     # all possiblesubs are present in checkzero
                     for ipossiblesub, possiblesub in enumerate(possiblesubs):
                         try:
@@ -9318,7 +9351,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             #
                             # TGN: it seems to me it never gets into here
                             if possiblevar in rotsymbols and (possiblevalue == S.One or possiblevalue == -S.One):
-                                assert(0)
+                                assert(0) # TGN: shouldn't be here, because none of possiblevalue added is 1 or -1
                                 row1 = int(possiblevar.name[-2])
                                 col1 = int(possiblevar.name[-1])
                                 otherrows = [row for row in [0,1,2] if row!=row1]
@@ -12680,6 +12713,9 @@ class AST:
             return generator.endSolution(self)
         
         def numsolutions(self):
+            """
+            TGN: no solution can contain more than one among jointeval, jointevalsin, and jointevalcos???
+            """
             n = 0
             if self.jointeval is not None:
                 n += len(self.jointeval)
