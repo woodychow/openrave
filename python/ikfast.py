@@ -8015,37 +8015,33 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
 
     def PropagateSolvedConstants(self, AllEquations, \
                                  unknownvars, \
-                                 othersolvedvars, \
-                                 constantSymbols = None):
+                                 othersolvedvars):
         """
-        Sometimes equations can be like "npz" or "pp-1", meaning npz = 0 and pp = 1. 
+        Some equations (USEFULEQUATIONS1) in ALLEQUATIONS that do not contain UNKNOWNVARS 
+        can be like "npz" or "pp-1", meaning npz = 0 and pp = 1. 
         
-        We check these constraints and apply them to the rest of the equations.
+        We extract these substitutions and perform them in the rest of the equations (USEFULEQUATIONS2) 
+        that contains UNKNOWNVARS.
 
-        Returns a new set of equations.
+        Returns NEWEQUATIONS, a "clean" set of equations that contain UNKNOWNVARS.
 
-        CONTAINSYMBOLS contains variables we try to propagage. If it's None we use self.pvars.
-
-        Called by AddSolution only.
+        Called by AddSolution only, in the big flatzerosubstitutioneqs for-loop around the end.
         """
-        constantSymbols = list(self.pvars if constantSymbols is None else constantSymbols) + \
+        constantSymbols = list(self.pvars) + \
                           self.jointlists([[var, cos(var), sin(var)] if self.IsHinge(var.name) \
                                            else [var] for var in othersolvedvars])
         constantSymbols = [constantSymbol for constantSymbol in constantSymbols \
                            if any([eq.has(constantSymbol) for eq in AllEquations])]
         newsubsdict = {}
-        usefulEquations = [eq for eq in AllEquations if not eq.has(*unknownvars) and eq.has(*constantSymbols)] 
+        usefulEquations1 = [eq for eq in AllEquations if not eq.has(*unknownvars) and eq.has(*constantSymbols)]
+        usefulEquations2 = [eq for eq in AllEquations if eq.has(*unknownvars)]
 
         """
-        TGN: newsubsdict is baffling me: say we have pp - cj1 + 2*sj1 = 0 and cj1 + sj1 = a
+        # TGN: newsubsdict is baffling me: say we have pp - cj1 + 2*sj1 = 0 and cj1 + sj1 = a
+        # Ends up with a "new equation" (cj1-2*sj1) - (a-sj1) + 2*(a-cj1) = a - cj1 - sj1 = 0
+        # Should not do substitutions for every symbol!
 
-        Ends up with a "new equation" (cj1-2*sj1) - (a-sj1) + 2*(a-cj1) = a - cj1 - sj1 = 0
-
-        Should not do substitutions for every symbol!
-        """
-        
-        #"""
-        for eq in usefulEquations:
+        for eq in usefulEquations1:
             try:
                 # TGN: comment out this since it's unused
                 # reducedeq = self.SimplifyTransform(eq)
@@ -8066,30 +8062,31 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             except PolynomialError, e: # expected from simplifyTransform
                 pass
         """
-        # TGN's modification below that resolves the substitution problem makes thing slow, why?
-
         usedSymbols = []
         for constantSymbol in constantSymbols:
             if constantSymbol in usedSymbols:
                 continue
-            for eq in usefulEquations:
-                if eq.has(constantSymbol):
-                    try:
-                        peq = Poly(eq, constantSymbol)
-                        if peq.degree(0) == 1:
-                            pdict = peq.as_dict()
-                            if pdict[(1,)].is_number and pdict[(1,)]!=S.Zero: 
-                                newsolution = -pdict.get((0,),0)/pdict[(1,)] # ax+b = 0, a!=0  ==> x = -b/a
-                                if constantSymbol not in newsubsdict or \
-                                   self.codeComplexity(newsolution) < self.codeComplexity(newsubsdict[constantSymbol]):
-                                    newsubsdict[constantSymbol] = newsolution
-                    except PolynomialError:
-                        pass
+            for eq in usefulEquations1:
+                if not eq.has(constantSymbol):
+                    continue
+                try:
+                    peq = Poly(eq, constantSymbol)
+                except PolynomialError:
+                    continue
+                if peq.degree(0) != 1:
+                    continue # need a linear equation
+                pdict = peq.as_dict()
+                if not pdict[(1,)].is_number or pdict[(1,)]==S.Zero:
+                    continue # need a to be a nonzero number in ax + b = 0
+                newsolution = -pdict.get((0,),0)/pdict[(1,)] # x = -b/a
+                if constantSymbol not in newsubsdict or \
+                   self.codeComplexity(newsolution) < self.codeComplexity(newsubsdict[constantSymbol]):
+                    newsubsdict[constantSymbol] = newsolution
             if constantSymbol in newsubsdict:
                 usedSymbols.append(constantSymbol)
                 usedSymbols += [usedSymbol for usedSymbol in constantSymbols \
                                 if newsubsdict[constantSymbol].has(usedSymbol)]
-        """
+        #"""
 
         # first substitute everything that doesn't have othersolvedvar or unknownvars
         otherSubstitutions  = [(var, value) for (var, value) in newsubsdict.items() \
@@ -8097,26 +8094,24 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         numberSubstitutions = [(var, value) for (var, value) in newsubsdict.items() \
                                if not value.has(*constantSymbols)]
         NewEquations = []
-        for eq in AllEquations:
-            if True: #not eq.has(*unknownvars):
-                neweq = eq.subs(numberSubstitutions).expand()
-                if neweq != S.Zero:
-                    # don't expand here since otherSubstitutions could make it very complicated
-                    neweq2 = neweq.subs(otherSubstitutions)
-                    if neweq2 == S.Zero:
-                        NewEquations.append(neweq)
-                        continue
-                    neweqComplexity  = self.codeComplexity(neweq)
-                    neweq2Complexity = self.codeComplexity(neweq2)
-                    if neweq2Complexity < neweqComplexity*2:
-                        neweq2 = neweq2.expand()
-                        neweq2Complexity = self.codeComplexity(neweq2)
-                        NewEquations.append(neweq2 if neweq2Complexity < neweqComplexity and \
-                                            neweq2 != S.Zero else neweq)
-                    else:
-                        NewEquations.append(neweq)
+        for eq in usefulEquations2:
+            neweq = eq.subs(numberSubstitutions).expand()
+            if neweq.is_number:
+                continue
+            # don't expand here since otherSubstitutions could make it very complicated
+            neweq2 = neweq.subs(otherSubstitutions)
+            if neweq2.is_number:
+                NewEquations.append(neweq)
+                continue
+            neweqComplexity  = self.codeComplexity(neweq)
+            neweq2Complexity = self.codeComplexity(neweq2)
+            if neweq2Complexity < neweqComplexity*2:
+                neweq2 = neweq2.expand()
+                neweq2Complexity = self.codeComplexity(neweq2)
+                NewEquations.append(neweq2 if neweq2Complexity < neweqComplexity and \
+                                    not neweq2.is_number else neweq)
             else:
-                NewEquations.append(eq)
+                NewEquations.append(neweq)
         """
         print AllEquations
         print NewEquations
@@ -9133,7 +9128,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     # back up degenreate cases by deep copy
                     olddegeneratecases = self.degeneratecases.Clone()
                     if len(newvars)>0:
-                        log.info('[SOLVE %i] To obtain next solution, AddSolution calls SolveAllEquations to solve for %r using', \
+                        log.info('[SOLVE %i] To obtain next solution, ' + \
+                                 'AddSolution calls SolveAllEquations to solve for %r using %r', \
                                  self._solutionStackCounter, newvars, othersolvedvars+[var])
                         self._inc_solutionStackCounter()
                         nextsolutions[var] = self.SolveAllEquations(AllEquations, \
@@ -9251,21 +9247,22 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                                 
                     for othervar in othersolvedvars:
                         othervarobj = self.getVariable(othervar)
-                        if checkzero.has(*othervarobj.vars):
-                            if self.IsHinge(othervar.name):
-                                sothervar = othervarobj.svar
-                                cothervar = othervarobj.cvar
-                                for value in [S.Zero, pi/2, pi, -pi/2]:
-                                    possiblesubs.append([(othervar,      value), \
-                                                         (sothervar,     sin(value).evalf(n=30)), \
-                                                         (sin(othervar), sin(value).evalf(n=30)), \
-                                                         (cothervar,     cos(value).evalf(n=30)), \
-                                                         (cos(othervar), cos(value).evalf(n=30))])
-                                    ishinge.append(True)
-                            else: 
-                                possiblesubs.append([(othervar, S.Zero)])
-                                ishinge.append(False)
-                                continue
+                        if not checkzero.has(*othervarobj.vars):
+                            continue
+                        if self.IsHinge(othervar.name):
+                            sothervar = othervarobj.svar
+                            cothervar = othervarobj.cvar
+                            for value in [S.Zero, pi/2, pi, -pi/2]:
+                                possiblesubs.append([(othervar,      value), \
+                                                     (sothervar,     sin(value).evalf(n=30)), \
+                                                     (sin(othervar), sin(value).evalf(n=30)), \
+                                                     (cothervar,     cos(value).evalf(n=30)), \
+                                                     (cos(othervar), cos(value).evalf(n=30))])
+                                ishinge.append(True)
+                        else: 
+                            possiblesubs.append([(othervar, S.Zero)])
+                            ishinge.append(False)
+                            continue
                                     
                     # all possiblesubs are present in checkzero
                     for ipossiblesub, possiblesub in enumerate(possiblesubs):
@@ -9499,7 +9496,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             extrazerochecks.append(expr.subs(solsubs).evalf(n=30))
                             
                 if extrazerochecks is None:
-                    continue
+                    continue # flatzerosubstitutioneqs for-loop
                 
                 newcases = currentcases.union(cond)
                 if self.degeneratecases.CheckCases(newcases):
@@ -9553,8 +9550,6 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     if len(extradictequations) > 0:
                         # have to re-substitute since some equations evaluated to zero
                         NewEquationsClean = [eq.subs(extradictequations).expand() for eq in NewEquationsClean]
-
-                    NewEquationsClean = [eq for eq in NewEquationsClean if eq.has(*curvars)]
                     try:
                         log.info('[SOLVE %i] AddSolution calls SolveAllEquations to solve NewEquationsClean %r for %r', \
                                  self._solutionStackCounter, NewEquationsClean, curvars)
@@ -9600,7 +9595,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         if len(zerobranches) > 0:
             branchconds = AST.SolverBranchConds(zerobranches + \
                                                 [(None, \
-                                                  [AST.SolverBreak('branch miss %r'%curvars, \
+                                                  [AST.SolverBreak('branch miss for %r' % curvars, \
                                                                    [(var, \
                                                                      self._SubstituteGlobalSymbols(eq, \
                                                                                                    originalGlobalSymbols)) \
@@ -9613,7 +9608,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             lastbranch.append(branchconds)
         else:            
             # add GuessValuesAndSolveEquations?
-            lastbranch.append(AST.SolverBreak('no branches %r'%curvars, \
+            lastbranch.append(AST.SolverBreak('no branches for %r' % curvars, \
                                               [(var,self._SubstituteGlobalSymbols(eq, originalGlobalSymbols)) \
                                                for var, eq in currentcasesubs], \
                                               othersolvedvars, \
