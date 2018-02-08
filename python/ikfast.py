@@ -1981,8 +1981,9 @@ class IKFastSolver(AutoReloader):
             self.rxp.append([Symbol('rxp%d_%d'%(i,j)) for j in range(3)])
             c = self.Tee[0:3,i].cross(self.Tee[0:3,3])
             self.rxpsubs += [(self.rxp[-1][j],c[j]) for j in range(3)]
-
-        # have to include new_rXX
+            
+        # have to include new_rXX; it is used when translation and rotation can be solved separately
+        # After translation is solved, rotation matrix becomes new_r
         self.new_r = [ Symbol('new_r%d%d'%(i,j)) for i in range(3) for j in range(3) ]
         self.pvars = self.Tee[0:12] + \
                      self.npxyz + \
@@ -2001,20 +2002,24 @@ class IKFastSolver(AutoReloader):
         ipp = 15
         irxp = 16
         self._rotpossymbols = self._rotsymbols + \
-                              list(self.Tee[0:3,3])+self.npxyz+[self.pp]+self.rxp[0]+self.rxp[1]+self.rxp[2]
+                              list(self.Tee[0:3,3]) + \
+                              self.npxyz + \
+                              [self.pp] + \
+                              self.jointlists(self.rxp)
 
         # 2-norm of each row/column vector in R is 1
         # groups of rotation variables are unit vectors
+        """
         self._rotnormgroups = []
         for i in range(3):
             # row
             self._rotnormgroups.append([self.Tee[i,0], self.Tee[i,1], self.Tee[i,2], S.One])
             # column
             self._rotnormgroups.append([self.Tee[0,i], self.Tee[1,i], self.Tee[2,i], S.One])
-            
+        
         self._rotposnormgroups = list(self._rotnormgroups)
         self._rotposnormgroups.append([self.Tee[0,3], self.Tee[1,3], self.Tee[2,3], self.pp])
-
+        """
         # TGN creates _rotnormgroups_new and _rotposnormgroups_new
         self._rotnormgroups_new = [ [[0, 1, 2], 1], \
                                     [[0, 3, 6], 1], \
@@ -2043,15 +2048,21 @@ class IKFastSolver(AutoReloader):
 
 Numbering of entries in A and inv(A):
 
-         [ r00  r01  r02   px ]    [ 0  1  2   9 ]
-         [ r10  r11  r12   py ]    [ 3  4  5  10 ]
-     A = [ r20  r21  r22   pz ]    [ 6  7  8  11 ]
+         [ r00  r01  r02   px ]        [ 0  1  2   9 ]
+         [ r10  r11  r12   py ]        [ 3  4  5  10 ]
+     A = [ r20  r21  r22   pz ]        [ 6  7  8  11 ]
          [                  1 ]    
 
-         [ r00  r10  r20  npx ]    [ 0  3  6  12 ]
-         [ r01  r11  r21  npy ]    [ 1  4  7  13 ]
-inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
-         [                  1 ]    
+         [ r00  r10  r20  npx ]        [ 0  3  6  12 ]
+         [ r01  r11  r21  npy ]        [ 1  4  7  13 ]
+inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
+         [                  1 ]
+
+                           pp                     15
+
+         [ rxp0_0  rxp0_1  rxp0_2 ]    [ 16  17   18 ]
+         [ rxp1_0  rxp1_1  rxp1_2 ]    [ 19  20   21 ]
+         [ rxp2_0  rxp2_1  rxp2_2 ]    [ 22  23   24 ]
 
 
 [[[0, 3], [1, 4], [2, 5], 0],
@@ -2118,16 +2129,17 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
  [[1, 6], [0, 7], 5],----
 ------------------------- Above are _rotcrossgroups
 ------------------------- Below are _rotposcrossgroups
-                          16--24 are what positions?
- [[3, 11], [6, 10], 16],
- [[6, 9], [0, 11], 17],
- [[0, 10], [3, 9], 18],
- [[4, 11], [7, 10], 19],
- [[7, 9], [1, 11], 20],
- [[1, 10], [4, 9], 21],
- [[5, 11], [8, 10], 22],
- [[8, 9], [2, 11], 23],
- [[2, 10], [5, 9], 24]]
+
+ [[3, 11], [6, 10], 16],      rxp0_0 = r10*pz - r20*py
+ [[6,  9], [0, 11], 17],      rxp0_1 = r20*px - r00*pz 
+ [[0, 10], [3,  9], 18],      rxp0_2 = r00*py - r10*px
+ [[4, 11], [7, 10], 19],      rxp1_0 = r11*pz - r21*py
+ [[7,  9], [1, 11], 20],      rxp1_1 = r21*px - r01*pz
+ [[1, 10], [4,  9], 21],      rxp1_2 = r01*py - r11*px
+ [[5, 11], [8, 10], 22],      rxp2_0 = r12*pz - r22*py
+ [[8,  9], [2, 11], 23],      rxp2_1 = r22*px - r02*pz
+ [[2, 10], [5,  9], 24]]      rxp2_2 = r02*py - r12*px
+
         """
             
         self.Teeinv = self.affineInverse(self.Tee)
@@ -2190,8 +2202,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                           'pvars',
                           '_rotsymbols',
                           '_rotpossymbols',
-                          '_rotnormgroups',
-                          '_rotposnormgroups',
+                          #'_rotnormgroups',
+                          '_rotposnormgroups_new',
                           '_rotdotgroups',
                           '_rotposdotgroups',
                           '_rotcrossgroups',
@@ -8072,7 +8084,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     # not dependent on variables
                     # so it could be in the form of atan(px,py),
                     # so we convert to a global symbol since it never changes
-                    sym   = self.gsymbolgen.next()
+                    sym          = self.gsymbolgen.next()
                     jointevalsin = self.gsymbolgen.next()
                     jointevalcos = self.gsymbolgen.next()
                     dictequations = [(sym, jointeval), \
@@ -8085,11 +8097,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     evalcond = self.mapvaluepmpi(cond) if self.IsHinge(var.name) else cond
                     toappend = [[cond], \
                                 evalcond, \
-                                [(svar    , jointevalsin),  \
-                                 (sin(var), jointevalsin),  \
-                                 (cvar    , jointevalcos),  \
-                                 (cos(var), jointevalcos),  \
-                                 (var     , jointeval)], \
+                                [(svar    , jointevalsin), \
+                                 (sin(var), jointevalsin), \
+                                 (cvar    , jointevalcos), \
+                                 (cos(var), jointevalcos), \
+                                 (var     , jointeval)  ], \
                                 dictequations]
                     log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
                     toappendout.append(toappend)
@@ -9172,6 +9184,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             localsubstitutioneqs += toappendout
                             handledconds += condout
 
+            # still in usedsolution for-loop
             log.info('Append %i localsubstitutioneqs %r to flatzerosubstitutioneqs and zerosubstitutioneqs', \
                       len(localsubstitutioneqs), localsubstitutioneqs)
             flatzerosubstitutioneqs += localsubstitutioneqs
@@ -9183,7 +9196,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     # back up degenreate cases by deep copy
                     olddegeneratecases = self.degeneratecases.Clone()
                     if len(newvars)>0:
-                        log.info('[SOLVE %i] To obtain next solution, ' + \
+                        log.info('[SOLVE %i] To find next solution, ' + \
                                  'AddSolution calls SolveAllEquations to solve for %r using %r', \
                                  self._solutionStackCounter, newvars, othersolvedvars+[var])
                         self._inc_solutionStackCounter()
@@ -9307,13 +9320,13 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                         if self.IsHinge(othervar.name):
                             sothervar = othervarobj.svar
                             cothervar = othervarobj.cvar
-                            for value in [S.Zero, pi/2, pi, -pi/2]:
-                                possiblesubs.append([(othervar,      value), \
-                                                     (sothervar,     sin(value).evalf(n=30)), \
-                                                     (sin(othervar), sin(value).evalf(n=30)), \
-                                                     (cothervar,     cos(value).evalf(n=30)), \
-                                                     (cos(othervar), cos(value).evalf(n=30))])
-                                ishinge.append(True)
+                            possiblesubs += [[(othervar,      value), \
+                                              (sothervar,     sin(value).evalf(n=30)), \
+                                              (sin(othervar), sin(value).evalf(n=30)), \
+                                              (cothervar,     cos(value).evalf(n=30)), \
+                                              (cos(othervar), cos(value).evalf(n=30))] \
+                                             for value in [S.Zero, pi/2, pi, -pi/2]  ]
+                            ishinge += [True]*4
                         else: 
                             possiblesubs.append([(othervar, S.Zero)])
                             ishinge.append(False)
@@ -9514,6 +9527,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                   ("\n"+" "*8).join(str(x) for x in list(flatzerosubstitutioneqs)))
         
         for i, (cond, evalcond, othervarsubs, dictequations) in enumerate(flatzerosubstitutioneqs):
+            # dictequations is empty if extractSubstitutionEqs is not called above
+            
             # have to convert to fractions before substituting!
             if not all([self.isValidSolution(v) for s, v in othervarsubs]):
                 continue
@@ -9539,23 +9554,23 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 # forcing a value, so have to check if all equations in NewEquations that do not contain
                 # unknown variables are really 0
                 extrazerochecks = []
-                for expr in NewEquations:
-                    if not self.isValidSolution(expr):
-                        log.warn('not valid: %s', expr)
-                        extrazerochecks = None
+                for eq in NewEquations:
+                    if not self.isValidSolution(eq):
+                        log.warn('Equation not valid: %s', eq)
+                        extrazerochecks = None # continue on flatzerosubstitutioneqs for-loop
                         break
-                    if not expr.has(*allcurvars) and \
-                       self.CheckExpressionUnique(extrazerochecks, expr):
-                        if expr.is_Symbol:
+                    if not eq.has(*allcurvars) and \
+                       self.CheckExpressionUnique(extrazerochecks, eq):
+                        if eq.is_Symbol:
                             # can set that symbol to zero and create a new set of equations!
-                            extrazerochecks.append(expr.subs(solsubs).evalf(n=30))
+                            extrazerochecks.append(eq.subs(solsubs).evalf(n=30))
                             
                 if extrazerochecks is None:
                     continue # flatzerosubstitutioneqs for-loop
                 
                 newcases = currentcases.union(cond)
                 if self.degeneratecases.CheckCases(newcases):
-                    log.warn('already has handled cases %r', newcases)
+                    log.warn('Has already handled cases %r', newcases)
                     continue
                 
                 log.info('depth = %d, c = %d, stackcounter = %d, iter = %d/%d\n' +\
@@ -9578,12 +9593,10 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     # ONLY place that updates currentcasesubs
                     newcasesubs = currentcasesubs + othervarsubs
 
-                    # empty global symbols dictionary
-                    self.globalsymbols = {}
-                    for casesub in newcasesubs:
-                        self._AddToGlobalSymbols(casesub[0], casesub[1])
+                    # rewrite global symbols dictionary
+                    self.globalsymbols = dict(newcasesubs)
                     extradictequations = []
-
+                    
                     for s, v in trysubstitutions:
                         neweq = v.subs(newcasesubs)
                         if neweq != v:
@@ -9592,7 +9605,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                             extradictequations.append((s, neweq))
                             self._AddToGlobalSymbols(s, neweq)
 
-                    for var, eq in chain(originalGlobalSymbols.items(), dictequations):
+                    for var, eq in originalGlobalSymbols.items() + dictequations:
                         neweq = eq.subs(othervarsubs)
                         if not self.isValidSolution(neweq):
                             raise self.CannotSolveError(('equation %s is invalid ' + \
@@ -9643,17 +9656,15 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
             except self.CannotSolveError, e:
                 log.debug(e)
                 continue
-            finally:
-                # restore the global symbols
-                self.globalsymbols = originalGlobalSymbols
+
+        # restore the global symbols
+        self.globalsymbols = originalGlobalSymbols
 
         if len(zerobranches) > 0:
             branchconds = AST.SolverBranchConds(zerobranches + \
                                                 [(None, \
                                                   [AST.SolverBreak('branch miss for %r' % curvars, \
-                                                                   [(var, \
-                                                                     self._SubstituteGlobalSymbols(eq, \
-                                                                                                   originalGlobalSymbols)) \
+                                                                   [(var, self._SubstituteGlobalSymbols(eq)) \
                                                                     for var, eq in currentcasesubs], \
                                                                    othersolvedvars, \
                                                                    solsubs, \
@@ -9664,12 +9675,11 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         else:            
             # add GuessValuesAndSolveEquations?
             lastbranch.append(AST.SolverBreak('no branches for %r' % curvars, \
-                                              [(var,self._SubstituteGlobalSymbols(eq, originalGlobalSymbols)) \
+                                              [(var, self._SubstituteGlobalSymbols(eq)) \
                                                for var, eq in currentcasesubs], \
                                               othersolvedvars, \
                                               solsubs, \
                                               endbranchtree))
-        assert(id(prevbranch)!=id(lastbranch))
         if self._isUnderAnalysis:
             exec(ipython_str, globals(), locals())
         return prevbranch    
@@ -9690,7 +9700,7 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
         """
         Adds global symbols; returns True if we update an existing global symbol
 
-        Use dictionary {} for self.globalsymbols.
+        Uses dictionary {} for self.globalsymbols.
 
         Called by AddSolution only.
         """
@@ -12499,47 +12509,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                 'translationzaxisangleynorm4d':IKFastSolver.solveFullIK_TranslationAxisAngle4D
                 }
 
+    """
     def _SimplifyRotationNorm(self, eq, symbols, groups):
-        """
-        Simplify eq based on 2-norm of each row/column being 1
-
-        symbols is self._rotsymbols   or self._rotpossymbols
-        groups is self._rotnormgroups or self._rotposnormgroups
-
-        Called by SimplifyTransform only.
-
-[[r00, r01, r02, 1],
- [r00, r10, r20, 1],
- [r10, r11, r12, 1],
- [r01, r11, r21, 1],
- [r20, r21, r22, 1],
- [r02, r12, r22, 1],
- [px, py, pz, pp]]
-
-        TGN: We shall use
-
-[[[0, 1, 2], 1],
- [[0, 3, 6], 1],
- [[3, 4, 5], 1],
- [[1, 4, 7], 1],
- [[6, 7, 8], 1],
- [[2, 5, 8], 1],
- [[9, 10, 11], pp]]
-
-        that is consistent with _SimplifyRotationDot and _SimplifyRotationCross
-
-[r00, r01, r02,             0,  1,  2
- r10, r11, r12,             3,  4,  5
- r20, r21, r22,             6,  7,  8
- px, py, pz,                9, 10, 11
- npx, npy, npz,            12, 13, 14
- pp,                               15
- rxp0_0, rxp0_1, rxp0_2,   16, 17, 18
- rxp1_0, rxp1_1, rxp1_2,   19, 20, 21
- rxp2_0, rxp2_1, rxp2_2]   22, 23, 24
-
-        """
-
         neweq = None
         for group in groups:
             try:
@@ -12626,8 +12597,8 @@ inv(A) = [ r02  r12  r22  npz ]    [ 2  5  8  14 ]
                     usedindices.add(index0)
                     usedindices.add(index1)
                     break
-
         return neweq
+"""
 
 class AST:
     """Abstarct Syntax Tree class definitions specific for evaluating complex math equations.
