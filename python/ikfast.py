@@ -2083,7 +2083,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         """
         
         # cross product of each pair of rows/columns is the remaining row/column
-        for i,j,k in [(0,1,2),(1,2,0),(0,2,1)]:
+        for i, j in [(0, 1), (1, 2), (0, 2)]:
+            k = 3 - i - j
             # pair of columns
             self._rotcrossgroups.append([[i+3,j+6], [i+6,j+3],k  ])
             self._rotcrossgroups.append([[i+6,j],   [i,j+6],  k+3])
@@ -2094,9 +2095,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             self._rotcrossgroups.append([[3*i,  3*j+1], [3*i+1,3*j],   3*k+2])
             # swap if sign is negative: if j!=1+i
             # i.e. k==1, the 2nd row/column; will change into
-            # if k==1:
-            if j!=1+i:
-                assert(k==1)
+            if k == 1:
+                assert(j != 1+i)
                 for crossgroup in self._rotcrossgroups[-6:]:
                     crossgroup[0],crossgroup[1] = crossgroup[1], crossgroup[0]
 
@@ -8037,7 +8037,6 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                                        anycondition = False)]
     
     def extractSubsEqns1(self, sol, \
-                         originalGlobalSymbols, \
                          currentcases, \
                          handledconds,
                          allothersolvedvars, \
@@ -8058,7 +8057,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         # can actually simplify Positions and possibly get a new solution!
         if sol.jointeval is not None:
             for jointeval in sol.jointeval:
-                jointeval = self._SubstituteGlobalSymbols(jointeval, originalGlobalSymbols)
+                jointeval = self._SubstituteGlobalSymbols(jointeval)
                 # why checking for just number?
                 # ok to check if solution doesn't contain any other variables?
                 # if the equation is non-numerical, make sure it isn't deep in the degenerate cases
@@ -8109,7 +8108,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
 
         elif sol.jointevalsin is not None:
             for jointevalsin in sol.jointevalsin:
-                jointevalsin = self.SimplifyAtan2(self._SubstituteGlobalSymbols(jointevalsin, originalGlobalSymbols))
+                jointevalsin = self.SimplifyAtan2(self._SubstituteGlobalSymbols(jointevalsin))
                 if not(jointevalsin.is_number or (len(currentcases) <= 1 and \
                                                   not jointevalsin.has(*allothersolvedvars) and \
                                                   self.codeComplexity(jointevalsin) < 100)):
@@ -8181,7 +8180,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
 
         elif sol.jointevalcos is not None:
             for jointevalcos in sol.jointevalcos:
-                jointevalcos = self.SimplifyAtan2(self._SubstituteGlobalSymbols(jointevalcos, originalGlobalSymbols))
+                jointevalcos = self.SimplifyAtan2(self._SubstituteGlobalSymbols(jointevalcos))
                 if not(jointevalcos.is_number or (len(currentcases) <= 1 and \
                                                   not jointevalcos.has(*allothersolvedvars) and \
                                                   self.codeComplexity(jointevalcos) < 100)):
@@ -8250,9 +8249,10 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         
         return toappendout, condout
 
-    def extractSubsEqns2(self, currentcasesubs, \
-                         usedsolutions, \
-                         flatzerosubstitutioneqs, \
+    def extractSubsEqns2(self, usedsolutions, \
+                         currentcasesubs, \
+                         scopecounter, \
+                         hasZeroSubsEqs, \
                          allcurvars,
                          othersolvedvars, \
                          handledconds):
@@ -8271,9 +8271,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             rotsymbols = []
             numRotSymbolsInCases = 0
 
-        lenflat = len(flatzerosubstitutioneqs)
         # output
-        checkexprout = []
         condout = []
         zerosubseqs = []
         # if not equations found, try setting two variables at once
@@ -8282,8 +8280,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
 
         threshnumsolutions = 1 # number of solutions to take from usedsolutions
         for isolution, (solution, var) in enumerate(usedsolutions):
-            if isolution < len(usedsolutions) - threshnumsolutions and \
-               lenflat + len(checkexprout) > 0:
+            if isolution < len(usedsolutions) - threshnumsolutions and hasZeroSubsEqs:
                 # have at least one zero condition...
                 zerosubseqs.append([])
                 continue
@@ -8313,12 +8310,12 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                             ishinge.append(False)
 
                 for othervar in othersolvedvars:
-                    othervarobj = self.getVariable(othervar)
-                    if not checkzero.has(*othervarobj.vars):
+                    othervarsym = self.getVariable(othervar)
+                    if not checkzero.has(*othervarsym.vars):
                         continue
                     if self.IsHinge(othervar.name):
-                        sothervar = othervarobj.svar
-                        cothervar = othervarobj.cvar
+                        sothervar = othervarsym.svar
+                        cothervar = othervarsym.cvar
                         possiblesubs += [[(othervar,      value), \
                                           (sothervar,     sin(value).evalf(n=30)), \
                                           (sin(othervar), sin(value).evalf(n=30)), \
@@ -8373,7 +8370,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                                 possiblesub.append((Symbol('%s%d%d'%(possiblevarname, row, col)), S.Zero))
 
                         checkexpr = [[cond], evalcond, possiblesub, []]
-                        log.info('Append %r to flatzerosubstitutioneqs and localsubstitutioneqs', checkexpr)
+                        log.info('Append %r to localsubseqs', checkexpr)
                         localsubseqs.append(checkexpr)
                         condout.append(cond)
                         continue
@@ -8418,7 +8415,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                                          evalcond + evalcond2, \
                                          possiblesub + possiblesub2, \
                                          []]
-                            log.info('Append %r to flatzerosubstitutioneqs and localsubstitutioneqs', checkexpr)
+                            log.info('Append %r to localsubseqs', checkexpr)
                             localsubseqs.append(checkexpr)
                             condout.append(cond + cond2)
                             
@@ -8471,13 +8468,13 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                                              evalcond + evalcond2, \
                                              possiblesub + possiblesub2, \
                                              []]
-                                log.info('Append %r to flatzerosubstitutioneqs and localsubstitutioneqs', checkexpr)
+                                log.info('Append %r to localsubseqs', checkexpr)
                                 localsubseqs.append(checkexpr)
                                 condout.append(cond + cond2)
-                                
+            if len(localsubseqs)>0:
+                hasZeroSubsEqs = True
             zerosubseqs.append(localsubseqs)
-            checkexprout += localsubseqs
-        return zerosubseqs, checkexprout, condout
+        return zerosubseqs, condout
     
     def PropagateSolvedConstants(self, NewEquations, \
                                  unknownvars, \
@@ -9095,32 +9092,45 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     currentcasesubs = [], \
                     unknownvars     = []):
         """
+        Called by SolveAllEquations only and also calls it recursively. Executes the following steps.
+
         Step 1: Search for a SOLUTION in SOLUTIONS that satisfies the following conditions in priority order.
                 (1) Has no CHECKFORZEROS equation AND solves variable(s) uniquely.
                 (2) Has no CHECKFORZEROS equation but has >1 formula in the solving.
                 If there is such a SOLUTION, then call solveAllEquations with the remaining variables 
-                and returns what it returns.
+                and returns whatever it returns.
 
         Step 2: Every SOLUTION (remaining) has some CHECKFORZEROS equations. Extracts at most 3 solutions that
                 have different sets of CHECKFORZEROS equations. Call these USEDSOLUTIONS and reverse it.
 
-        Step 3: For each CHECKFORZEROS equation, derive CHECKSIMPLEZEROEXPRS. If it contains an OTHERVAR,
-                then try finding at what values this variable yields this expression = 0. This is done by 
-                evaluating at 0, pi/2, pi, -pi/2 and, if necessary, calling solveSingleVariable.
+        Step 3: Consider each (solution, variable) pair in USEDSOLUTIONS. Derive CHECKSIMPLEZEROEXPRS for each 
+                CHECKFORZEROS equation thereof. If it contains an OTHERVAR, then try finding at what values 
+                this variable yields this expression = 0. This is done by evaluating at 0, pi/2, pi, -pi/2 and, 
+                if necessary, calling solveSingleVariable. The at-most-two solutions for OTHERVAR are used to 
+                extract substitution equations by calling *extractSubsEqns1*. Those conditions and substitutions
+                are appended to HANDLEDCONDS and ZEROSUBSTITUTIONEQS, respectively.
 
-                The at-most-two solutions for OTHERVAR are used to extract substitution equations by calling
-                EXTRACTSUBSTITUTIONEQS. Those substitutions and conditions are appended to LOCALSUBSTITUTIONEQN 
-                and HANDLEDCONDS.
+                Then call SolveAllEquations to go 1 level deep to find NEXTSOLUTIONS, a dictionary that 
+                stores solutions in the next level. It is then used to construct an AST.SolverCheckZeros object 
+                that encapsulates NEXTSOLUTIONS[OTHERVAR].
 
-        Step 4: For each variable in USEDSOLUTIONS, call SolveAllEquations to go 1 level deep to find NEXTSOLUTIONS,
-                a dictionary that stores solutions in the next level. It is then used to construct an 
-                AST.SolverCheckZeros object that encapsulates NEXTSOLUTIONS[OTHERVAR].
+                So far the first iteration of USEDSOLUTIONS analysis is finished.
 
-                So far all USEDSOLUTIONS are analyzed.
+        Step 4: The second iteration of USEDSOLUTIONS analysis is done by extractSubsEqns2. For each 
+                (solution, variable) pair, extract from its CHECKFORZEROS symbols that are in (px, py, pz), 
+                rij, or new_rij. Consider them potential zeros (POSSIBLESUB), add and derive correspondingly the 
+                conditions and the zero substitution equations. They are appended to HANDLEDCONDS and 
+                ZEROSUBSTITUTIONEQS, respectively.
 
-        TBW
+                From Steps 3 & 4, FLATZEROSUBSTITUTIONEQS is a flattened list of ZEROSUBSTITUTIONEQS.
 
-        Called by SolveAllEquations only and also calls it recursively.
+        Step 5: For each quadruple (cond, evalcond, othervarsubs, dictequations) in FLATZEROSUBSTITUTIONEQS,
+                substitute OTHERVARSUBS into AllEquations and obtain a new set of equations, current cases and
+                substitutions. Then call SolveAllEquations to obtain a NEWTREE, append it to ZEROBRANCHES,
+                encapsulate it in an AST.SolverBranchConds object, and append it to LASTBRANCH. If there is no 
+                equation left or SolveAllEquations fails, then append an AST.SolverBreak object to LASTBRANCH.
+
+        Step 6: Finally return PREVBRANCH.
         """
 
         assert(all(Symbol(sol[0].jointname)==sol[1] for sol in solutions))
@@ -9149,7 +9159,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         if len(solutions) == 0:
             raise self.CannotSolveError('No valid solutions')            
         solutions.sort(lambda x, y: x[0].score-y[0].score)
-        
+
+        ## Step 1: Try to find a solution that does not have CHECKFORZEROS (divide-by-zero equations).
         for solution, var in solutions:
             checkforzeros = solution.checkforzeros
             # search for a solution that (1) has no checkforzeros equation (2) solves uniquely a variable
@@ -9214,13 +9225,10 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 finally:
                     self._dec_solutionStackCounter()
 
-        # back up global symbols, restored at the end
-        originalGlobalSymbols = self.globalsymbols
-        
         # from here on, all solutions have checkforzeros equations
         # RD: choose the variable with the shortest solution and compute (this is a conservative approach)
         usedsolutions = []
-        # remove any solutions with similar checkforzero constraints (because they are essentially the same)
+        ## Step 2: Remove any solutions with similar checkforzero constraints (because they are essentially the same).
         for solution, var in solutions:
             solution.subs(solsubs)
             match = False
@@ -9255,8 +9263,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         # (used for cross product of equations later on; TGN: all commented out already by RD)
         
         zerosubstitutioneqs = []
-        # zerosubstitutioneqs equations flattened for easier checking
-        flatzerosubstitutioneqs = []
+        hasZeroSubsEqs = False
         hascheckzeros = False
         
         addhandleddegeneratecases = [] # for bookkeeping/debugging
@@ -9270,7 +9277,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         # Although the zeros of the first equation are checked, they are not added as conditions to the later equations,
         # so that the later equations will also use variables as unknowns
         # (even though they are determined to be specific constants). This is most apparent in rotations.
-        
+
+        ## Step 3: 1st USEDSOLUTIONS for-loop
         for solution, var in usedsolutions:
             # each usedsolution is either a (SolverSolution        object, variable) pair or
             #                             a (SolverPolynomialRoots object, variable) pair
@@ -9295,7 +9303,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         checkforzeros.append(checkzero) # self.removecommonexprs(checkzero.evalf())
                     continue # checkzero for-loop
 
-                checkzero2 = self._SubstituteGlobalSymbols(checkzero, originalGlobalSymbols)
+                checkzero2 = self._SubstituteGlobalSymbols(checkzero)
                 checkzero2Complexity = self.codeComplexity(checkzero2)
                 if checkzero2Complexity < 2*checkzeroComplexity: # check that with substitutions, things don't get too big
                     checkzero = checkzero2
@@ -9307,13 +9315,11 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
 
                 checksimplezeroexprs = [checkzero]
                 if not checkzero.has(*allothersolvedvars):
-                    # Assume for example checkforzero = x**2 + (y*z)**2. Then
+                    # Assume for example checkforzero = x**2 + (y*z)**2. Then (TGN: what are these used for?)
                     # sumsquaresexprs = [x, y*z]
                     # sumsquaresexprstozero = [x, y, z]
                     # checksimplezeroexprs = [x**2+(y*z)**2, x, y*z]
                     # toappend = [[x,y,z], x**2+(y*z)**2, [(x,0),(y,0),(z,0)], []]
-                    #
-                    # TGN: what are these used for?
                     sumsquaresexprs = self._GetSumSquares(checkzero)
                     if len(sumsquaresexprs) > 0:
                         checksimplezeroexprs += sumsquaresexprs
@@ -9332,6 +9338,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                                        []]
                            log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
                            localsubstitutioneqs.append(toappend)
+                           hasZeroSubsEqs = True
                            handledconds += sumsquaresexprstozero
 
                 for checksimplezeroexpr in checksimplezeroexprs:
@@ -9394,7 +9401,6 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                             except (PolynomialError, self.CannotSolveError), e:
                                 log.info('[SOLVE %i] Cannot use solveSingleVariable to solve for %r: %s', \
                                          self._solutionStackCounter, othervar, e)
-                                pass
                                 # Good solutions can have a divide-by-zero equation (in manusarm_left) like
                                 # ((0.405 + 0.331*cj2)**2 + 0.109561*sj2**2 = 0.27358 + 0.26811*cj2
                                 # It is nontrivial to figure out it never becomes 0.
@@ -9405,18 +9411,17 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         assert(len(ss)<=2) # One by evaluating and one by solveSingleVariable; now mostly len(ss)=1.
                         for s in ss:
                             toappendout, condout = self.extractSubsEqns1(s, \
-                                                                         originalGlobalSymbols, \
                                                                          currentcases, \
                                                                          handledconds, \
                                                                          allothersolvedvars, \
                                                                          othervar)
                             localsubstitutioneqs += toappendout
+                            hasZeroSubsEqs = True
                             handledconds += condout
 
-            # still in usedsolution for-loop
-            log.info('Append %i localsubstitutioneqs %r to flatzerosubstitutioneqs and zerosubstitutioneqs', \
+            # still in the first usedsolution for-loop
+            log.info('Append %i local substitution equations %r to zerosubstitutioneqs', \
                       len(localsubstitutioneqs), localsubstitutioneqs)
-            flatzerosubstitutioneqs += localsubstitutioneqs
             zerosubstitutioneqs.append(localsubstitutioneqs) # list of lists
             
             if not var in nextsolutions:
@@ -9440,6 +9445,10 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     else:
                         self._inc_solutionStackCounter()
                         nextsolutions[var] = endbranchtree
+                except self.CannotSolveError, e:
+                    log.info('[SOLVE %i] AddSolution cannot calls SolveAllEquations to find next solution for %r: %s', \
+                             self._solutionStackCounter-1, newvars, e)
+                    raise self.CannotSolveError(e)
                 finally:
                     self._dec_solutionStackCounter()                                            
                     addhandleddegeneratecases += olddegeneratecases.handleddegeneratecases
@@ -9455,7 +9464,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                                                         thresh = solution.GetZeroThreshold(), \
                                                         anycondition = True)
                 # have to transfer the dictionary!
-                solvercheckzeros.dictequations = originalGlobalSymbols.items() + solution.dictequations                    
+                solvercheckzeros.dictequations = self.globalsymbols.items() + solution.dictequations                    
                 solvercheckzeros.equationsused = AllEquations
                 solution.dictequations = []
                 prevbranch = [solvercheckzeros]
@@ -9463,12 +9472,12 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 prevbranch = [solution] + nextsolutions[var]
             prevbranchCreated = True
 
-        log.info('[SOLVE %i] Finished analyzing %i usedsolutions in AddSolution.', \
+        log.info('[SOLVE %i] Finished the first iteration of analyzing %i usedsolutions.', \
                  self._solutionStackCounter, len(usedsolutions))
         
         if len(prevbranch) == 0:
             raise self.CannotSolveError('AddSolution fails to add solution!')
-
+        
         # used to limit how deep the hierarchy goes or otherwise IK can get too big
         maxlevel2scopecounter = 300
         # by default self.maxcasedepth = 3, so len(currentcases) is at most 3
@@ -9483,7 +9492,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                      ("\n"+" "*23).join(str(x) for x in list(AllEquations)))
 
             varlist =  [(var, eq if eq.is_Symbol or eq.is_number else \
-                         self.SimplifyAtan2(self._SubstituteGlobalSymbols(eq, originalGlobalSymbols))) \
+                         self.SimplifyAtan2(self._SubstituteGlobalSymbols(eq))) \
                         for var, eq in currentcasesubs]
 
             assert(len(lastbranch) == 0)
@@ -9495,17 +9504,23 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             if self._isUnderAnalysis:
                 exec(ipython_str, globals(), locals())
             return prevbranch
-        
+
+
+        ## Step 4: 2nd USEDSOLUTIONS for-loop
         # fill the last branch with all the zero conditions
         if hascheckzeros:
-            zerosubseqs2, checkexprout, condout = self.extractSubsEqns2(currentcasesubs, \
-                                                                               usedsolutions, \
-                                                                               flatzerosubstitutioneqs, \
-                                                                               allcurvars, \
-                                                                               othersolvedvars, \
-                                                                               handledconds)
-            flatzerosubstitutioneqs += checkexprout
+            # the second usedsolutions for-loop is here
+            zerosubseqs2, condout = self.extractSubsEqns2(usedsolutions, \
+                                                          currentcasesubs, \
+                                                          scopecounter, \
+                                                          hasZeroSubsEqs, \
+                                                          allcurvars, \
+                                                          othersolvedvars, \
+                                                          handledconds)
+            log.info('[SOLVE %i] Finished the second iteration of analyzing %i usedsolutions.', \
+                     self._solutionStackCounter, len(usedsolutions))
             handledconds += condout
+            # componentwise merge lists
             zerosubstitutioneqs = [list1+list2 for list1, list2 in \
                                    izip(zerosubstitutioneqs, zerosubseqs2)]
 
@@ -9541,19 +9556,26 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
 #                     dictequations += subdictequations
 #                 if not duplicatesub:
 #                     flatzerosubstitutioneqs.append([cond,evalcond,othervarsubs,dictequations])
-        
+
+        ## Step 5: FLATZEROSUBSTITUTIONEQS for-loop
         zerobranches = []
         accumequations = []
         trysubstitutions = self.ppsubs + (self.npxyzsubs + self.rxpsubs \
                                           if self._iktype == 'transform6d' or \
                                           self._iktype == 'rotation3d' else [])
-            
+        
+        # zerosubstitutioneqs equations flattened for easier checking
+        flatzerosubstitutioneqs = self.jointlists(zerosubstitutioneqs)
+        
         log.debug('c = %d, %d zero-substitution(s):\n        %s', \
                   scopecounter, len(flatzerosubstitutioneqs), \
                   ("\n"+" "*8).join(str(x) for x in list(flatzerosubstitutioneqs)))
+
+        # back up global symbols, restored at the end
+        originalGlobalSymbols = self.globalsymbols
         
         for i, (cond, evalcond, othervarsubs, dictequations) in enumerate(flatzerosubstitutioneqs):
-            # dictequations is empty if extractSubstitutionEqs is not called above
+            # dictequations is empty if extractSubsEqns1 is not called above
             
             # have to convert to fractions before substituting!
             if not all([self.isValidSolution(v) for s, v in othervarsubs]):
@@ -9566,10 +9588,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             if any([eq.is_number and eq!=S.Zero for eq in NewEquations]):
                 log.info('Infeasible substitutions from othervarsubs; some equations are nonzero numbers.')
                 continue
-            
 
             NewEquationsClean = self.PropagateSolvedConstants(NewEquations, curvars, othersolvedvars)
-            
             try:
                 # forcing a value, so have to check if all equations in NewEquations that do not contain
                 # unknown variables are really 0
