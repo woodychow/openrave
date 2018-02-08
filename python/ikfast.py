@@ -8479,7 +8479,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             checkexprout += localsubseqs
         return zerosubseqs, checkexprout, condout
     
-    def PropagateSolvedConstants(self, AllEquations, \
+    def PropagateSolvedConstants(self, NewEquations, \
                                  unknownvars, \
                                  othersolvedvars):
         """
@@ -8493,6 +8493,14 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
 
         Called by AddSolution only, in the big flatzerosubstitutioneqs for-loop around the end.
         """
+
+        AllEquations = []
+        for eq in NewEquations:
+            if eq not in AllEquations and \
+               -eq not in AllEquations and \
+               not eq.is_number:
+                AllEquations.append(eq)
+                
         constantSymbols = list(self.pvars) + \
                           self.jointlists([[var, cos(var), sin(var)] if self.IsHinge(var.name) \
                                            else [var] for var in othersolvedvars])
@@ -9139,10 +9147,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         solutions = [s for s in solutions if s[0].score < oo and \
                      s[0].checkValidSolution()] 
         if len(solutions) == 0:
-            raise self.CannotSolveError('No valid solutions')
-            
+            raise self.CannotSolveError('No valid solutions')            
         solutions.sort(lambda x, y: x[0].score-y[0].score)
-        hasonesolution = False
         
         for solution, var in solutions:
             checkforzeros = solution.checkforzeros
@@ -9170,25 +9176,18 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     exec(ipython_str, globals(), locals())
                 return prevbranch
             except self.CannotSolveError, e:
-                log.info(e)
-                log.info('[SOLVE %i] Cannot use SolveAllEquations for %r', \
-                         self._solutionStackCounter, newvars)
+                log.info('[SOLVE %i] Cannot use SolveAllEquations for %r: %s', \
+                         self._solutionStackCounter, newvars, e)
                 continue
             finally:
                 self._dec_solutionStackCounter()
 
-        # TGN: The logic of hasonesolution in original code seems wrong to me
-        #
-        #      Assume len(solutions[0][0].checkforzeros) = 2, len(solutions[0][0].numsolutions() == 1
-        #             len(solutions[1][0].checkforzeros) = 0, len(solutions[1][0].numsolutions() == 2
-        #
-        #      Then hasonesolution is True, and we skip the below "if" block and can no longer
-        #      "check again except without the number of solutions requirement" to find solutions[1].
-
+        # almost the same as the last for-loop
         for solution, var in solutions:
             checkforzeros = solution.checkforzeros
+            # search for a solution that just has no checkforzeros equation
             if len(checkforzeros) == 0:
-                # did find a good solution, so take it. Make sure to check any zero branches
+                # TGN: what does "make sure to check any zero branches" mean
                 newvars = [v for v in curvars if v != var]
                 log.info('[SOLVE %i] hasonesolution = False, len(checkforzeros) = 0\n' + \
                          ' '*18 + 'Use solution for %r\n' + \
@@ -9209,39 +9208,36 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         exec(ipython_str, globals(), locals())
                     return prevbranch
                 except self.CannotSolveError, e:
-                    log.info(e)
-                    log.info('[SOLVE %i] Cannot use SolveAllEquations for %r', \
-                             self._solutionStackCounter, newvars)
+                    log.info('[SOLVE %i] Cannot use SolveAllEquations for %r: %s', \
+                             self._solutionStackCounter, newvars, e)
                     continue
                 finally:
                     self._dec_solutionStackCounter()
 
         # back up global symbols, restored at the end
         originalGlobalSymbols = self.globalsymbols
+        
         # from here on, all solutions have checkforzeros equations
         # RD: choose the variable with the shortest solution and compute (this is a conservative approach)
         usedsolutions = []
         # remove any solutions with similar checkforzero constraints (because they are essentially the same)
         for solution, var in solutions:
             solution.subs(solsubs)
-            if len(usedsolutions) == 0:
-                usedsolutions.append((solution, var))
-            else:
-                match = False
-                for usedsolution, usedvar in usedsolutions:
-                    # test if both sets of checkforzeros are exactly the same
-                    if len(solution.checkforzeros) == len(usedsolution.checkforzeros) and \
-                       not any([self.CheckExpressionUnique(usedsolution.checkforzeros, eq) \
-                                for eq in solution.checkforzeros]):
-                        match = True
-                        break
-                if not match:
-                    usedsolutions.append((solution, var))
-                    if len(usedsolutions) >= 3:
-                        # don't need more than 3 solutions (used to be 2, but lookat barrettwam4 proved that wrong)
-                        # TGN: try finding all?
-                        break
-        
+            match = False
+            for usedsolution, usedvar in usedsolutions:
+                # test if both sets of checkforzeros are exactly the same
+                if len(solution.checkforzeros) == len(usedsolution.checkforzeros) and \
+                   not any([self.CheckExpressionUnique(usedsolution.checkforzeros, eq) \
+                            for eq in solution.checkforzeros]):
+                    match = True
+                    break
+            if match:
+                continue
+            usedsolutions.append((solution, var))
+            if len(usedsolutions) >= 3: # don't need >3 solutions (used to be 2, but lookat barrettwam4 proved that wrong)
+                # TGN: try finding all?
+                break
+
         allcurvars         = self.jointlists([self.getVariable(v).vars for v in curvars])
         allothersolvedvars = self.jointlists([self.getVariable(v).vars for v in othersolvedvars])
 
@@ -9256,9 +9252,9 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         handledconds = self.degeneratecases.GetHandledConditions(currentcases)
         
         # one to one correspondence with usedsolutions and the SolverCheckZeros hierarchies
-        # (used for cross product of equations later on)
+        # (used for cross product of equations later on; TGN: all commented out already by RD)
         
-        zerosubstitutioneqs = [] # indexed by reverse ordering of usedsolutions (len(usedsolutions)-solutionindex-1)
+        zerosubstitutioneqs = []
         # zerosubstitutioneqs equations flattened for easier checking
         flatzerosubstitutioneqs = []
         hascheckzeros = False
@@ -9267,13 +9263,16 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         
         # iterate in reverse order and put the most recently processed solution at the front.
         usedsolutions = usedsolutions[::-1]
+
+        # TGN needs to understand the limitation of the algorithm described below
+        #
         # There is a problem with this algorithm transferring the degenerate cases correctly.
         # Although the zeros of the first equation are checked, they are not added as conditions to the later equations,
         # so that the later equations will also use variables as unknowns
         # (even though they are determined to be specific constants). This is most apparent in rotations.
         
         for solution, var in usedsolutions:
-            # each usedsolution is either a (SolverSolution object       , variable) pair or
+            # each usedsolution is either a (SolverSolution        object, variable) pair or
             #                             a (SolverPolynomialRoots object, variable) pair
             
             # there are divide by zeros, so check if they can be explicitly solved for joint variables
@@ -9345,6 +9344,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         # below checksimplezeroexpr has either jX, sjX, or cjX
                         # check if it evaluates to zero at angles jX = 0, pi/2, pi, -pi/2
                         jointeval = []
+                        checksimplezeroexpr = self.trigsimp(checksimplezeroexpr)
                         for value in [S.Zero, pi/2, pi, -pi/2]:
                             try:
                                 # doing (1/x).subs(x,0) produces a RuntimeError (infinite recursion...)
@@ -9368,6 +9368,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         if len(jointeval) > 0:
                             try:
                                 peq = Poly(checksimplezeroexpr, othervar, sothervar, cothervar)
+                                # only one of svar and cvar occurs and occurs linearly, two solutions obtained
                                 hasSolvedByEval = len(peq.monoms())==1 and \
                                                   sum(peq.monoms()[0])==1 and \
                                                   len(jointeval)>=2
@@ -9376,7 +9377,9 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
 
                         eq = checksimplezeroexpr.subs([(sothervar, sin(othervar)), \
                                                        (cothervar, cos(othervar))])
-                        # TGN: eq can be like Abs(...)+...+Abs(...). Don't solve sum of Abs for a variable
+                        # TGN: eq can be like Abs(...)+...+Abs(...). Don't solve sum of Abs for a variable.
+                        # Don't solve if CHECKSIMPLEZEROEXPR is linear in svar or cvar and solved already by
+                        # evaluating at those angles (so at most 2 solutions).
                         if not (hasSolvedByEval or \
                                 (eq.is_Add and eq.args[0].is_Function and eq.args[0].func == Abs)):
                             try:
@@ -9392,17 +9395,14 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                                 log.info('[SOLVE %i] Cannot use solveSingleVariable to solve for %r: %s', \
                                          self._solutionStackCounter, othervar, e)
                                 pass
-                                # this is actually a little tricky
-                                # sometimes really good solutions can have a divide that looks like:
-                                # ((0.405 + 0.331*cj2)**2 + 0.109561*sj2**2 (manusarm_left)
-                                # This will never be 0, but the solution cannot be solved.
+                                # Good solutions can have a divide-by-zero equation (in manusarm_left) like
+                                # ((0.405 + 0.331*cj2)**2 + 0.109561*sj2**2 = 0.27358 + 0.26811*cj2
+                                # It is nontrivial to figure out it never becomes 0.
                                 # Instead of rejecting, add a condition to check if checksimplezeroexpr itself is 0 or not
                             finally:
                                 self._dec_solutionStackCounter()
 
-                        assert(len(ss)<=2)
-                        # There are at most two items in ss: one from evaluating at angles [0, pi/2, pi, -pi/2],
-                        #                                    the other from solveSingleVariable
+                        assert(len(ss)<=2) # One by evaluating and one by solveSingleVariable; now mostly len(ss)=1.
                         for s in ss:
                             toappendout, condout = self.extractSubsEqns1(s, \
                                                                          originalGlobalSymbols, \
@@ -9567,13 +9567,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 log.info('Infeasible substitutions from othervarsubs; some equations are nonzero numbers.')
                 continue
             
-            NewEquationsClean = []
-            for eq in NewEquations:
-                if eq not in NewEquationsClean and \
-                   -eq not in NewEquationsClean and \
-                   not eq.is_number:
-                    NewEquationsClean.append(eq)
-            NewEquations = list(NewEquationsClean)
+
             NewEquationsClean = self.PropagateSolvedConstants(NewEquations, curvars, othersolvedvars)
             
             try:
