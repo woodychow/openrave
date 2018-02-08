@@ -34,3 +34,6 @@
 18/02/08-11:49:09, --robot=robotfiles/unimation-pumaarm.zae, Transform6D, 1000, 1000, 0, 100.0, 0.000, 0.000, 33.300, runtime = 21.3s, testtime = 0.1s
 18/02/08-11:50:27, --robot=robotfiles/universalrobots-ur6-85-5-a.zae, Transform6D, 1000, 993, 0, 99.3, 0.000, 0.700, 94.700, runtime = 74.6s, testtime = 0.5s
 18/02/08-11:58:31, --robot=robotfiles/neuronics-katana.zae, TranslationDirection5D, 1000, 937, 0, 93.7, 0.000, 6.300, 6.900, runtime = 474.2s, testtime = 0.1s
+18/02/08-13:07:10, --robot=robotfiles/barrettsegway.robot.xml, Transform6D, 1000, 1000, 0, 100.0, 0.000, 0.000, 26.000, runtime = 33.7s, testtime = 16.8s
+18/02/08-13:10:32, --robot=robotfiles/barrettsegway.robot.xml, Transform6D, 1000, 1000, 0, 100.0, 0.000, 0.000, 25.300, runtime = 34.7s, testtime = 16.5s
+18/02/08-13:12:02, --robot=robotfiles/barrettsegway.robot.xml, Transform6D, 1000, 1000, 0, 100.0, 0.000, 0.000, 26.800, runtime = 33.9s, testtime = 16.9s

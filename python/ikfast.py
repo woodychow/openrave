@@ -8036,12 +8036,12 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                                        nonzerobranch = [AST.SolverBreak('verifyAllEquations')], \
                                        anycondition = False)]
     
-    def extractSubstitutionEqs(self, sol, \
-                               originalGlobalSymbols, \
-                               currentcases, \
-                               handledconds,
-                               allothersolvedvars, \
-                               var):
+    def extractSubsEqns1(self, sol, \
+                         originalGlobalSymbols, \
+                         currentcases, \
+                         handledconds,
+                         allothersolvedvars, \
+                         var):
         """
         Refactored from AddSolution. 
 
@@ -8250,6 +8250,235 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         
         return toappendout, condout
 
+    def extractSubsEqns2(self, currentcasesubs, \
+                         usedsolutions, \
+                         flatzerosubstitutioneqs, \
+                         allcurvars,
+                         othersolvedvars, \
+                         handledconds, \
+                         zerosubstitutioneqs):
+        """
+        Refactored from AddSolution. 
+
+        From each USEDSOLUTION
+        """
+        
+        # count the number of rotation symbols seen in the current cases
+        if self._iktype == 'transform6d' or \
+           self._iktype == 'rotation3d':
+            rotsymbols = self.new_r + list(self.Tee[0:3,0:3])
+            numRotSymbolsInCases = len([var for var, eq in currentcasesubs if var in rotsymbols])
+        else:
+            rotsymbols = []
+            numRotSymbolsInCases = 0
+
+        lenflat = len(flatzerosubstitutioneqs)
+        # output
+        checkexprout = []
+        condout = []
+
+        # if not equations found, try setting two variables at once
+        # also try setting px, py, or pz to 0 (barrettwam4 lookat)
+        # sometimes can get the following: cj3**2*sj4**2 + cj4**2
+
+        threshnumsolutions = 1 # number of solutions to take from usedsolutions
+        for isolution, (solution, var) in enumerate(usedsolutions):
+            if isolution < len(usedsolutions) - threshnumsolutions and \
+               lenflat + len(checkexprout) > 0:
+                # have at least one zero condition...
+                continue
+            localsubseqs = []
+            for checkzero in solution.checkforzeros:
+                if checkzero.has(*allcurvars):
+                    log.info('Ignore special checkforzero since it has symbols %r: %r', \
+                             allcurvars, checkzero)
+                    continue
+                if self.codeComplexity(checkzero) > 120:
+                    continue
+
+                possiblesubs = []
+                ishinge = []
+                for preal in self.Tee[0:3,3]:
+                    if checkzero.has(preal): # px, py, pz
+                        possiblesubs.append([(preal, S.Zero)])
+                        ishinge.append(False)
+
+                # Variables in the rotation matrix might depend on each other.
+                # E.g. If r00 = r01 = 0, then r02 = 1 or -1 and r12 = r22 = 0.
+                # Then r10, r12, r20, r21 is a 2D rotation matrix
+                if numRotSymbolsInCases < 2:
+                    for preal in rotsymbols:
+                        if checkzero.has(preal):
+                            possiblesubs.append([(preal, S.Zero)])
+                            ishinge.append(False)
+
+                for othervar in othersolvedvars:
+                    othervarobj = self.getVariable(othervar)
+                    if not checkzero.has(*othervarobj.vars):
+                        continue
+                    if self.IsHinge(othervar.name):
+                        sothervar = othervarobj.svar
+                        cothervar = othervarobj.cvar
+                        possiblesubs += [[(othervar,      value), \
+                                          (sothervar,     sin(value).evalf(n=30)), \
+                                          (sin(othervar), sin(value).evalf(n=30)), \
+                                          (cothervar,     cos(value).evalf(n=30)), \
+                                          (cos(othervar), cos(value).evalf(n=30))] \
+                                         for value in [S.Zero, pi/2, pi, -pi/2]  ]
+                        ishinge += [True]*4
+                    else: 
+                        possiblesubs.append([(othervar, S.Zero)])
+                        ishinge.append(False)
+                        continue
+
+                # all possiblesubs are present in checkzero
+                for ipossiblesub, possiblesub in enumerate(possiblesubs):
+                    try:
+                        eq = checkzero.subs(possiblesub).evalf(n=30)
+                    except RuntimeError, e:
+                        # most likely doing (1/x).subs(x,0) produces a RuntimeError (infinite recursion...)
+                        log.warn(e)
+                        continue
+
+                    if not self.isValidSolution(eq):
+                        continue
+
+                    # only take the first index
+                    possiblevar, possiblevalue = possiblesub[0]
+                    cond = Abs(possiblevar - possiblevalue.evalf(n=30))
+                    if not self.CheckExpressionUnique(handledconds+condout, cond):
+                        # already present
+                        continue
+
+                    evalcond = Abs(self.mapvaluepmpi(possiblevar-possiblevalue)) if ishinge[ipossiblesub] else cond
+
+                    if eq == S.Zero:
+                        log.info('c = %d, adding case %s = %s in %s', \
+                                 scopecounter, possiblevar, possiblevalue, checkzero)
+
+                        # If some variable in the rotation matrix is 1 or -1,
+                        # then four other variables (two in the same row, two in the same column) are 0
+                        # E.g. add constraints new_r02 = new_r12 = new_r20 = new_r21 = 0
+                        #      if we see newr_22 = 1 or -1 in constraints
+                        #
+                        # TGN: it seems to me it never gets into here
+                        if possiblevar in rotsymbols and (possiblevalue == S.One or possiblevalue == -S.One):
+                            assert(0) # TGN: shouldn't be here, because none of possiblevalue added is 1 or -1
+                            row1 = int(possiblevar.name[-2])
+                            col1 = int(possiblevar.name[-1])
+                            otherrows = [row for row in [0,1,2] if row!=row1]
+                            othercols = [col for col in [0,1,2] if col!=col1]
+                            possiblevarname = possiblevar.name[:-2]
+                            for row, col in product(otherrows, othercols):
+                                possiblesub.append((Symbol('%s%d%d'%(possiblevarname, row, col)), S.Zero))
+
+                        checkexpr = [[cond], evalcond, possiblesub, []]
+                        log.info('Append %r to flatzerosubstitutioneqs and localsubstitutioneqs', checkexpr)
+                        localsubseqs.append(checkexpr)
+                        condout.append(cond)
+                        continue
+
+                    # try another possiblesub
+                    for ipossiblesub2, possiblesub2 in enumerate(possiblesubs[ipossiblesub+1:]):
+                        # adjust index
+                        ipossiblesub2 += ipossiblesub + 1
+                        possiblevar2, possiblevalue2 = possiblesub2[0]
+                        if possiblevar == possiblevar2: # same var, skip
+                            continue
+                        try:
+                            eq2 = eq.subs(possiblesub2).evalf(n=30)
+                        except RuntimeError, e:
+                            # most likely doing (1/x).subs(x,0) produces a RuntimeError (infinite recursion...)
+                            log.warn(e)
+                            continue
+                        if not (self.isValidSolution(eq2) and eq2 == S.Zero):
+                            continue
+
+                        assert(eq2 == S.Zero)
+                        possiblevar2, possiblevalue2 = possiblesub2[0]
+                        cond2 = Abs(possiblevar2 - possiblevalue2.evalf(n=30))
+                        if not ( self.CheckExpressionUnique(handledconds+condout, cond2) and \
+                                 self.CheckExpressionUnique(handledconds+condout, cond+cond2) ):
+                            continue
+
+                        # test cond, cond2 separately to reduce solution tree
+                        evalcond2 = Abs(self.mapvaluepmpi(possiblevar2-possiblevalue2)) \
+                                    if ishinge[ipossiblesub2] else cond2
+
+                        # If both variables in the rotation matrix are 0 and are in the same row/col,
+                        # then two other variables in the same col/row are 0
+                        if (self._iktype == 'transform6d' or \
+                            self._iktype == 'rotation3d') and \
+                            possiblevar in rotsymbols and \
+                            possiblevalue == S.Zero and \
+                            possiblevar2 in rotsymbols and \
+                            possiblevalue2 == S.Zero:
+
+                            checkexpr = [[cond + cond2], \
+                                         evalcond + evalcond2, \
+                                         possiblesub + possiblesub2, \
+                                         []]
+                            log.info('Append %r to flatzerosubstitutioneqs and localsubstitutioneqs', checkexpr)
+                            localsubseqs.append(checkexpr)
+                            condout.append(cond + cond2)
+                            
+                            row1 = int(possiblevar. name[-2])
+                            col1 = int(possiblevar. name[-1])
+                            row2 = int(possiblevar2.name[-2])
+                            col2 = int(possiblevar2.name[-1])
+                            possiblevarname = possiblevar.name[:-2]
+
+                            # possiblevarname == 'new_r'
+                            # add constraints new_r02 = new_r12 = 0
+                            # if we see new_r20 = new_r21 = 0 in constraints, and vice versa
+                            if row1 == row2:
+                                assert(col1 != col2)
+                                col3 = 3 - col1 - col2
+                                otherrows = [row for row in [0, 1, 2] if row!=row1]
+                                checkexpr[2] += [(Symbol('%s%d%d' % \
+                                                         (possiblevarname, row, col3)), \
+                                                  S.Zero) for row in otherrows]
+                                ra, rb, rc, rd = [Symbol('%s%d%d'%(possiblevarname, row, col)) \
+                                                  for row, col in \
+                                                  product(otherrows, [col1, col2])]
+                                checkexpr[2] += [(rb**2, S.One-ra**2), \
+                                                 (rb**3, rb-rb*ra**2), \
+                                                 (rc**2, S.One-ra**2)  ]
+
+                            elif col1 == col2:
+                                assert(row1 != row2)
+                                row3 = 3 - row1 - row2
+                                othercols = [col for col in [0, 1, 2] if col!=col1]
+                                checkexpr[2] += [(Symbol('%s%d%d' % \
+                                                         (possiblevarname, row3, col)), \
+                                                  S.Zero) for col in othercols]
+                                ra, rb, rc, rd = [Symbol('%s%d%d'%(possiblevarname, row, col))
+                                                  for col, row in \
+                                                  product(othercols, [row1, row2])]
+                                checkexpr[2] += [(rb**2, S.One-ra**2), \
+                                                 (rb**3, rb-rb*ra**2), \
+                                                 (rc**2, S.One-ra**2)  ]
+
+                            log.info('dual constraint %s\n' + \
+                                     '	in %s', \
+                                     ("\n"+" "*24).join(str(x) for x in list(checkexpr[2])), \
+                                     checkzero)
+                        else:
+                            # not 'transform6d' nor 'rotation3d'; shouldn't have any rotation vars
+                            if not (possiblevar  in rotsymbols or \
+                                    possiblevar2 in rotsymbols):
+                                checkexpr = [[cond + cond2], \
+                                             evalcond + evalcond2, \
+                                             possiblesub + possiblesub2, \
+                                             []]
+                                log.info('Append %r to flatzerosubstitutioneqs and localsubstitutioneqs', checkexpr)
+                                localsubseqs.append(checkexpr)
+                                condout.append(cond + cond2)
+                                
+            zerosubstitutioneqs[isolution] += localsubseqs
+            checkexprout += localsubseqs
+        return zerosubstitutioneqs, checkexprout, condout
+    
     def PropagateSolvedConstants(self, AllEquations, \
                                  unknownvars, \
                                  othersolvedvars):
@@ -9175,12 +9404,12 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         # There are at most two items in ss: one from evaluating at angles [0, pi/2, pi, -pi/2],
                         #                                    the other from solveSingleVariable
                         for s in ss:
-                            toappendout, condout = self.extractSubstitutionEqs(s, \
-                                                                               originalGlobalSymbols, \
-                                                                               currentcases, \
-                                                                               handledconds, \
-                                                                               allothersolvedvars, \
-                                                                               othervar)
+                            toappendout, condout = self.extractSubsEqns1(s, \
+                                                                         originalGlobalSymbols, \
+                                                                         currentcases, \
+                                                                         handledconds, \
+                                                                         allothersolvedvars, \
+                                                                         othervar)
                             localsubstitutioneqs += toappendout
                             handledconds += condout
 
@@ -9188,7 +9417,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             log.info('Append %i localsubstitutioneqs %r to flatzerosubstitutioneqs and zerosubstitutioneqs', \
                       len(localsubstitutioneqs), localsubstitutioneqs)
             flatzerosubstitutioneqs += localsubstitutioneqs
-            zerosubstitutioneqs.append(localsubstitutioneqs)
+            zerosubstitutioneqs.append(localsubstitutioneqs) # list of lists
             
             if not var in nextsolutions:
                 try:
@@ -9269,227 +9498,21 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         
         # fill the last branch with all the zero conditions
         if hascheckzeros:
-            # count the number of rotation symbols seen in the current cases
-            if self._iktype == 'transform6d' or \
-               self._iktype == 'rotation3d':
-                rotsymbols = self.new_r + list(self.Tee[0:3,0:3])
-                numRotSymbolsInCases = len([var for var, eq in currentcasesubs if var in rotsymbols])
-            else:
-                rotsymbols = []
-                numRotSymbolsInCases = 0
-                
-            # if not equations found, try setting two variables at once
-            # also try setting px, py, or pz to 0 (barrettwam4 lookat)
-            # sometimes can get the following: cj3**2*sj4**2 + cj4**2
-            
-            threshnumsolutions = 1 # number of solutions to take from usedsolutions
-            for isolution, (solution, var) in enumerate(usedsolutions):
-                if isolution < len(usedsolutions) - threshnumsolutions and \
-                   len(flatzerosubstitutioneqs) > 0:
-                    # have at least one zero condition...
-                    continue
-                localsubstitutioneqs = []
-                for checkzero in solution.checkforzeros:
-                    if checkzero.has(*allcurvars):
-                        log.info('Ignore special checkforzero since it has symbols %r: %r', \
-                                 allcurvars, checkzero)
-                        continue
-                    if self.codeComplexity(checkzero) > 120:
-                        continue
-                    
-                    possiblesubs = []
-                    ishinge = []
-                    for preal in self.Tee[0:3,3]:
-                        if checkzero.has(preal): # px, py, pz
-                            possiblesubs.append([(preal, S.Zero)])
-                            ishinge.append(False)
-                            
-                    # Variables in the rotation matrix might depend on each other.
-                    # E.g. If r00 = r01 = 0, then r02 = 1 or -1 and r12 = r22 = 0.
-                    # Then r10, r12, r20, r21 is a 2D rotation matrix
-                    if numRotSymbolsInCases < 2:
-                        for preal in rotsymbols:
-                            if checkzero.has(preal):
-                                possiblesubs.append([(preal, S.Zero)])
-                                ishinge.append(False)
-                                
-                    for othervar in othersolvedvars:
-                        othervarobj = self.getVariable(othervar)
-                        if not checkzero.has(*othervarobj.vars):
-                            continue
-                        if self.IsHinge(othervar.name):
-                            sothervar = othervarobj.svar
-                            cothervar = othervarobj.cvar
-                            possiblesubs += [[(othervar,      value), \
-                                              (sothervar,     sin(value).evalf(n=30)), \
-                                              (sin(othervar), sin(value).evalf(n=30)), \
-                                              (cothervar,     cos(value).evalf(n=30)), \
-                                              (cos(othervar), cos(value).evalf(n=30))] \
-                                             for value in [S.Zero, pi/2, pi, -pi/2]  ]
-                            ishinge += [True]*4
-                        else: 
-                            possiblesubs.append([(othervar, S.Zero)])
-                            ishinge.append(False)
-                            continue
+            zerosubstitutioneqs, checkexprout, condout = self.extractSubsEqns2(currentcasesubs, \
+                                                                               usedsolutions, \
+                                                                               flatzerosubstitutioneqs, \
+                                                                               allcurvars, \
+                                                                               othersolvedvars, \
+                                                                               handledconds, \
+                                                                               zerosubstitutioneqs )
+            flatzerosubstitutioneqs += checkexprout
+            handledconds += condout
 
-                    # all possiblesubs are present in checkzero
-                    for ipossiblesub, possiblesub in enumerate(possiblesubs):
-                        try:
-                            eq = checkzero.subs(possiblesub).evalf(n=30)
-                        except RuntimeError, e:
-                            # most likely doing (1/x).subs(x,0) produces a RuntimeError (infinite recursion...)
-                            log.warn(e)
-                            continue
-                        
-                        if not self.isValidSolution(eq):
-                            continue
-                        
-                        # only take the first index
-                        possiblevar, possiblevalue = possiblesub[0]
-                        cond = Abs(possiblevar - possiblevalue.evalf(n=30))
-                        if not self.CheckExpressionUnique(handledconds, cond):
-                            # already present
-                            continue
-                        
-                        evalcond = Abs(self.mapvaluepmpi(possiblevar-possiblevalue)) if ishinge[ipossiblesub] else cond
-                            
-                        if eq == S.Zero:
-                            log.info('c = %d, adding case %s = %s in %s', \
-                                     scopecounter, possiblevar, possiblevalue, checkzero)
-                            
-                            # If some variable in the rotation matrix is 1 or -1,
-                            # then four other variables (two in the same row, two in the same column) are 0
-                            # E.g. add constraints new_r02 = new_r12 = new_r20 = new_r21 = 0
-                            #      if we see newr_22 = 1 or -1 in constraints
-                            #
-                            # TGN: it seems to me it never gets into here
-                            if possiblevar in rotsymbols and (possiblevalue == S.One or possiblevalue == -S.One):
-                                assert(0) # TGN: shouldn't be here, because none of possiblevalue added is 1 or -1
-                                row1 = int(possiblevar.name[-2])
-                                col1 = int(possiblevar.name[-1])
-                                otherrows = [row for row in [0,1,2] if row!=row1]
-                                othercols = [col for col in [0,1,2] if col!=col1]
-                                possiblevarname = possiblevar.name[:-2]
-                                for row, col in product(otherrows, othercols):
-                                    possiblesub.append((Symbol('%s%d%d'%(possiblevarname, row, col)), S.Zero))
-                                
-                            checkexpr = [[cond], evalcond, possiblesub, []]
-                            log.info('Append %r to flatzerosubstitutioneqs and localsubstitutioneqs', checkexpr)
-                            flatzerosubstitutioneqs.append(checkexpr)
-                            localsubstitutioneqs.append(checkexpr)
-                            handledconds.append(cond)
-                            continue
-                        
-                        # try another possiblesub
-                        for ipossiblesub2, possiblesub2 in enumerate(possiblesubs[ipossiblesub+1:]):
-                            # adjust index
-                            ipossiblesub2 += ipossiblesub + 1
-                            possiblevar2, possiblevalue2 = possiblesub2[0]
-                            if possiblevar == possiblevar2: # same var, skip
-                                continue
-                            try:
-                                eq2 = eq.subs(possiblesub2).evalf(n=30)
-                            except RuntimeError, e:
-                                # most likely doing (1/x).subs(x,0) produces a RuntimeError (infinite recursion...)
-                                log.warn(e)
-                                continue
-                            if not (self.isValidSolution(eq2) and eq2 == S.Zero):
-                                continue
-
-                            assert(eq2 == S.Zero)
-                            possiblevar2, possiblevalue2 = possiblesub2[0]
-                            cond2 = Abs(possiblevar2 - possiblevalue2.evalf(n=30))
-                            if not ( self.CheckExpressionUnique(handledconds, cond2) and \
-                                     self.CheckExpressionUnique(handledconds, cond+cond2) ):
-                                continue
-
-                            # test cond, cond2 separately to reduce solution tree
-                            evalcond2 = Abs(self.mapvaluepmpi(possiblevar2-possiblevalue2)) \
-                                        if ishinge[ipossiblesub2] else cond2
-                            
-                            # If both variables in the rotation matrix are 0 and are in the same row/col,
-                            # then two other variables in the same col/row are 0
-                            if (self._iktype == 'transform6d' or \
-                                self._iktype == 'rotation3d') and \
-                                possiblevar in rotsymbols and \
-                                possiblevalue == S.Zero and \
-                                possiblevar2 in rotsymbols and \
-                                possiblevalue2 == S.Zero:
-
-                                checkexpr = [[cond + cond2], \
-                                             evalcond + evalcond2, \
-                                             possiblesub + possiblesub2, \
-                                             []]
-                                log.info('Append %r to flatzerosubstitutioneqs and localsubstitutioneqs', checkexpr)
-                                flatzerosubstitutioneqs.append(checkexpr)
-                                localsubstitutioneqs.append(checkexpr)
-                                handledconds.append(cond + cond2)
-
-                                row1 = int(possiblevar. name[-2])
-                                col1 = int(possiblevar. name[-1])
-                                row2 = int(possiblevar2.name[-2])
-                                col2 = int(possiblevar2.name[-1])
-                                possiblevarname = possiblevar.name[:-2]
-
-                                # possiblevarname == 'new_r'
-                                # add constraints new_r02 = new_r12 = 0
-                                # if we see new_r20 = new_r21 = 0 in constraints, and vice versa
-                                if row1 == row2:
-                                    assert(col1 != col2)
-                                    col3 = 3 - col1 - col2
-                                    otherrows = [row for row in [0, 1, 2] if row!=row1]
-                                    checkexpr[2] += [(Symbol('%s%d%d' % \
-                                                             (possiblevarname, row, col3)), \
-                                                      S.Zero) for row in otherrows]
-                                    ra, rb, rc, rd = [Symbol('%s%d%d'%(possiblevarname, row, col)) \
-                                                      for row, col in \
-                                                      product(otherrows, [col1, col2])]
-                                    checkexpr[2] += [(rb**2, S.One-ra**2), \
-                                                     (rb**3, rb-rb*ra**2), \
-                                                     (rc**2, S.One-ra**2)  ]
-
-                                elif col1 == col2:
-                                    assert(row1 != row2)
-                                    row3 = 3 - row1 - row2
-                                    othercols = [col for col in [0, 1, 2] if col!=col1]
-                                    checkexpr[2] += [(Symbol('%s%d%d' % \
-                                                             (possiblevarname, row3, col)), \
-                                                      S.Zero) for col in othercols]
-                                    ra, rb, rc, rd = [Symbol('%s%d%d'%(possiblevarname, row, col))
-                                                      for col, row in \
-                                                      product(othercols, [row1, row2])]
-                                    checkexpr[2] += [(rb**2, S.One-ra**2), \
-                                                     (rb**3, rb-rb*ra**2), \
-                                                     (rc**2, S.One-ra**2)  ]
-
-                                log.info('dual constraint %s\n' + \
-                                         '	in %s', \
-                                         ("\n"+" "*24).join(str(x) for x in list(checkexpr[2])), \
-                                         checkzero)
-                            else:
-                                # not 'transform6d' nor 'rotation3d'; shouldn't have any rotation vars
-                                if not (possiblevar  in rotsymbols or \
-                                        possiblevar2 in rotsymbols):
-                                    checkexpr = [[cond + cond2], \
-                                                 evalcond + evalcond2, \
-                                                 possiblesub + possiblesub2, \
-                                                 []]
-                                    log.info('Append %r to flatzerosubstitutioneqs and localsubstitutioneqs', checkexpr)
-                                    flatzerosubstitutioneqs.append(checkexpr)
-                                    localsubstitutioneqs.append(checkexpr)
-                                    handledconds.append(cond + cond2)
-                                            
-                zerosubstitutioneqs[isolution] += localsubstitutioneqs
         # test the solutions
-        
         # PREV: have to take cross products of all zerosubstitutioneqs to form stronger constraints
         #       because the following condition will be executed only if all SolverCheckZeros evaluate to 0
         #
         # NEW:  not sure whether cross product is necessary anymore
-        
-        zerobranches = []
-        accumequations = []
-        
 #         # since sequence_cross_product requires all lists to be non-empty, insert None for empty lists
 #         for conditioneqs in zerosubstitutioneqs:
 #             if len(conditioneqs) == 0:
@@ -9517,7 +9540,9 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
 #                     dictequations += subdictequations
 #                 if not duplicatesub:
 #                     flatzerosubstitutioneqs.append([cond,evalcond,othervarsubs,dictequations])
-
+        
+        zerobranches = []
+        accumequations = []
         trysubstitutions = self.ppsubs + (self.npxyzsubs + self.rxpsubs \
                                           if self._iktype == 'transform6d' or \
                                           self._iktype == 'rotation3d' else [])
@@ -9682,7 +9707,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                                               endbranchtree))
         if self._isUnderAnalysis:
             exec(ipython_str, globals(), locals())
-        return prevbranch    
+        return prevbranch
     
     def _SubstituteGlobalSymbols(self, eq, globalsymbols = None):
         """
