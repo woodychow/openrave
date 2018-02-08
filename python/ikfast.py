@@ -8255,8 +8255,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                          flatzerosubstitutioneqs, \
                          allcurvars,
                          othersolvedvars, \
-                         handledconds, \
-                         zerosubstitutioneqs):
+                         handledconds):
         """
         Refactored from AddSolution. 
 
@@ -8276,7 +8275,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         # output
         checkexprout = []
         condout = []
-
+        zerosubseqs = []
         # if not equations found, try setting two variables at once
         # also try setting px, py, or pz to 0 (barrettwam4 lookat)
         # sometimes can get the following: cj3**2*sj4**2 + cj4**2
@@ -8286,6 +8285,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             if isolution < len(usedsolutions) - threshnumsolutions and \
                lenflat + len(checkexprout) > 0:
                 # have at least one zero condition...
+                zerosubseqs.append([])
                 continue
             localsubseqs = []
             for checkzero in solution.checkforzeros:
@@ -8475,9 +8475,9 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                                 localsubseqs.append(checkexpr)
                                 condout.append(cond + cond2)
                                 
-            zerosubstitutioneqs[isolution] += localsubseqs
+            zerosubseqs.append(localsubseqs)
             checkexprout += localsubseqs
-        return zerosubstitutioneqs, checkexprout, condout
+        return zerosubseqs, checkexprout, condout
     
     def PropagateSolvedConstants(self, AllEquations, \
                                  unknownvars, \
@@ -9498,15 +9498,16 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         
         # fill the last branch with all the zero conditions
         if hascheckzeros:
-            zerosubstitutioneqs, checkexprout, condout = self.extractSubsEqns2(currentcasesubs, \
+            zerosubseqs2, checkexprout, condout = self.extractSubsEqns2(currentcasesubs, \
                                                                                usedsolutions, \
                                                                                flatzerosubstitutioneqs, \
                                                                                allcurvars, \
                                                                                othersolvedvars, \
-                                                                               handledconds, \
-                                                                               zerosubstitutioneqs )
+                                                                               handledconds)
             flatzerosubstitutioneqs += checkexprout
             handledconds += condout
+            zerosubstitutioneqs = [list1+list2 for list1, list2 in \
+                                   izip(zerosubstitutioneqs, zerosubseqs2)]
 
         # test the solutions
         # PREV: have to take cross products of all zerosubstitutioneqs to form stronger constraints
