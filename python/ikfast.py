@@ -9700,6 +9700,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         # restore the global symbols
         self.globalsymbols = originalGlobalSymbols
 
+        ## Step 6: Finalize LASTBRANCH and return PREVBRANCH
         if len(zerobranches) > 0:
             branchconds = AST.SolverBranchConds(zerobranches + \
                                                 [(None, \
@@ -11751,9 +11752,9 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                             # the determinant will never finish otherwise
                             continue
                         # det_bareis freezes when there are huge fractions
-                        # det=self.det_bareis(Mall, *(self.pvars+dummyvars+[leftvar]))
-                        # for i in range(Mall.shape[0]):
-                        #      for j in range(Mall.shape[1]):
+                        # det = self.det_bareis(Mall, *(self.pvars+dummyvars+[leftvar]))
+                        # for i in range(degree+1):
+                        #      for j in range(degree+1):
                         #          Mall[i,j] = Poly(Mall[i,j], leftvar)
                         try:
                             Malldet = Mall.berkowitz_det()
@@ -11773,6 +11774,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         possiblefinaleq = self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)
                         if possiblefinaleq is not None:
                             # sometimes +- I are solutions, so remove them
+                            # incorporated into checkFinalEquation
+                            """
                             q, r = div(possiblefinaleq, leftvar+I)
                             if r == S.Zero:
                                 possiblefinaleq = Poly(q, leftvar)
@@ -11780,18 +11783,20 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                             q, r = div(possiblefinaleq, leftvar-I)
                             if r == S.Zero:
                                 possiblefinaleq = Poly(q, leftvar)
+                            """
                                 
                             possibilities.append(possiblefinaleq)
-
                             unusedindices = [ind for ind in unusedindices if ind not in eqsindices]
                             if len(unusedindices) == 0:
                                 break
 
                     if len(possibilities) > 1:
                         try:
-                            log.info('solvePairVariablesHalfAngle uses solveVariablesLinearly for %r', leftvar)
+                            log.info('[SOLVE %i] solvePairVariablesHalfAngle uses solveVariablesLinearly for %r', \
+                                     self._solutionStackCounter, leftvar)
                             linearsolutions = self.solveVariablesLinearly(possibilities, othersolvedvars)
-                            log.info('solveVariablesLinearly has found some solution for %r', leftvar)
+                            log.info('[SOLVE %i] solveVariablesLinearly has found some solution for %r', \
+                                     self._solutionStackCounter, leftvar)
                             
                             # if can solve for a unique solution linearly, then prioritize this over anything
                             prevsolution = AST.SolverBreak('solvePairVariablesHalfAngle fail')
@@ -11816,7 +11821,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                             break
                         
                         except self.CannotSolveError:
-                            log.info('solveVariablesLinearly failed to find %r', leftvar)
+                            log.info('[SOLVE %i] solveVariablesLinearly failed to find %r', \
+                                     self._solutionStackCounter, leftvar)
                             pass
                         
                     if len(possibilities) > 0:
@@ -11830,7 +11836,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         break
                     
         if linearsolution is not None:
-            log.info('[SOLVE %i] solvePairVariablessHalfAngle returns a linear solution.', \
+            log.info('[SOLVE %i] solvePairVariablesHalfAngle returns a linear solution.', \
                      self._solutionStackCounter)
             return [linearsolution]
         
@@ -11970,7 +11976,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 except self.CannotSolveError,e:
                     log.debug(e)
         else:
-            log.info('[SOLVE %i] solvePairVariableHalfAngle has found %d pfinals', \
+            log.info('[SOLVE %i] solvePairVariablesHalfAngle has found %d pfinals', \
                      self._solutionStackCounter, len(pfinals))
 
         if pfinals is None:
@@ -11978,7 +11984,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                                         'failed to solve dialytically with %d equations'% \
                                         len(polyeqs))
 
-        log.info('[SOLVE %i] solvePairVariableHalfAngle has found %d pfinal(s)', \
+        log.info('[SOLVE %i] solvePairVariablesHalfAngle has found %d pfinal(s)', \
                  self._solutionStackCounter, len(pfinals))
         jointeval = 2*atan(varsyms[ileftvar].htvar)
 
@@ -11998,7 +12004,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         # depending on the degree, can expect small coefficients to be still valid
         solution.AddHalfTanValue = True
 
-        log.info('[SOLVE %i] SolvePairVariableHalfAngle returns some solution', \
+        log.info('[SOLVE %i] SolvePairVariablesHalfAngle returns some solution', \
                  self._solutionStackCounter)
         
         return [solution]
