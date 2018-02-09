@@ -12365,7 +12365,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         if k > 0:
                             if len(vars) > 0 and D != S.Zero and not M[k-1, k-1].is_number:
                                 try:
-                                    D, r = div(Poly(D,*vars), M[k-1, k-1])
+                                    D, r = div(Poly(D, *vars), M[k-1, k-1])
+                                    # TGN: where does r go?
                                 except UnificationFailed:
                                     log.warn('Unification failed; try direct division')
                                     D /= M[k-1, k-1]
