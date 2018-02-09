@@ -8035,12 +8035,159 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                                        zerobranch = tree, \
                                        nonzerobranch = [AST.SolverBreak('verifyAllEquations')], \
                                        anycondition = False)]
+
+    def extractSubsEqns1(self, solution, var, \
+                             allcurvars, \
+                             othersolvedvars, \
+                             allothersolvedvars, \
+                             currentcases, \
+                             handledconds):
+        # output
+        checkforzeros = []
+        localsubstitutioneqs = []
+        condsout = []
+        hasZeroSubsEqs = False
+        
+        for checkzero in solution.checkforzeros:
+            if checkzero.has(*allcurvars):
+                log.info('Ignore special check for zero since it has current variables %r in %r', \
+                         allcurvars, checkzero)
+                continue
+
+            # Don't bother trying to extract something from CHECKFORZERO if its complexity is > 120,
+            # as it takes a lot of time to check and most likely nothing will be extracted.
+            # Don't even add CHECKFORZERO into the set CHECKFORZEROS if its complexity is > 500.
+            # These numbers are from heuristics.
+            checkzeroComplexity = self.codeComplexity(checkzero)
+            if checkzeroComplexity > 120: 
+                log.warn('Checkforzero too big (%d): %s', checkzeroComplexity, checkzero)
+                if checkzeroComplexity < 500:
+                    checkforzeros.append(checkzero) # self.removecommonexprs(checkzero.evalf())
+                continue # checkzero for-loop
+
+            checkzero2 = self._SubstituteGlobalSymbols(checkzero)
+            checkzero2Complexity = self.codeComplexity(checkzero2)
+            if checkzero2Complexity < 2*checkzeroComplexity: # check that with substitutions, things don't get too big
+                checkzero = checkzero2
+                checkzero2eval = checkzero.evalf() # fractions could get big, so evalf
+                checkzero2evalComplexity = self.codeComplexity(checkzero2eval)
+                checkforzeros.append(checkzero2 \
+                                     if checkzero2Complexity < checkzero2evalComplexity else \
+                                     checkzero2eval)
+
+            checksimplezeroexprs = [checkzero]
+            if not checkzero.has(*allothersolvedvars):
+                # Assume for example checkforzero = x**2 + (y*z)**2. Then (TGN: what are these used for?)
+                # sumsquaresexprs = [x, y*z]
+                # sumsquaresexprstozero = [x, y, z]
+                # checksimplezeroexprs = [x**2+(y*z)**2, x, y*z]
+                # toappend = [[x,y,z], x**2+(y*z)**2, [(x,0),(y,0),(z,0)], []]
+                sumsquaresexprs = self._GetSumSquares(checkzero)
+                if len(sumsquaresexprs) > 0:
+                    checksimplezeroexprs += sumsquaresexprs
+                    sumsquaresexprstozero = []
+                    for sumsquaresexpr in sumsquaresexprs:
+                        if sumsquaresexpr.is_Symbol:
+                            sumsquaresexprstozero.append(sumsquaresexpr)
+                        elif sumsquaresexpr.is_Mul:
+                            sumsquaresexprstozero += [arg for arg in sumsquaresexpr.args if arg.is_Symbol]
+
+                    if len(sumsquaresexprstozero) > 0:
+                       toappend = [sumsquaresexprstozero, \
+                                   checkzero, \
+                                   [(sumsquaresexpr, S.Zero) \
+                                    for sumsquaresexpr in sumsquaresexprstozero], \
+                                   []]
+                       log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
+                       localsubstitutioneqs.append(toappend)
+                       hasZeroSubsEqs = True
+                       condsout += sumsquaresexprstozero
+
+            for checksimplezeroexpr in checksimplezeroexprs:
+                for othervar in othersolvedvars:
+                    othervarsym = self.getVariable(othervar)
+                    sothervar = othervarsym.svar
+                    cothervar = othervarsym.cvar
+                    if not checksimplezeroexpr.has(othervar, sothervar, cothervar):
+                        continue
+                    # below checksimplezeroexpr has either jX, sjX, or cjX
+                    # check if it evaluates to zero at angles jX = 0, pi/2, pi, -pi/2
+                    jointeval = []
+                    checksimplezeroexpr = self.trigsimp(checksimplezeroexpr)
+                    for value in [S.Zero, pi/2, pi, -pi/2]:
+                        try:
+                            # doing (1/x).subs(x,0) produces a RuntimeError (infinite recursion...)
+                            checkzerosub = checksimplezeroexpr.subs([(othervar,  value), \
+                                                                     (sothervar, sin(value).evalf(n=30)), \
+                                                                     (cothervar, cos(value).evalf(n=30))])
+                            if self.isValidSolution(checkzerosub) and \
+                               checkzerosub.evalf(n=30) == S.Zero:
+                                log.info('%r evaluates at 0 when %r = %r', \
+                                         checksimplezeroexpr, othervar, value)
+                                jointeval.append(value)
+
+                        except (RuntimeError, AssertionError), e:
+                            log.warn('othervar %s = %f: %s', str(othervar), value, e)
+
+                    ss = [AST.SolverSolution(othervar.name, \
+                                             jointeval = jointeval, \
+                                             isHinge = self.IsHinge(othervar.name))] \
+                                             if len(jointeval) > 0 else []
+                    hasSolvedByEval = False
+                    if len(jointeval) > 0:
+                        try:
+                            peq = Poly(checksimplezeroexpr, othervar, sothervar, cothervar)
+                            # only one of svar and cvar occurs and occurs linearly, two solutions obtained
+                            hasSolvedByEval = len(peq.monoms())==1 and \
+                                              sum(peq.monoms()[0])==1 and \
+                                              len(jointeval)>=2
+                        except PolynomialError:
+                            pass
+
+                    eq = checksimplezeroexpr.subs([(sothervar, sin(othervar)), \
+                                                   (cothervar, cos(othervar))])
+                    # TGN: eq can be like Abs(...)+...+Abs(...). Don't solve sum of Abs for a variable.
+                    # Don't solve if CHECKSIMPLEZEROEXPR is linear in svar or cvar and solved already by
+                    # evaluating at those angles (so at most 2 solutions).
+                    if not (hasSolvedByEval or \
+                            (eq.is_Add and eq.args[0].is_Function and eq.args[0].func == Abs)):
+                        try:
+                            # checksimplezeroexpr can be simple like -cj4*r21 - r20*sj4
+                            # in which case the solutions would be
+                            # [-atan2(-r21, -r20), -atan2(-r21, -r20) + 3.14159265358979]
+                            log.info('[SOLVE %i] AddSolution calls solveSingleVariable to solve %r for %r', \
+                                     self._solutionStackCounter, eq, othervar)
+                            self._inc_solutionStackCounter()
+                            ss += self.solveSingleVariable([eq], othervar, othersolvedvars)
+
+                        except (PolynomialError, self.CannotSolveError), e:
+                            log.info('[SOLVE %i] Cannot use solveSingleVariable to solve for %r: %s', \
+                                     self._solutionStackCounter, othervar, e)
+                            # Good solutions can have a divide-by-zero equation (in manusarm_left) like
+                            # ((0.405 + 0.331*cj2)**2 + 0.109561*sj2**2 = 0.27358 + 0.26811*cj2
+                            # It is nontrivial to figure out it never becomes 0.
+                            # Instead of rejecting, add a condition to check if checksimplezeroexpr itself is 0 or not
+                        finally:
+                            self._dec_solutionStackCounter()
+
+                    assert(len(ss)<=2) # One by evaluating and one by solveSingleVariable; now mostly len(ss)=1.
+                    for s in ss:
+                        toappendout, condout = self.extractSubsEqns1Helper(s, \
+                                                                           currentcases, \
+                                                                           handledconds + condsout, \
+                                                                           allothersolvedvars, \
+                                                                           othervar)
+                        localsubstitutioneqs += toappendout
+                        hasZeroSubsEqs = True
+                        condsout += condout
+                        
+        return checkforzeros, localsubstitutioneqs, condsout, hasZeroSubsEqs
     
-    def extractSubsEqns1(self, sol, \
-                         currentcases, \
-                         handledconds,
-                         allothersolvedvars, \
-                         var):
+    def extractSubsEqns1Helper(self, sol, \
+                               currentcases, \
+                               handledconds,
+                               allothersolvedvars, \
+                               var):
         """
         Refactored from AddSolution. 
 
@@ -9260,7 +9407,6 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         handledconds = self.degeneratecases.GetHandledConditions(currentcases)
         
         # one to one correspondence with usedsolutions and the SolverCheckZeros hierarchies
-        # (used for cross product of equations later on; TGN: all commented out already by RD)
         
         zerosubstitutioneqs = []
         hasZeroSubsEqs = False
@@ -9284,142 +9430,16 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             #                             a (SolverPolynomialRoots object, variable) pair
             
             # there are divide by zeros, so check if they can be explicitly solved for joint variables
-            checkforzeros = []
-            localsubstitutioneqs = []
-            for checkzero in solution.checkforzeros:
-                if checkzero.has(*allcurvars):
-                    log.info('Ignore special check for zero since it has current variables %r in %r', \
-                             allcurvars, checkzero)
-                    continue
 
-                # Don't bother trying to extract something from CHECKFORZERO if its complexity is > 120,
-                # as it takes a lot of time to check and most likely nothing will be extracted.
-                # Don't even add CHECKFORZERO into the set CHECKFORZEROS if its complexity is > 500.
-                # These numbers are from heuristics.
-                checkzeroComplexity = self.codeComplexity(checkzero)
-                if checkzeroComplexity > 120: 
-                    log.warn('Checkforzero too big (%d): %s', checkzeroComplexity, checkzero)
-                    if checkzeroComplexity < 500:
-                        checkforzeros.append(checkzero) # self.removecommonexprs(checkzero.evalf())
-                    continue # checkzero for-loop
-
-                checkzero2 = self._SubstituteGlobalSymbols(checkzero)
-                checkzero2Complexity = self.codeComplexity(checkzero2)
-                if checkzero2Complexity < 2*checkzeroComplexity: # check that with substitutions, things don't get too big
-                    checkzero = checkzero2
-                    checkzero2eval = checkzero.evalf() # fractions could get big, so evalf
-                    checkzero2evalComplexity = self.codeComplexity(checkzero2eval)
-                    checkforzeros.append(checkzero2 \
-                                         if checkzero2Complexity < checkzero2evalComplexity else \
-                                         checkzero2eval)
-
-                checksimplezeroexprs = [checkzero]
-                if not checkzero.has(*allothersolvedvars):
-                    # Assume for example checkforzero = x**2 + (y*z)**2. Then (TGN: what are these used for?)
-                    # sumsquaresexprs = [x, y*z]
-                    # sumsquaresexprstozero = [x, y, z]
-                    # checksimplezeroexprs = [x**2+(y*z)**2, x, y*z]
-                    # toappend = [[x,y,z], x**2+(y*z)**2, [(x,0),(y,0),(z,0)], []]
-                    sumsquaresexprs = self._GetSumSquares(checkzero)
-                    if len(sumsquaresexprs) > 0:
-                        checksimplezeroexprs += sumsquaresexprs
-                        sumsquaresexprstozero = []
-                        for sumsquaresexpr in sumsquaresexprs:
-                            if sumsquaresexpr.is_Symbol:
-                                sumsquaresexprstozero.append(sumsquaresexpr)
-                            elif sumsquaresexpr.is_Mul:
-                                sumsquaresexprstozero += [arg for arg in sumsquaresexpr.args if arg.is_Symbol]
-
-                        if len(sumsquaresexprstozero) > 0:
-                           toappend = [sumsquaresexprstozero, \
-                                       checkzero, \
-                                       [(sumsquaresexpr, S.Zero) \
-                                        for sumsquaresexpr in sumsquaresexprstozero], \
-                                       []]
-                           log.info(("\n"+" "*8).join(str(x) for x in list(toappend)))
-                           localsubstitutioneqs.append(toappend)
-                           hasZeroSubsEqs = True
-                           handledconds += sumsquaresexprstozero
-
-                for checksimplezeroexpr in checksimplezeroexprs:
-                    for othervar in othersolvedvars:
-                        othervarsym = self.getVariable(othervar)
-                        sothervar = othervarsym.svar
-                        cothervar = othervarsym.cvar
-                        if not checksimplezeroexpr.has(othervar, sothervar, cothervar):
-                            continue
-                        # below checksimplezeroexpr has either jX, sjX, or cjX
-                        # check if it evaluates to zero at angles jX = 0, pi/2, pi, -pi/2
-                        jointeval = []
-                        checksimplezeroexpr = self.trigsimp(checksimplezeroexpr)
-                        for value in [S.Zero, pi/2, pi, -pi/2]:
-                            try:
-                                # doing (1/x).subs(x,0) produces a RuntimeError (infinite recursion...)
-                                checkzerosub = checksimplezeroexpr.subs([(othervar,  value), \
-                                                                         (sothervar, sin(value).evalf(n=30)), \
-                                                                         (cothervar, cos(value).evalf(n=30))])
-                                if self.isValidSolution(checkzerosub) and \
-                                   checkzerosub.evalf(n=30) == S.Zero:
-                                    log.info('%r evaluates at 0 when %r = %r', \
-                                             checksimplezeroexpr, othervar, value)
-                                    jointeval.append(value)
-                                    
-                            except (RuntimeError, AssertionError), e:
-                                log.warn('othervar %s = %f: %s', str(othervar), value, e)
-
-                        ss = [AST.SolverSolution(othervar.name, \
-                                                 jointeval = jointeval, \
-                                                 isHinge = self.IsHinge(othervar.name))] \
-                                                 if len(jointeval) > 0 else []
-                        hasSolvedByEval = False
-                        if len(jointeval) > 0:
-                            try:
-                                peq = Poly(checksimplezeroexpr, othervar, sothervar, cothervar)
-                                # only one of svar and cvar occurs and occurs linearly, two solutions obtained
-                                hasSolvedByEval = len(peq.monoms())==1 and \
-                                                  sum(peq.monoms()[0])==1 and \
-                                                  len(jointeval)>=2
-                            except PolynomialError:
-                                pass
-
-                        eq = checksimplezeroexpr.subs([(sothervar, sin(othervar)), \
-                                                       (cothervar, cos(othervar))])
-                        # TGN: eq can be like Abs(...)+...+Abs(...). Don't solve sum of Abs for a variable.
-                        # Don't solve if CHECKSIMPLEZEROEXPR is linear in svar or cvar and solved already by
-                        # evaluating at those angles (so at most 2 solutions).
-                        if not (hasSolvedByEval or \
-                                (eq.is_Add and eq.args[0].is_Function and eq.args[0].func == Abs)):
-                            try:
-                                # checksimplezeroexpr can be simple like -cj4*r21 - r20*sj4
-                                # in which case the solutions would be
-                                # [-atan2(-r21, -r20), -atan2(-r21, -r20) + 3.14159265358979]
-                                log.info('[SOLVE %i] AddSolution calls solveSingleVariable to solve %r for %r', \
-                                         self._solutionStackCounter, eq, othervar)
-                                self._inc_solutionStackCounter()
-                                ss += self.solveSingleVariable([eq], othervar, othersolvedvars)
-
-                            except (PolynomialError, self.CannotSolveError), e:
-                                log.info('[SOLVE %i] Cannot use solveSingleVariable to solve for %r: %s', \
-                                         self._solutionStackCounter, othervar, e)
-                                # Good solutions can have a divide-by-zero equation (in manusarm_left) like
-                                # ((0.405 + 0.331*cj2)**2 + 0.109561*sj2**2 = 0.27358 + 0.26811*cj2
-                                # It is nontrivial to figure out it never becomes 0.
-                                # Instead of rejecting, add a condition to check if checksimplezeroexpr itself is 0 or not
-                            finally:
-                                self._dec_solutionStackCounter()
-
-                        assert(len(ss)<=2) # One by evaluating and one by solveSingleVariable; now mostly len(ss)=1.
-                        for s in ss:
-                            toappendout, condout = self.extractSubsEqns1(s, \
-                                                                         currentcases, \
-                                                                         handledconds, \
-                                                                         allothersolvedvars, \
-                                                                         othervar)
-                            localsubstitutioneqs += toappendout
-                            hasZeroSubsEqs = True
-                            handledconds += condout
-
-            # still in the first usedsolution for-loop
+            checkforzeros, localsubstitutioneqs, condsout, \
+                hasZeroSubsEqsOut = self.extractSubsEqns1(solution, var, \
+                                                          allcurvars, \
+                                                          othersolvedvars, \
+                                                          allothersolvedvars, \
+                                                          currentcases, \
+                                                          handledconds)
+            hasZeroSubsEqs |= hasZeroSubsEqsOut
+            handledconds += condsout
             log.info('Append %i local substitution equations %r to zerosubstitutioneqs', \
                       len(localsubstitutioneqs), localsubstitutioneqs)
             zerosubstitutioneqs.append(localsubstitutioneqs) # list of lists
@@ -9480,11 +9500,9 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         
         # used to limit how deep the hierarchy goes or otherwise IK can get too big
         maxlevel2scopecounter = 300
-        # by default self.maxcasedepth = 3, so len(currentcases) is at most 3
         if len(currentcases) >= self.maxcasedepth or \
            (scopecounter > maxlevel2scopecounter and \
-            len(currentcases) >= 2):
-            
+            len(currentcases) >= 2): # by default self.maxcasedepth = 3, so len(currentcases) is at most 3
             log.warn('c = %d, %d levels deep in checking degenerate cases, skip\n' + \
                      '        curvars = %r\n' + \
                      '        AllEquations = %s', \
@@ -9496,20 +9514,19 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         for var, eq in currentcasesubs]
 
             assert(len(lastbranch) == 0)
-            lastbranch.append(AST.SolverBreak('%d cases reached' % self.maxcasedepth, \
-                                              varlist, \
-                                              othersolvedvars, \
-                                              solsubs, \
-                                              endbranchtree))
+            lastbranch += [AST.SolverBreak('%d cases reached' % self.maxcasedepth, \
+                                           varlist, \
+                                           othersolvedvars, \
+                                           solsubs, \
+                                           endbranchtree)]
             if self._isUnderAnalysis:
                 exec(ipython_str, globals(), locals())
             return prevbranch
 
-
         ## Step 4: 2nd USEDSOLUTIONS for-loop
         # fill the last branch with all the zero conditions
         if hascheckzeros:
-            # the second usedsolutions for-loop is here
+            # the second usedsolutions for-loop is in extractSubsEqns2
             zerosubseqs2, condout = self.extractSubsEqns2(usedsolutions, \
                                                           currentcasesubs, \
                                                           scopecounter, \
@@ -9523,39 +9540,6 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             # componentwise merge lists
             zerosubstitutioneqs = [list1+list2 for list1, list2 in \
                                    izip(zerosubstitutioneqs, zerosubseqs2)]
-
-        # test the solutions
-        # PREV: have to take cross products of all zerosubstitutioneqs to form stronger constraints
-        #       because the following condition will be executed only if all SolverCheckZeros evaluate to 0
-        #
-        # NEW:  not sure whether cross product is necessary anymore
-#         # since sequence_cross_product requires all lists to be non-empty, insert None for empty lists
-#         for conditioneqs in zerosubstitutioneqs:
-#             if len(conditioneqs) == 0:
-#                 conditioneqs.append(None)
-#         for conditioneqs in self.sequence_cross_product(*zerosubstitutioneqs):
-#             validconditioneqs = [c for c in conditioneqs if c is not None]
-#             if len(validconditioneqs) > 1:
-#                 # merge the equations, be careful not to merge equations constraining the same variable
-#                 cond = []
-#                 evalcond = S.Zero
-#                 othervarsubs = []
-#                 dictequations = []
-#                 duplicatesub = False
-#                 for subcond, subevalcond, subothervarsubs, subdictequations in validconditioneqs:
-#                     cond += subcond
-#                     evalcond += abs(subevalcond)
-#                     for subothervarsub in subothervarsubs:
-#                         if subothervarsub[0] in [sym for sym,value in othervarsubs]:
-#                             # variable is duplicated
-#                             duplicatesub = True
-#                             break
-#                         othervarsubs.append(subothervarsub)
-#                     if duplicatesub:
-#                         break
-#                     dictequations += subdictequations
-#                 if not duplicatesub:
-#                     flatzerosubstitutioneqs.append([cond,evalcond,othervarsubs,dictequations])
 
         ## Step 5: FLATZEROSUBSTITUTIONEQS for-loop
         zerobranches = []
@@ -9696,7 +9680,6 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             except self.CannotSolveError, e:
                 log.debug(e)
                 continue
-
         # restore the global symbols
         self.globalsymbols = originalGlobalSymbols
 
