@@ -8103,6 +8103,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                        hasZeroSubsEqs = True
                        condsout += sumsquaresexprstozero
 
+            # there are divide by zeros, so check if they can be explicitly solved for joint variables
             for checksimplezeroexpr in checksimplezeroexprs:
                 for othervar in othersolvedvars:
                     othervarsym = self.getVariable(othervar)
@@ -9280,12 +9281,11 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         Step 6: Finally return PREVBRANCH.
         """
 
+        ## Step 0: set up and print debug info
         assert(all(Symbol(sol[0].jointname)==sol[1] for sol in solutions))
-
         self._CheckPreemptFn()
         self._scopecounter += 1
         scopecounter = int(self._scopecounter)
-
         log.info('depth = %d, c = %d, nsol = %d, stackcounter = %d\n' + \
                  '         vars = %s\n' + \
                  '        known = %s\n' + \
@@ -9295,12 +9295,11 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                  curvars, othersolvedvars, \
                  None if len(currentcases) is 0 else \
                  ("\n"+" "*16).join(str(x) for x in list(currentcases)))
-
         if self._isUnderAnalysis:
             self.printSS(solutions)
             exec(ipython_str, globals(), locals())
-        
-        # remove solution that has infinite scores
+            
+        # refine and sort solutions
         solutions = [s for s in solutions if s[0].score < oo and \
                      s[0].checkValidSolution()] 
         if len(solutions) == 0:
@@ -9308,46 +9307,18 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         solutions.sort(lambda x, y: x[0].score-y[0].score)
 
         ## Step 1: Try to find a solution that does not have CHECKFORZEROS (divide-by-zero equations).
-        for solution, var in solutions:
-            checkforzeros = solution.checkforzeros
-            # search for a solution that (1) has no checkforzeros equation (2) solves uniquely a variable
-            if not(len(checkforzeros) == 0 and solution.numsolutions() == 1):
-                continue
-            # TGN: what does "make sure to check any zero branches" mean
-            newvars = [v for v in curvars if v != var]
-            log.info('[SOLVE %i] hasonesolution = True, len(checkforzeros) = 0\n' + \
-                     ' '*18 + 'Use solution for %r\n' + \
-                     ' '*18 + 'AddSolution calls SolveAllEquations to solve for %r', \
-                     self._solutionStackCounter, var, newvars)
-            try:
-                self._inc_solutionStackCounter()
-                prevbranch = self.SolveAllEquations(AllEquations, \
-                                                    curvars = newvars, \
-                                                    othersolvedvars = othersolvedvars + [var], \
-                                                    solsubs = solsubs + self.getVariable(var).subs, \
-                                                    endbranchtree = endbranchtree, \
-                                                    currentcases = currentcases, \
-                                                    currentcasesubs = currentcasesubs, \
-                                                    unknownvars = unknownvars)
-                prevbranch = [solution.subs(solsubs)] + prevbranch                    
-                if self._isUnderAnalysis:
-                    exec(ipython_str, globals(), locals())
-                return prevbranch
-            except self.CannotSolveError, e:
-                log.info('[SOLVE %i] Cannot use SolveAllEquations for %r: %s', \
-                         self._solutionStackCounter, newvars, e)
-                continue
-            finally:
-                self._dec_solutionStackCounter()
-
-        # almost the same as the last for-loop
-        for solution, var in solutions:
-            checkforzeros = solution.checkforzeros
-            # search for a solution that just has no checkforzeros equation
-            if len(checkforzeros) == 0:
+        #          Given two criteria: (1) having no checkforzeros equation (2) solving uniquely a variable,
+        #          first round searchs for a solution that satisfies (1) & (2), and second round (1) only.
+        criteria = [lambda s: len(s.checkforzeros)==0 and s.numsolutions() == 1, \
+                    lambda s: len(s.checkforzeros)==0]
+        for i in (0, 1):
+            for solution, var in solutions:
+                if not criteria[i](solution):
+                    continue
+                checkforzeros = solution.checkforzeros
                 # TGN: what does "make sure to check any zero branches" mean
                 newvars = [v for v in curvars if v != var]
-                log.info('[SOLVE %i] hasonesolution = False, len(checkforzeros) = 0\n' + \
+                log.info('[SOLVE %i] hasonesolution = True, len(checkforzeros) = 0\n' + \
                          ' '*18 + 'Use solution for %r\n' + \
                          ' '*18 + 'AddSolution calls SolveAllEquations to solve for %r', \
                          self._solutionStackCounter, var, newvars)
@@ -9361,8 +9332,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                                                         currentcases = currentcases, \
                                                         currentcasesubs = currentcasesubs, \
                                                         unknownvars = unknownvars)
-                    prevbranch = [solution.subs(solsubs)] + prevbranch
-                    if self._isUnderAnalysis:                    
+                    prevbranch = [solution.subs(solsubs)] + prevbranch                    
+                    if self._isUnderAnalysis:
                         exec(ipython_str, globals(), locals())
                     return prevbranch
                 except self.CannotSolveError, e:
@@ -9374,8 +9345,9 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
 
         # from here on, all solutions have checkforzeros equations
         # RD: choose the variable with the shortest solution and compute (this is a conservative approach)
-        usedsolutions = []
+        
         ## Step 2: Remove any solutions with similar checkforzero constraints (because they are essentially the same).
+        usedsolutions = []
         for solution, var in solutions:
             solution.subs(solsubs)
             match = False
@@ -9392,45 +9364,39 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             if len(usedsolutions) >= 3: # don't need >3 solutions (used to be 2, but lookat barrettwam4 proved that wrong)
                 # TGN: try finding all?
                 break
-
-        allcurvars         = self.jointlists([self.getVariable(v).vars for v in curvars])
-        allothersolvedvars = self.jointlists([self.getVariable(v).vars for v in othersolvedvars])
-
-        # used when appending an AST.SolverBreak object
-        lastbranch = []
-        prevbranchCreated = False
-        # dictionary that stores {var: prevbranch} where prevbranch is returned by SolveAllEquations
-        nextsolutions = {}
-        
-        if self.degeneratecases is None:
-            self.degeneratecases = self.DegenerateCases()
-        handledconds = self.degeneratecases.GetHandledConditions(currentcases)
-        
-        # one to one correspondence with usedsolutions and the SolverCheckZeros hierarchies
-        
-        zerosubstitutioneqs = []
-        hasZeroSubsEqs = False
-        hascheckzeros = False
-        
-        addhandleddegeneratecases = [] # for bookkeeping/debugging
-        
         # iterate in reverse order and put the most recently processed solution at the front.
         usedsolutions = usedsolutions[::-1]
 
-        # TGN needs to understand the limitation of the algorithm described below
-        #
-        # There is a problem with this algorithm transferring the degenerate cases correctly.
-        # Although the zeros of the first equation are checked, they are not added as conditions to the later equations,
-        # so that the later equations will also use variables as unknowns
-        # (even though they are determined to be specific constants). This is most apparent in rotations.
+        """
+        TGN needs to understand the limitation of the algorithm described below:
+
+        There is a problem with this algorithm transferring the degenerate cases correctly.
+        Although the zeros of the first equation are checked, they are not added as conditions to the later equations,
+        so that the later equations will also use variables as unknowns
+        (even though they are determined to be specific constants). This is most apparent in rotations.
+        """
 
         ## Step 3: 1st USEDSOLUTIONS for-loop
+        # dictionary that stores {var: prevbranch} where prevbranch is returned by SolveAllEquations
+        nextsolutions = {}
+        # used when appending an AST.SolverBreak object
+        lastbranch = []
+        prevbranchCreated = False
+        # degenerate cases and variables for bookkeeping and debugging
+        if self.degeneratecases is None:
+            self.degeneratecases = self.DegenerateCases()
+        handledconds = self.degeneratecases.GetHandledConditions(currentcases)
+        addhandleddegeneratecases = []
+        # one to one correspondence with usedsolutions and the SolverCheckZeros hierarchies
+        zerosubstitutioneqs = []
+        hasZeroSubsEqs = False
+        # all jX, sjX, cjX, tjX, htjX
+        allcurvars         = self.jointlists([self.getVariable(v).vars for v in curvars])
+        allothersolvedvars = self.jointlists([self.getVariable(v).vars for v in othersolvedvars])
+        hascheckzeros  = False
         for solution, var in usedsolutions:
             # each usedsolution is either a (SolverSolution        object, variable) pair or
             #                             a (SolverPolynomialRoots object, variable) pair
-            
-            # there are divide by zeros, so check if they can be explicitly solved for joint variables
-
             checkforzeros, localsubstitutioneqs, condsout, \
                 hasZeroSubsEqsOut = self.extractSubsEqns1(solution, var, \
                                                           allcurvars, \
@@ -9449,7 +9415,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     newvars = [v for v in curvars if v!=var]
                     # back up degenreate cases by deep copy
                     olddegeneratecases = self.degeneratecases.Clone()
-                    if len(newvars)>0:
+                    if len(newvars) > 0:
                         log.info('[SOLVE %i] To find next solution, ' + \
                                  'AddSolution calls SolveAllEquations to solve for %r using %r', \
                                  self._solutionStackCounter, newvars, othersolvedvars+[var])
@@ -9494,9 +9460,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
 
         log.info('[SOLVE %i] Finished the first iteration of analyzing %i usedsolutions.', \
                  self._solutionStackCounter, len(usedsolutions))
-        
         if len(prevbranch) == 0:
-            raise self.CannotSolveError('AddSolution fails to add solution!')
+            raise self.CannotSolveError('AddSolution fails to find a prevbranch!')
         
         # used to limit how deep the hierarchy goes or otherwise IK can get too big
         maxlevel2scopecounter = 300
@@ -9518,7 +9483,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                                            varlist, \
                                            othersolvedvars, \
                                            solsubs, \
-                                           endbranchtree)]
+                                           endbranchtree)] # use append, not re-assign!
             if self._isUnderAnalysis:
                 exec(ipython_str, globals(), locals())
             return prevbranch
@@ -9538,16 +9503,16 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                      self._solutionStackCounter, len(usedsolutions))
             handledconds += condout
             # componentwise merge lists
-            zerosubstitutioneqs = [list1+list2 for list1, list2 in \
+            zerosubstitutioneqs = [list1 + list2 for list1, list2 in \
                                    izip(zerosubstitutioneqs, zerosubseqs2)]
 
         ## Step 5: FLATZEROSUBSTITUTIONEQS for-loop
         zerobranches = []
-        accumequations = []
+        # list of lists, will be put in an AST.SolverBranchConds object in Step 6 if len(zerobranches)>0 
+        accumequations = [] 
         trysubstitutions = self.ppsubs + (self.npxyzsubs + self.rxpsubs \
                                           if self._iktype == 'transform6d' or \
                                           self._iktype == 'rotation3d' else [])
-        
         # zerosubstitutioneqs equations flattened for easier checking
         flatzerosubstitutioneqs = self.jointlists(zerosubstitutioneqs)
         
