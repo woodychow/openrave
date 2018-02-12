@@ -7365,7 +7365,10 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     for i in range(neqs):
                         for j in range(neqs):
                             Adegree[i,j] = self._SubstituteGlobalSymbols(Adegree[i,j]).subs(tosubs).evalf()
-                    Atotal = Adegree if Atotal is None else Adegree*leftvar**idegree
+                    if Atotal is None: 
+                        Atotal = Adegree
+                    else:
+                        Atotal += Adegree*leftvar**idegree
 
                 # make sure the det(Atotal)!=0 for at least one set of consistent test values
                 leftvarvalue = leftvar.subs(tosubs).evalf()
@@ -7385,6 +7388,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             if not linearlyindependent:
                 raise self.CannotSolveError('equations are linearly dependent')
 
+        # exec(ipython_str, globals(), locals())
         if returnmatrix:
             return Mall, allmonoms
         else:
@@ -10181,9 +10185,10 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         assert(len(pfinal.gens)==1)
         htvar = pfinal.gens[0]
 
-        printCheckMsg = False
+        poriginal = pfinal
+        printCheckMsg = True #False
 
-        # remove all factors of (htvar-0)
+        # remove all factors of (htvar-0) by dividing htvar until the trailing coefficient (TC) is nonzero
         p = [p[0] for p, c in pfinal.terms() if p[0]>0]
         if len(p) > 0 and  min(p) > 0 and pfinal.TC() == S.Zero:
             min_p = min(p)
@@ -10219,14 +10224,15 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         thresh2 = 10.0**-self.precision
         thresh3 = 10.0**-(self.precision-2)
         
-        for testconsistentvalue in self.testconsistentvalues:
+        for i, testconsistentvalue in enumerate(self.testconsistentvalues):
             globalsymbols = [(s, self.globalsymbols[s].subs(self.globalsymbols).subs(testconsistentvalue).evalf()) \
                              for s in self.globalsymbols]
 
             # plug in test consistent values to evaluate all coefficients
             nz_coeffs = [ c.subs(tosubs).subs(globalsymbols+testconsistentvalue).evalf()/common.evalf() \
                           for m, c in pfinal.terms() ]
-            
+
+            print nz_coeffs
 
             assert(len(nz_coeffs)>0)
 
@@ -10278,6 +10284,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             for i, m in enumerate(ind_list):
                 coeffs[m] = nz_coeffs[i]
 
+            print coeffs
+
             # compute residual first before calling expensive root finding
             residual = Abs(polyval(coeffs, realsolution))
             if residual < thresh3:
@@ -10289,6 +10297,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         coeffs = q
                     else:
                         break
+                print coeffs
                 
                 # compute roots by sympy's roots            
                 r = roots(coeffs).keys()
@@ -10296,8 +10305,9 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                          Abs(Re(root)-realsolution) < thresh3 \
                          for root in r] ):
                     if printCheckMsg:
-                        log.info('checkFinalEquation: precision comparison PASSED for root %r\n' + \
-                                 '        %r', realsolution, r)
+                        exec(ipython_str, globals(),locals())
+                        log.info('checkFinalEquation: precision comparison PASSED for root %r from Set %i\n' + \
+                                 '        %r', realsolution, i, r)
                     found = True
                     break
                 else:
@@ -11774,9 +11784,14 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                             log.warn('Complexity of det(Mall) is too big: %d', complexity)
                             continue
 
+                        timepoly = -time.time()
                         log.info('Before self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)')
                         possiblefinaleq = self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)
-                        log.info('After self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)')                        
+                        timepoly += time.time()
+                        log.info('After self.checkFinalEquation(Poly(Malldet, leftvar), tosubs); time elapsed: %1.2fs', \
+                                 timepoly)
+                        if timepoly>1.2 and possiblefinaleq is not None:
+                            exec(ipython_str, globals(), locals())
                         if possiblefinaleq is not None:
                             # sometimes +- I are solutions, so remove them
                             # incorporated into checkFinalEquation
