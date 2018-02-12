@@ -11143,7 +11143,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 if detA.evalf() != S.Zero:
                     c = A.adjugate()*b
                     for i in range(4):
-                        eq = (pairwisevars[i] * detA - c[i]).subs(allsymbols)
+                        eq = (pairwisesubs[i][0] * detA - c[i]).subs(allsymbols)
                         eqnew, syms = self.groupTerms(eq, c0s0c1s1, symbolgen)
                         allsymbols += syms
                         singleeqs.append([self.codeComplexity(eq), Poly(eqnew,*c0s0c1s1)])
