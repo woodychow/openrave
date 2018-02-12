@@ -12,9 +12,9 @@ clear && clear
 DIRNAME=$1
 ZAEFILES=`sudo ls $DIRNAME/*.zae $DIRNAME/*.xml $DIRNAME/*.dae`
 
-rm -f *.log /var/*.log *.out
+#rm -f *.log /var/*.log *.out
 
 for f in $ZAEFILES
 do
-    openrave.py --database inversekinematics --robot=$f --numiktests=1000
+    openrave.py --database inversekinematics --robot=$f --numiktests=1000 --iktype=translationdirection5d 
 done

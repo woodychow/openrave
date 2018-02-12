@@ -15,4 +15,7 @@ python/.~/
 src/models/
 .openravetest/
 results.xml
-*.log
+latex
+python/html
+*#
+python/ikfast_code_to_print\.py

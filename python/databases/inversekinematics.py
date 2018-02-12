@@ -1007,7 +1007,7 @@ class InverseKinematicsModel(DatabaseGenerator):
             results = self.ikfastproblem.SendCommand('PerfTiming num %d %s'%(num,self.getfilename(True)))
             return [double(s)*1e-9 for s in results.split()]
         
-    def testik(self,iktests,jacobianthreshold=None,filename=None):
+    def testik(self,iktests,jacobianthreshold=None,filename=None,iktype=IkParameterizationType.Transform6D):
         """Tests the iksolver.
         :param iktests: the number of tests, or a filename that describes the tests
         :param jacobianthreshold: When testing configurations, the eigenvalues of the jacobian all have to be greater than this value
@@ -1027,7 +1027,9 @@ class InverseKinematicsModel(DatabaseGenerator):
                 cmd += 'readfile %s '%iktests
             if jacobianthreshold is not None:
                 cmd += 'jacobianthreshold %s '%jacobianthreshold
+            testtime = -time.time()
             res = self.ikfastproblem.SendCommand(cmd).split()
+            testtime += time.time() 
             # collect solution results
             solutionresults = []
             index = 2
@@ -1074,18 +1076,18 @@ class InverseKinematicsModel(DatabaseGenerator):
             log_filename = "test_all.log"
             file_handler = open(log_filename, "a")
             now = datetime.datetime.now()
-            file_handler.write('%s, %s, ' % (  \
+            file_handler.write('%s, %s, %s, ' % (  \
                                now.strftime("%y/%m/%d-%H:%M:%S") \
-                                , filename \
+                                , filename, str(iktype) \
                                ))
             file_handler.write(('%d, '*3   + \
                                 '%.1f, '   + \
                                 '%.3f, '*3 + \
-                                'runtime = %.1fs\n') % \
+                                'runtime = %.1fs, testtime = %.1fs\n') % \
                                ( num_test, num_success, num_failure   , \
                                  success_rate*100, \
                                  failure_rate*100, no_soln_rate*100, ms_soln_rate*100   , \
-                                 self.statistics['generationtime']) )
+                                 self.statistics['generationtime'], testtime ))
             file_handler.close()
             return success_rate, failure_rate
 
@@ -1209,7 +1211,7 @@ class InverseKinematicsModel(DatabaseGenerator):
                     filename = [ arg for arg in args if '.zae' in arg or '.xml' in arg or '.dae' in arg]
                     successrate, wrongrate = ikmodel.testik( iktests = options.iktests,\
                                                             jacobianthreshold = options.iktestjthresh, \
-                                                            filename = filename[0] )  
+                                                             filename = filename[0], iktype = iktype )  
 
                     if wrongrate > 0:
                         raise InverseKinematicsError(u'wrong rate %f > 0!'%wrongrate)
