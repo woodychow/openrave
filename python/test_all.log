@@ -27,3 +27,5 @@
 18/02/09-14:33:55, --robot=robotfiles/unimation-pumaarm.zae, TranslationDirection5D, 1000, 1000, 0, 100.0, 0.000, 0.000, 32.600, runtime = 4.5s, testtime = 7.6s
 18/02/09-14:51:03, --robot=robotfiles/universalrobots-ur6-85-5-a.zae, TranslationDirection5D, 1000, 993, 0, 99.3, 0.000, 0.700, 93.300, runtime = 1003.4s, testtime = 19.1s
 18/02/09-14:59:03, --robot=robotfiles/neuronics-katana.zae, TranslationDirection5D, 1000, 934, 0, 93.4, 0.000, 6.600, 6.500, runtime = 465.7s, testtime = 0.1s
+18/02/12-11:52:55, --robot=robotfiles/cmu-permma.zae, TranslationDirection5D, 1000, 0, 0, 0.0, 0.000, 100.000, 0.300, runtime = 61.8s, testtime = 0.5s
+18/02/12-11:56:47, --robot=robotfiles/exactdynamics-manusarmleft.zae, TranslationDirection5D, 1000, 1, 0, 0.1, 0.000, 99.900, 0.100, runtime = 61.0s, testtime = 0.5s

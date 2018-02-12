@@ -6857,8 +6857,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                           solvejointvars, \
                           endbranchtree, \
                           AllEquationsExtra = None, \
-                          currentcases = None, \
-                          currentcasesubs = None):
+                          currentcases = set(), \
+                          currentcasesubs = []):
         """
         Find a 16x16 matrix where the entries are linear in tan(tj/2) [Kohli1993]. Takes in the 14 Raghavan-Roth equations.
         
@@ -6980,8 +6980,15 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         AllEquations.append(eq1.subs(self.invsubs))
                 if len(AllEquations) > 0:
                     otherjointtrees = []
-                    tree = self.SolveAllEquations(AllEquations,curvars=list(usedvars),othersolvedvars=[],solsubs=self.freevarsubs,endbranchtree=[AST.SolverSequence([otherjointtrees])], canguessvars=False, currentcases=currentcases, currentcasesubs=currentcasesubs)
-                    log.info('first SolveAllEquations successful: %s',usedvars)
+                    tree = self.SolveAllEquations(AllEquations, \
+                                                  curvars = list(usedvars), \
+                                                  othersolvedvars = [], \
+                                                  solsubs = self.freevarsubs, \
+                                                  endbranchtree = [AST.SolverSequence([otherjointtrees])], \
+                                                  canguessvars = False, \
+                                                  currentcases = currentcases, \
+                                                  currentcasesubs = currentcasesubs)
+                    log.info('first SolveAllEquations successful: %s', usedvars)
 #                     try:
 #                         # although things can be solved at this point, it yields a less optimal solution than if all variables were considered...
 #                         solsubs=list(self.freevarsubs)
