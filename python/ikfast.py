@@ -7118,7 +7118,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         for ileftvar in range(len(dummys)):
             leftvar = dummys[ileftvar]
             try:
-                exportcoeffeqs,exportmonoms = self.solveDialytically(newreducedeqs,ileftvar,getsubs=None)
+                exportcoeffeqs,exportmonoms = self.solveDialytically(newreducedeqs, ileftvar)
                 break
             except self.CannotSolveError,e:
                 log.warn('failed with leftvar %s: %s',leftvar,e)
@@ -7148,14 +7148,16 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
 
         Extract the coefficients of 1, leftvar**1, leftvar**2, ... of every equation
 
-        Every len(dialyticeqs)*len(monoms) coefficients specify one degree of all the equations 
-        (order of monoms is specified in exportmonomorder
+        Every len(dialyticeqs)*len(monoms) coefficients specify one degree of all the equations, where order of monoms 
+        is specified in EXPORTMONOMORDER.
 
-        There should be len(dialyticeqs)*len(monoms)*maxdegree coefficients
+        There should be len(dialyticeqs)*len(monoms)*maxdegree coefficients.
 
-        Method also checks if the equations are linearly dependent.
+        Method also checks if the equations are linearly dependent. (should use svd instead of inv or eig)
 
-        Called by solveManochaCanny, solveLiWoernleHiller, solveKohliOsvatic, solvePairVariablesHalfAngle
+        Called by solveManochaCanny (getsubs), solveLiWoernleHiller (getsubs), 
+                  solveKohliOsvatic (default), solvePairVariablesHalfAngle (returnmatrix),
+                  solveFullIK_TranslationAxisAngle4D (default).
         """
         self._CheckPreemptFn(progress = 0.12)
         if len(dialyticeqs) == 0:
@@ -7168,13 +7170,14 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         extradialyticeqs = []
         for peq in dialyticeqs:
             if sum(peq.degree_list()) == 0:
-                log.warn('solveDialytically: polynomial %s degree is 0',peq)
+                log.warn('solveDialytically: polynomial %s degree is 0', peq)
                 continue
             for m in peq.monoms():
                 mlist = list(m)
-                maxdegree=max(maxdegree,mlist.pop(ileftvar))
-                allmonoms.add(tuple(mlist))
-                origmonoms.add(tuple(mlist))
+                maxdegree = max(maxdegree, mlist.pop(ileftvar))
+                newm = tuple(mlist)
+                allmonoms .add(newm)
+                origmonoms.add(newm)
                 mlist[0] += 1
                 allmonoms.add(tuple(mlist))
             
@@ -7183,169 +7186,213 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             for igen in range(len(peq.gens)):
                 if all([m[igen]==0 for m in peq.monoms()]):
                     log.debug('adding extra equation multiplied by %s', peq.gens[igen])
-                    extradialyticeqs.append(peq*peq.gens[igen])
+                    extradialyticeqs.append(peq * peq.gens[igen])
                     # multiply by peq.gens[igen]
                     for m in peq.monoms():
                         mlist = list(m)
                         mlist[igen] += 1
-                        maxdegree=max(maxdegree,mlist.pop(ileftvar))
-                        allmonoms.add(tuple(mlist))
-                        origmonoms.add(tuple(mlist))
+                        maxdegree = max(maxdegree, mlist.pop(ileftvar))
+                        newm = tuple(mlist)
+                        allmonoms.add(newm)
+                        origmonoms.add(newm)
+                        #--------
                         mlist[0] += 1
-                        allmonoms.add(tuple(mlist))
+                        newm = tuple(mlist)
+                        allmonoms.add(newm) # len(allmonoms) is even
         
         dialyticeqs = list(dialyticeqs) + extradialyticeqs # dialyticeqs could be a tuple
-        allmonoms = list(allmonoms)
+        allmonoms   = list(allmonoms)
+        origmonoms  = list(origmonoms)
         allmonoms.sort()
-        origmonoms = list(origmonoms)
         origmonoms.sort()
-        if len(allmonoms)<2*len(dialyticeqs):
-            log.warn('solveDialytically equations %d > %d, should be equal...', 2*len(dialyticeqs),len(allmonoms))
+
+        nmonoms = len(allmonoms)
+        leneqs = len(dialyticeqs)
+        lenorigmonoms = len(origmonoms)
+        neqs = 2*leneqs
+        if nmonoms < neqs:
+            log.warn('solveDialytically equations %d > %d, should be equal...', neqs, nmonoms)
             # TODO not sure how to select the equations
-            N = len(allmonoms)/2
-            dialyticeqs = dialyticeqs[:N]
-        if len(allmonoms) == 0 or len(allmonoms)>2*len(dialyticeqs):
-            raise self.CannotSolveError('solveDialytically: more unknowns than equations %d>%d'%(len(allmonoms), 2*len(dialyticeqs)))
-        
-        Mall = [zeros((2*len(dialyticeqs),len(allmonoms))) for i in range(maxdegree+1)]
-        Mallindices = [-ones((2*len(dialyticeqs),len(allmonoms))) for i in range(maxdegree+1)]
-        exportcoeffeqs = [S.Zero]*(len(dialyticeqs)*len(origmonoms)*(maxdegree+1))
-        for ipeq,peq in enumerate(dialyticeqs):
-            for m,c in peq.terms():
+            neqs   = nmonoms
+            leneqs = neqs/2
+            dialyticeqs = dialyticeqs[:leneqs]
+            
+        if nmonoms == 0 or nmonoms > neqs:
+            raise self.CannotSolveError('solveDialytically: more unknowns than equations %d>%d' % \
+                                        (nmonoms, neqs))
+        assert(nmonoms == neqs)
+
+        degplusone = maxdegree+1
+        indexinc1 = lenorigmonoms*leneqs
+        # list of degplusone square matrices of size neqs (i.e. nmonoms)
+        Mall        = [zeros((neqs, nmonoms)) for i in range(degplusone)]
+        Mallindices = [-ones((neqs, nmonoms)) for i in range(degplusone)]
+        exportcoeffeqs = [S.Zero] * (indexinc1*degplusone)
+
+        for ipeq, peq in enumerate(dialyticeqs):
+            indexinc2 = lenorigmonoms*ipeq
+            for m, c in peq.terms():
                 mlist = list(m)
-                degree=mlist.pop(ileftvar)
-                exportindex = degree*len(origmonoms)*len(dialyticeqs) + len(origmonoms)*ipeq+origmonoms.index(tuple(mlist))
+                degree = mlist.pop(ileftvar)
+                newm = tuple(mlist)
+                exportindex = degree*indexinc1 + indexinc2 + \
+                              origmonoms.index(newm)
                 assert(exportcoeffeqs[exportindex] == S.Zero)
                 exportcoeffeqs[exportindex] = c
-                Mall[degree][len(dialyticeqs)+ipeq,allmonoms.index(tuple(mlist))] = c
-                Mallindices[degree][len(dialyticeqs)+ipeq,allmonoms.index(tuple(mlist))] = exportindex
+                newm = tuple(mlist)
+                Mall       [degree][leneqs+ipeq, allmonoms.index(newm)] = c
+                Mallindices[degree][leneqs+ipeq, allmonoms.index(newm)] = exportindex
+                #--------
                 mlist[0] += 1
-                Mall[degree][ipeq,allmonoms.index(tuple(mlist))] = c
-                Mallindices[degree][ipeq,allmonoms.index(tuple(mlist))] = exportindex
+                newm = tuple(mlist)
+                Mall       [degree][ipeq, allmonoms.index(newm)] = c
+                Mallindices[degree][ipeq, allmonoms.index(newm)] = exportindex
 
             # check if any monoms are not expressed in this poly
             # if so, add another poly with the monom multiplied, will this give bad solutions?
             for igen in range(len(peq.gens)):
-                if all([m[igen]==0 for m in peq.monoms()]):
-                    for m,c in peq.terms():
-                        mlist = list(m)
-                        mlist[igen] += 1
-                        degree=mlist.pop(ileftvar)
-                        exportindex = degree*len(origmonoms)*len(dialyticeqs) + len(origmonoms)*ipeq+origmonoms.index(tuple(mlist))
-                        assert(exportcoeffeqs[exportindex] == S.Zero)
-                        exportcoeffeqs[exportindex] = c
-                        Mall[degree][len(dialyticeqs)+ipeq,allmonoms.index(tuple(mlist))] = c
-                        Mallindices[degree][len(dialyticeqs)+ipeq,allmonoms.index(tuple(mlist))] = exportindex
-                        mlist[0] += 1
-                        Mall[degree][ipeq,allmonoms.index(tuple(mlist))] = c
-                        Mallindices[degree][ipeq,allmonoms.index(tuple(mlist))] = exportindex
+                if any([m[igen] > 0 for m in peq.monoms()]):
+                    continue
+                for m, c in peq.terms():
+                    mlist = list(m)
+                    mlist[igen] += 1
+                    degree = mlist.pop(ileftvar)
+                    newm = tuple(mlist)
+                    exportindex = degree*indexinc1 + indexinc2 + \
+                                  origmonoms.index(newm)
+                    assert(exportcoeffeqs[exportindex] == S.Zero)
+                    exportcoeffeqs[exportindex] = c
+                    Mall       [degree][leneqs+ipeq, allmonoms.index(newm)] = c
+                    Mallindices[degree][leneqs+ipeq, allmonoms.index(newm)] = exportindex
+                    #--------
+                    mlist[0] += 1
+                    newm = tuple(mlist)
+                    Mall       [degree][ipeq, allmonoms.index(newm)] = c
+                    Mallindices[degree][ipeq, allmonoms.index(newm)] = exportindex
 
         # have to check that the determinant is not zero for several values of ileftvar!
         # It is very common that some equations are linearly dependent and not solvable through this method.
         if self.testconsistentvalues is not None:
             linearlyindependent = False
-            for itest,subs in enumerate(self.testconsistentvalues):
+            eps = 10**-(self.precision-3)
+            for itest, tosubs in enumerate(self.testconsistentvalues):
                 if getsubs is not None:
                     # have to explicitly evaluate since testsubs can be very complex
-                    subsvals = [(s,v.evalf()) for s,v in subs]
+                    subsvals = [(s, v.evalf()) for s, v in tosubs]
                     try:
-                        subs = subsvals+getsubs(subsvals)
+                        tosubs = subsvals + getsubs(subsvals)
                     except self.CannotSolveError, e:
                         # getsubs failed (sometimes it requires solving inverse matrix), so go to next set
                         continue
                 # have to sub at least twice with the global symbols
-                A = Mall[maxdegree].subs(subs)
-                for i in range(A.shape[0]):
-                    for j in range(A.shape[1]):
-                        A[i,j] = self._SubstituteGlobalSymbols(A[i,j]).subs(subs).evalf()
-                eps = 10**-(self.precision-3)
+                A = Mall[maxdegree].subs(tosubs)
+                assert(A.rows == neqs and A.cols == neqs)
+                for i in range(neqs):
+                    for j in range(neqs):
+                        A[i,j] = self._SubstituteGlobalSymbols(A[i,j]).evalf()
                 try:
                     Anumpy = numpy.array(numpy.array(A), numpy.float64)
                 except ValueError, e:
                     log.warn(u'could not convert to numpy array: %s', e)
                     continue
-                
                 if numpy.isnan(numpy.sum(Anumpy)):
                     log.info('A has NaNs')
                     break
+                # compute eigenvalues
                 eigenvals = numpy.linalg.eigvals(Anumpy)
-                if all([Abs(f) > eps for f in eigenvals]):
-                    try:
-                        Ainv = A.inv(method='LU')
-                    except ValueError, e:
-                        log.error('error when taking inverse: %s', e)
-                        continue
-                    B = Ainv*Mall[1].subs(subs)
-                    for i in range(B.shape[0]):
-                        for j in range(B.shape[1]):
-                            B[i,j] = self._SubstituteGlobalSymbols(B[i,j]).subs(subs).evalf()
-                    C = Ainv*Mall[0].subs(subs).evalf()
-                    for i in range(C.shape[0]):
-                        for j in range(C.shape[1]):
-                            C[i,j] = self._SubstituteGlobalSymbols(C[i,j]).subs(subs).evalf()
-                    A2 = zeros((B.shape[0],B.shape[0]*2))
-                    for i in range(B.shape[0]):
-                        A2[i,B.shape[0]+i] = S.One
-                    A2=A2.col_join((-C).row_join(-B))
-                    eigenvals2,eigenvecs2 = numpy.linalg.eig(numpy.array(numpy.array(A2),numpy.float64))
-                    # check if solutions can actually be extracted
-                    # find all the zero eigenvalues
-                    roots = []
-                    numrepeating = 0
-                    for ieig,eigenvalue in enumerate(eigenvals2):
-                        if abs(numpy.imag(eigenvalue)) < 1e-12:
-                            if abs(numpy.real(eigenvalue)) > 1:
-                                ev = eigenvecs2[A.shape[0]:,ieig]
-                            else:
-                                ev = eigenvecs2[:A.shape[0],ieig]
-                            if abs(ev[0]) < 1e-14:
-                                continue
-                            br = ev[1:] / ev[0]
-                            dists = abs(numpy.array(roots) - numpy.real(eigenvalue))
-                            if any(dists<1e-7):
-                                numrepeating += 1
-                            roots.append(numpy.real(eigenvalue))
-                    if numrepeating > 0:
-                        log.info('found %d repeating roots in solveDialytically matrix: %s',numrepeating,roots)
-                        # should go on even if there's repeating roots?
-                        continue
-                    Atotal = None
-                    for idegree in range(maxdegree+1):
-                        Adegree = Mall[idegree].subs(subs)
-                        for i in range(Adegree.shape[0]):
-                            for j in range(Adegree.shape[1]):
-                                Adegree[i,j] = self._SubstituteGlobalSymbols(Adegree[i,j]).subs(subs).evalf()
-                        if Atotal is None:
-                            Atotal = Adegree
+                if not all([Abs(eigenval) > eps for eigenval in eigenvals]):
+                    log.info('not all abs(eigenvalues) > %e. min is %e', \
+                             eps, \
+                             min([Abs(eigenval) for eigenval in eigenvals if Abs(eigenval) < eps]))
+                    continue
+                
+                try:
+                    # compute inverse (need to think about it)
+                    Ainv = A.inv(method = 'LU')
+                except ValueError, e:
+                    log.error('error when taking inverse: %s', e)
+                    continue
+                B = Ainv * Mall[1].subs(tosubs)
+                assert(B.rows == neqs and B.cols == neqs)
+                for i in range(neqs):
+                    for j in range(neqs):
+                        B[i,j] = self._SubstituteGlobalSymbols(B[i,j]).subs(tosubs).evalf()
+                C = Ainv * Mall[0].subs(tosubs).evalf()
+                assert(C.rows == neqs and C.cols == neqs)
+                for i in range(neqs):
+                    for j in range(neqs):
+                        C[i,j] = self._SubstituteGlobalSymbols(C[i,j]).subs(tosubs).evalf()
+
+                A2 = zeros((neqs, neqs*2))
+                for i in range(neqs):
+                    A2[i, neqs+i] = S.One
+                A2 = A2.col_join((-C).row_join(-B))
+
+                """
+                     [ 0_(n x n) |  I_n ]
+                A2 = --------------------  of size 2n x 2n
+                     [    -C     |  -B  ]
+                """
+
+                eigenvals2, eigenvecs2 = numpy.linalg.eig(numpy.array(numpy.array(A2), \
+                                                                      numpy.float64))
+                # check if solutions can actually be extracted
+                # find all the zero eigenvalues
+                roots = []
+                numrepeating = 0
+                for ieig, eigenvalue in enumerate(eigenvals2):
+                    if abs(numpy.imag(eigenvalue)) < 1e-12:
+                        if abs(numpy.real(eigenvalue)) > 1:
+                            ev = eigenvecs2[neqs:, ieig]
                         else:
-                            Atotal += Adegree*leftvar**idegree
-                    # make sure the determinant of Atotal is not-zero for at least several solutions
-                    leftvarvalue = leftvar.subs(subs).evalf()
-                    hasnonzerodet = False
-                    for testvalue in [-10*S.One, -S.One,-0.5*S.One, 0.5*S.One, S.One, 10*S.One]:
-                        Atotal2 = Atotal.subs(leftvar,leftvarvalue+testvalue).evalf()
-                        detvalue = Atotal2.det()
-                        if abs(detvalue) > 1e-10:
-                            hasnonzerodet = True
-                    if not hasnonzerodet:
-                        log.warn('has zero det, so failed')
-                    else:
-                        linearlyindependent = True
-                    break
+                            ev = eigenvecs2[:neqs, ieig]
+                        if abs(ev[0]) < 1e-14:
+                            continue
+                        br = ev[1:] / ev[0]
+                        dists = abs(numpy.array(roots) - numpy.real(eigenvalue))
+                        if any(dists < 1e-7):
+                            numrepeating += 1
+                        roots.append(numpy.real(eigenvalue))
+                if numrepeating > 0:
+                    log.info('found %d repeating roots in solveDialytically matrix: %s', \
+                             numrepeating, roots)
+                    # should go on even if there's repeating roots?
+                    continue
+                Atotal = None
+                for idegree in range(degplusone):
+                    Adegree = Mall[idegree].subs(tosubs)
+                    assert(Adegree.rows == neqs and Adegree.cols == neqs)
+                    for i in range(neqs):
+                        for j in range(neqs):
+                            Adegree[i,j] = self._SubstituteGlobalSymbols(Adegree[i,j]).subs(tosubs).evalf()
+                    Atotal = Adegree if Atotal is None else Adegree*leftvar**idegree
+
+                # make sure the det(Atotal)!=0 for at least one set of consistent test values
+                leftvarvalue = leftvar.subs(tosubs).evalf()
+                hasnonzerodet = False
+                for testvalue in [-10*S.One, -S.One,-0.5*S.One, 0.5*S.One, S.One, 10*S.One]:
+                    Atotal2 = Atotal.subs(leftvar, leftvarvalue + testvalue).evalf()
+                    detvalue = Atotal2.det()
+                    if abs(detvalue) > 1e-10:
+                        hasnonzerodet = True
+                        break # TGN: no break in the original code
+                if hasnonzerodet:
+                    linearlyindependent = True
                 else:
-                    log.info('not all abs(eigenvalues) > %e. min is %e', eps, min([Abs(f) for f in eigenvals if Abs(f) < eps]))
+                    log.warn('has zero det, so failed')
+                break # testconsistentvalues for-loop; TGN: position of break here seems weird
+
             if not linearlyindependent:
-                raise self.CannotSolveError('equations are not linearly independent')
+                raise self.CannotSolveError('equations are linearly dependent')
 
         if returnmatrix:
-            return Mall,allmonoms
+            return Mall, allmonoms
+        else:
+            return exportcoeffeqs, origmonoms
 
-        return exportcoeffeqs,origmonoms
-
+        """
     def SubstituteGinacEquations(self,dictequations, valuesubs, localsymbolmap):
-        """
-        Called by solveLiWoernleHiller only (inside False branch, so not executed).
-        """
+        # Called by solveLiWoernleHiller only (inside False branch, so not executed).
         gvaluesubs = []
         for var, value in valuesubs:
             if value != oo:
@@ -7360,6 +7407,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 log.warn('%s not in map',var)
             retvalues.append((var,newvalue))
         return retvalues
+        """
     
     def SimplifyTransformPoly(self, peq):
         """
@@ -11726,7 +11774,9 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                             log.warn('Complexity of det(Mall) is too big: %d', complexity)
                             continue
 
+                        log.info('Before self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)')
                         possiblefinaleq = self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)
+                        log.info('After self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)')                        
                         if possiblefinaleq is not None:
                             # sometimes +- I are solutions, so remove them
                             # incorporated into checkFinalEquation

@@ -1,36 +1,36 @@
  INFO   [ LINE 248 : __init__.py : InitializeFromParser ]
 	IK_COLLECTION :: NO_ROBOT robotfiles/barretthand.kinbody.xml
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
+ INFO   [ LINE 1007 : inversekinematics.py : generate ]
 	IK_COLLECTION :: WRONG_IKTYPE robotfiles/barretthand.robot.xml
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
+ INFO   [ LINE 1007 : inversekinematics.py : generate ]
 	IK_COLLECTION :: WRONG_IKTYPE robotfiles/barrett-hand.zae
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/barrettsegway.robot.xml
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm: Transform6D [0, 1, 3, 4, 5, 6], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0_6.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 30.029646s
-        file = /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 20.371238s
+        file = /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0_6.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0_6.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
+        Shared object created: /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0_6.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/barrettsegway.robot.xml 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
@@ -42,38 +42,38 @@
           SUCCESS 100.0
           FAILURE   0.0
           NO SOLN   0.0
-     MISSING SOLN  23.7
+     MISSING SOLN  30.7
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
+ INFO   [ LINE 1007 : inversekinematics.py : generate ]
 	IK_COLLECTION :: WRONG_IKTYPE robotfiles/barrettwam4.robot.xml
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
+ INFO   [ LINE 1007 : inversekinematics.py : generate ]
 	IK_COLLECTION :: WRONG_IKTYPE robotfiles/barrett-wam4.zae
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/barrettwam-dual.robot.xml
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip r_arm: Transform6D [11, 12, 14, 15, 16, 17], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip r_arm: TranslationDirection5D [12, 13, 14, 15, 16], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.11_12_14_15_16_17_f13.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.12_13_14_15_16_f11_17.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 31.921167s
-        file = /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.11_12_14_15_16_17_f13.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 20.970869s
+        file = /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.12_13_14_15_16_f11_17.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.x86_64.11_12_14_15_16_17_f13.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.x86_64.12_13_14_15_16_f11_17.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.x86_64.11_12_14_15_16_17_f13.so
+        Shared object created: /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.x86_64.12_13_14_15_16_f11_17.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/barrettwam-dual.robot.xml 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
@@ -85,32 +85,32 @@
           SUCCESS 100.0
           FAILURE   0.0
           NO SOLN   0.0
-     MISSING SOLN  25.2
+     MISSING SOLN  33.1
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/barrett-wamhand.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm: Transform6D [0, 1, 3, 4, 5, 6], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0_6.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 29.930677s
-        file = /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 20.324615s
+        file = /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0_6.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0_6.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
+        Shared object created: /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0_6.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/barrett-wamhand.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
@@ -122,32 +122,32 @@
           SUCCESS 100.0
           FAILURE   0.0
           NO SOLN   0.0
-     MISSING SOLN  25.7
+     MISSING SOLN  30.9
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/barrettwam.robot.xml
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm: Transform6D [0, 1, 3, 4, 5, 6], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0_6.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 29.938973s
-        file = /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 20.333248s
+        file = /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0_6.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0_6.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
+        Shared object created: /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0_6.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/barrettwam.robot.xml 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
@@ -159,32 +159,32 @@
           SUCCESS 100.0
           FAILURE   0.0
           NO SOLN   0.0
-     MISSING SOLN  25.8
+     MISSING SOLN  32.7
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/barrett-wam-sensors.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm: Transform6D [0, 1, 3, 4, 5, 6], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.bd489b5dcd014abfd3fab765e0a570f7/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0_6.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 29.715304s
-        file = /private/cache/openrave/kinematics.bd489b5dcd014abfd3fab765e0a570f7/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 7.781277s
+        file = /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0_6.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.bd489b5dcd014abfd3fab765e0a570f7/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0_6.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.bd489b5dcd014abfd3fab765e0a570f7/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
+        Shared object created: /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0_6.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/barrett-wam-sensors.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
@@ -196,32 +196,32 @@
           SUCCESS 100.0
           FAILURE   0.0
           NO SOLN   0.0
-     MISSING SOLN  27.2
+     MISSING SOLN  32.4
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/barrett-wam.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm: Transform6D [0, 1, 3, 4, 5, 6], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.3238550ee83defc84c543b45c2db9325/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0_6.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 29.725110s
-        file = /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 20.145997s
+        file = /private/cache/openrave/kinematics.3238550ee83defc84c543b45c2db9325/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0_6.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.3238550ee83defc84c543b45c2db9325/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0_6.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
+        Shared object created: /private/cache/openrave/kinematics.3238550ee83defc84c543b45c2db9325/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0_6.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/barrett-wam.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
@@ -233,35 +233,72 @@
           SUCCESS 100.0
           FAILURE   0.0
           NO SOLN   0.0
-     MISSING SOLN  24.5
+     MISSING SOLN  35.4
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
+ INFO   [ LINE 1007 : inversekinematics.py : generate ]
 	IK_COLLECTION :: WRONG_IKTYPE robotfiles/care-o-bot3.zae
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/cmu-permma.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip leftarm: Transform6D [1, 2, 3, 4, 5, 6], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip leftarm: TranslationDirection5D [2, 3, 4, 5, 6], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.932c89545e6a1721f49778d9ea6940ca/ikfast0x1000004a.Transform6D.1_2_3_4_5_6.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.3599d930e8a3e7e7ef95c62b7fb7bb55/ikfast0x1000004a.TranslationDirection5D.2_3_4_5_6_f1.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 34.628447s
-        file = /private/cache/openrave/kinematics.932c89545e6a1721f49778d9ea6940ca/ikfast0x1000004a.Transform6D.1_2_3_4_5_6.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 61.240968s
+        file = /private/cache/openrave/kinematics.3599d930e8a3e7e7ef95c62b7fb7bb55/ikfast0x1000004a.TranslationDirection5D.2_3_4_5_6_f1.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.932c89545e6a1721f49778d9ea6940ca/ikfast0x1000004a.Transform6D.x86_64.1_2_3_4_5_6.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.3599d930e8a3e7e7ef95c62b7fb7bb55/ikfast0x1000004a.TranslationDirection5D.x86_64.2_3_4_5_6_f1.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.932c89545e6a1721f49778d9ea6940ca/ikfast0x1000004a.Transform6D.x86_64.1_2_3_4_5_6.so
+        Shared object created: /private/cache/openrave/kinematics.3599d930e8a3e7e7ef95c62b7fb7bb55/ikfast0x1000004a.TranslationDirection5D.x86_64.2_3_4_5_6_f1.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/cmu-permma.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
+	
+  STATISTICS          #  
+-----------------------------
+             TEST  1000
+          SUCCESS     0
+          FAILURE     0
+                      %  
+-----------------------------
+          SUCCESS   0.0
+          FAILURE   0.0
+          NO SOLN 100.0
+     MISSING SOLN   0.3
+
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
+	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/collada_robots_kawada-hironx.zae
+
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip rightarm: TranslationDirection5D [3, 4, 5, 6, 7], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.375ffd5a1bd2565b9d93634412dce778/ikfast0x1000004a.TranslationDirection5D.3_4_5_6_7_f8.cpp
+
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 16.565819s
+        file = /private/cache/openrave/kinematics.375ffd5a1bd2565b9d93634412dce778/ikfast0x1000004a.TranslationDirection5D.3_4_5_6_7_f8.cpp
+
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.375ffd5a1bd2565b9d93634412dce778/ikfast0x1000004a.TranslationDirection5D.x86_64.3_4_5_6_7_f8.so
+
+ INFO   [ LINE 358 : inversekinematics.py : save ]
+	IK generation is done
+        Shared object created: /private/cache/openrave/kinematics.375ffd5a1bd2565b9d93634412dce778/ikfast0x1000004a.TranslationDirection5D.x86_64.3_4_5_6_7_f8.so
+
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
+	Testing the success rate of robot robotfiles/collada_robots_kawada-hironx.zae 
+
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
@@ -275,110 +312,140 @@
           NO SOLN   0.0
      MISSING SOLN   0.0
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
-	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/collada_robots_kawada-hironx.zae
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
+	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/collada_robots_kuka-youbot.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip rightarm: Transform6D [3, 4, 5, 6, 7, 8], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.556b5a549250b91dd9b64142ef6fb205/ikfast0x1000004a.Transform6D.3_4_5_6_7_8.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.8746506cee5bd638a55a80ffc6235292/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 373.497306s
-        file = /private/cache/openrave/kinematics.556b5a549250b91dd9b64142ef6fb205/ikfast0x1000004a.Transform6D.3_4_5_6_7_8.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 282.560740s
+        file = /private/cache/openrave/kinematics.8746506cee5bd638a55a80ffc6235292/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.556b5a549250b91dd9b64142ef6fb205/ikfast0x1000004a.Transform6D.x86_64.3_4_5_6_7_8.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.8746506cee5bd638a55a80ffc6235292/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.556b5a549250b91dd9b64142ef6fb205/ikfast0x1000004a.Transform6D.x86_64.3_4_5_6_7_8.so
+        Shared object created: /private/cache/openrave/kinematics.8746506cee5bd638a55a80ffc6235292/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
-	Testing the success rate of robot robotfiles/collada_robots_kawada-hironx.zae 
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
+	Testing the success rate of robot robotfiles/collada_robots_kuka-youbot.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
              TEST  1000
-          SUCCESS   955
+          SUCCESS   885
           FAILURE     0
                       %  
 -----------------------------
-          SUCCESS  95.5
+          SUCCESS  88.5
           FAILURE   0.0
-          NO SOLN   4.5
-     MISSING SOLN   1.4
+          NO SOLN  11.5
+     MISSING SOLN   1.1
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
-	IK_COLLECTION :: WRONG_IKTYPE robotfiles/collada_robots_kuka-youbot.zae
-
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/collada_robots_mitsubishi-pa10.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm_nogripper: Transform6D [0, 1, 3, 4, 5, 6], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm_nogripper: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.1327c54bf609b286bd81f3d4c134a061/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.a3fc2a58c084beca1a6f29736b224a40/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0_6.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 50.322907s
-        file = /private/cache/openrave/kinematics.1327c54bf609b286bd81f3d4c134a061/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
+	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/collada_robots_neuronics-katana.zae
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.1327c54bf609b286bd81f3d4c134a061/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [0, 1, 2, 3, 4], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.ab9d03903279e44bc692e896791bcd05/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4.cpp
+
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
+	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/collada_robots_kuka-youbot.zae
+
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.8746506cee5bd638a55a80ffc6235292/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5.cpp
+
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 465.230589s
+        file = /private/cache/openrave/kinematics.ab9d03903279e44bc692e896791bcd05/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4.cpp
+
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.ab9d03903279e44bc692e896791bcd05/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.1327c54bf609b286bd81f3d4c134a061/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
+        Shared object created: /private/cache/openrave/kinematics.ab9d03903279e44bc692e896791bcd05/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
-	Testing the success rate of robot robotfiles/collada_robots_mitsubishi-pa10.zae 
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
+	Testing the success rate of robot robotfiles/collada_robots_neuronics-katana.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
              TEST  1000
-          SUCCESS  1000
+          SUCCESS   925
           FAILURE     0
                       %  
 -----------------------------
-          SUCCESS 100.0
+          SUCCESS  92.5
           FAILURE   0.0
-          NO SOLN   0.0
-     MISSING SOLN  25.0
+          NO SOLN   7.5
+     MISSING SOLN   5.6
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
-	IK_COLLECTION :: WRONG_IKTYPE robotfiles/collada_robots_neuronics-katana.zae
-
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/collada_robots_schunk-lwa3.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm_nogripper: Transform6D [0, 1, 3, 4, 5, 6], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm_nogripper: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.f1b4ece80cdeeec66467d9998ec73679/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.bcb25302dbec7575df10994dd89abd19/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0_6.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 51.056986s
-        file = /private/cache/openrave/kinematics.f1b4ece80cdeeec66467d9998ec73679/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1007 : inversekinematics.py : generate ]
+	IK_COLLECTION :: WRONG_IKTYPE robotfiles/collada_robots_shadow-hand.zae
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.f1b4ece80cdeeec66467d9998ec73679/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
+ INFO   [ LINE 1007 : inversekinematics.py : generate ]
+	IK_COLLECTION :: WRONG_IKTYPE robotfiles/collisionmap.robot.xml
+
+ INFO   [ LINE 1007 : inversekinematics.py : generate ]
+	IK_COLLECTION :: WRONG_IKTYPE robotfiles/crustcrawler-ax12.zae
+
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
+	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/darpa-arm.zae
+
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip rightarm: TranslationDirection5D [5, 6, 7, 8, 9], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.ba32f85ca3c87502739320e9e26a5905/ikfast0x1000004a.TranslationDirection5D.5_6_7_8_9_f4_10.cpp
+
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 20.382108s
+        file = /private/cache/openrave/kinematics.ba32f85ca3c87502739320e9e26a5905/ikfast0x1000004a.TranslationDirection5D.5_6_7_8_9_f4_10.cpp
+
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.ba32f85ca3c87502739320e9e26a5905/ikfast0x1000004a.TranslationDirection5D.x86_64.5_6_7_8_9_f4_10.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.f1b4ece80cdeeec66467d9998ec73679/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
+        Shared object created: /private/cache/openrave/kinematics.ba32f85ca3c87502739320e9e26a5905/ikfast0x1000004a.TranslationDirection5D.x86_64.5_6_7_8_9_f4_10.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
-	Testing the success rate of robot robotfiles/collada_robots_schunk-lwa3.zae 
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
+	Testing the success rate of robot robotfiles/darpa-arm.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
@@ -390,266 +457,213 @@
           SUCCESS 100.0
           FAILURE   0.0
           NO SOLN   0.0
-     MISSING SOLN   6.1
+     MISSING SOLN  37.6
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
-	IK_COLLECTION :: WRONG_IKTYPE robotfiles/collada_robots_shadow-hand.zae
-
- INFO   [ LINE 988 : inversekinematics.py : generate ]
-	IK_COLLECTION :: WRONG_IKTYPE robotfiles/collisionmap.robot.xml
-
- INFO   [ LINE 988 : inversekinematics.py : generate ]
-	IK_COLLECTION :: WRONG_IKTYPE robotfiles/crustcrawler-ax12.zae
-
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
-	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/darpa-arm.zae
-
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip rightarm: Transform6D [4, 5, 7, 8, 9, 10], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
-
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.34930a3a1995b5fb7c3b43862e0c04f2/ikfast0x1000004a.Transform6D.4_5_7_8_9_10_f6.cpp
-
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 30.747730s
-        file = /private/cache/openrave/kinematics.34930a3a1995b5fb7c3b43862e0c04f2/ikfast0x1000004a.Transform6D.4_5_7_8_9_10_f6.cpp
-
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.34930a3a1995b5fb7c3b43862e0c04f2/ikfast0x1000004a.Transform6D.x86_64.4_5_7_8_9_10_f6.so
-
- INFO   [ LINE 358 : inversekinematics.py : save ]
-	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.34930a3a1995b5fb7c3b43862e0c04f2/ikfast0x1000004a.Transform6D.x86_64.4_5_7_8_9_10_f6.so
-
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
-	Testing the success rate of robot robotfiles/darpa-arm.zae 
-
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
-	
-  STATISTICS          #  
------------------------------
-             TEST  1000
-          SUCCESS   994
-          FAILURE     0
-                      %  
------------------------------
-          SUCCESS  99.4
-          FAILURE   0.0
-          NO SOLN   0.6
-     MISSING SOLN  23.8
-
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/diffdrive_caster.robot.xml
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm: Transform6D [2, 3, 5, 6, 7, 8], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [3, 4, 5, 6, 7], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.2_3_5_6_7_8_f4.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.3_4_5_6_7_f2_8.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 29.405426s
-        file = /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.2_3_5_6_7_8_f4.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 20.215969s
+        file = /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.3_4_5_6_7_f2_8.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.x86_64.2_3_5_6_7_8_f4.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.x86_64.3_4_5_6_7_f2_8.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.e9a051e4825529aa31892beb41684ca4/ikfast0x1000004a.Transform6D.x86_64.2_3_5_6_7_8_f4.so
+        Shared object created: /private/cache/openrave/kinematics.2ac375a0aaf420715f482953e36187a5/ikfast0x1000004a.TranslationDirection5D.x86_64.3_4_5_6_7_f2_8.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/diffdrive_caster.robot.xml 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
              TEST  1000
-          SUCCESS   995
+          SUCCESS  1000
           FAILURE     0
                       %  
 -----------------------------
-          SUCCESS  99.5
+          SUCCESS 100.0
           FAILURE   0.0
-          NO SOLN   0.5
-     MISSING SOLN  25.1
+          NO SOLN   0.0
+     MISSING SOLN  35.0
 
  INFO   [ LINE 282 : inversekinematics.py : __init__ ]
 	IK_COLLECTION :: NONE_MANIP robotfiles/diffdrive_sample.robot.xml
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/exactdynamics-manusarmleft.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip leftarm: Transform6D [0, 1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip leftarm: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.932c89545e6a1721f49778d9ea6940ca/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.3599d930e8a3e7e7ef95c62b7fb7bb55/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 34.643084s
-        file = /private/cache/openrave/kinematics.932c89545e6a1721f49778d9ea6940ca/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 60.741720s
+        file = /private/cache/openrave/kinematics.3599d930e8a3e7e7ef95c62b7fb7bb55/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.932c89545e6a1721f49778d9ea6940ca/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.3599d930e8a3e7e7ef95c62b7fb7bb55/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.932c89545e6a1721f49778d9ea6940ca/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+        Shared object created: /private/cache/openrave/kinematics.3599d930e8a3e7e7ef95c62b7fb7bb55/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/exactdynamics-manusarmleft.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
              TEST  1000
-          SUCCESS  1000
+          SUCCESS     0
           FAILURE     0
                       %  
 -----------------------------
-          SUCCESS 100.0
+          SUCCESS   0.0
           FAILURE   0.0
-          NO SOLN   0.0
-     MISSING SOLN   0.0
+          NO SOLN 100.0
+     MISSING SOLN   0.4
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/fail1.dae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm: Transform6D [0, 1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.a12aea409fad77b84051893361555300/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.3aae873beda646c5643780400f298323/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 53.513471s
-        file = /private/cache/openrave/kinematics.a12aea409fad77b84051893361555300/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
-
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.a12aea409fad77b84051893361555300/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
-
- INFO   [ LINE 358 : inversekinematics.py : save ]
-	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.a12aea409fad77b84051893361555300/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
-
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
-	Testing the success rate of robot robotfiles/fail1.dae 
-
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
-	
-  STATISTICS          #  
------------------------------
-             TEST  1000
-          SUCCESS   994
-          FAILURE     0
-                      %  
------------------------------
-          SUCCESS  99.4
-          FAILURE   0.0
-          NO SOLN   0.6
-     MISSING SOLN   6.3
-
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/fail1.robot.xml
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm: Transform6D [0, 1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.a12aea409fad77b84051893361555300/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.3aae873beda646c5643780400f298323/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 53.419483s
-        file = /private/cache/openrave/kinematics.a12aea409fad77b84051893361555300/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
-
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.a12aea409fad77b84051893361555300/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
-
- INFO   [ LINE 358 : inversekinematics.py : save ]
-	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.a12aea409fad77b84051893361555300/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
-
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
-	Testing the success rate of robot robotfiles/fail1.robot.xml 
-
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
-	
-  STATISTICS          #  
------------------------------
-             TEST  1000
-          SUCCESS   987
-          FAILURE     0
-                      %  
------------------------------
-          SUCCESS  98.7
-          FAILURE   0.0
-          NO SOLN   1.3
-     MISSING SOLN   4.0
-
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/fail2.robot.xml
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm: Transform6D [0, 1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.b6e1c85a50d5b0cb97f66b7c8bf2fe0e/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.057f86d34bd31daa86307e200dc819c3/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 79.083254s
-        file = /private/cache/openrave/kinematics.b6e1c85a50d5b0cb97f66b7c8bf2fe0e/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
-
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.b6e1c85a50d5b0cb97f66b7c8bf2fe0e/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
-
- INFO   [ LINE 358 : inversekinematics.py : save ]
-	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.b6e1c85a50d5b0cb97f66b7c8bf2fe0e/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
-
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
-	Testing the success rate of robot robotfiles/fail2.robot.xml 
-
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
-	
-  STATISTICS          #  
------------------------------
-             TEST  1000
-          SUCCESS  1000
-          FAILURE     0
-                      %  
------------------------------
-          SUCCESS 100.0
-          FAILURE   0.0
-          NO SOLN   0.0
-     MISSING SOLN   4.7
-
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/fail3.robot.xml
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip FLLeg: Transform6D [0, 1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip FLLeg: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.5d4d57b31629ec142d49f670504d269a/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.4dfb99c71850badee66a3e3b4fb10bad/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 28.623386s
-        file = /private/cache/openrave/kinematics.5d4d57b31629ec142d49f670504d269a/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 451.611714s
+        file = /private/cache/openrave/kinematics.4dfb99c71850badee66a3e3b4fb10bad/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.5d4d57b31629ec142d49f670504d269a/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.4dfb99c71850badee66a3e3b4fb10bad/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.5d4d57b31629ec142d49f670504d269a/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+        Shared object created: /private/cache/openrave/kinematics.4dfb99c71850badee66a3e3b4fb10bad/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/fail3.robot.xml 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
+	
+  STATISTICS          #  
+-----------------------------
+             TEST  1000
+          SUCCESS   992
+          FAILURE     0
+                      %  
+-----------------------------
+          SUCCESS  99.2
+          FAILURE   0.0
+          NO SOLN   0.8
+     MISSING SOLN   9.8
+
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
+	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/fail4.dae
+
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip head: TranslationDirection5D [0, 1, 2, 3, 4], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.efccea4c4325631c8ffe395bac21b9c9/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4_f5.cpp
+
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 29.399491s
+        file = /private/cache/openrave/kinematics.efccea4c4325631c8ffe395bac21b9c9/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4_f5.cpp
+
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.efccea4c4325631c8ffe395bac21b9c9/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4_f5.so
+
+ INFO   [ LINE 358 : inversekinematics.py : save ]
+	IK generation is done
+        Shared object created: /private/cache/openrave/kinematics.efccea4c4325631c8ffe395bac21b9c9/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4_f5.so
+
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
+	Testing the success rate of robot robotfiles/fail4.dae 
+
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
+	
+  STATISTICS          #  
+-----------------------------
+             TEST  1000
+          SUCCESS   981
+          FAILURE     0
+                      %  
+-----------------------------
+          SUCCESS  98.1
+          FAILURE   0.0
+          NO SOLN   1.9
+     MISSING SOLN   0.0
+
+ INFO   [ LINE 1007 : inversekinematics.py : generate ]
+	IK_COLLECTION :: WRONG_IKTYPE robotfiles/fail5_4d.zae
+
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
+	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/kawada-hironx-parallelfingers.zae
+
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip rightarm: TranslationDirection5D [3, 4, 5, 6, 7], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.375ffd5a1bd2565b9d93634412dce778/ikfast0x1000004a.TranslationDirection5D.3_4_5_6_7_f8.cpp
+
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 16.398395s
+        file = /private/cache/openrave/kinematics.375ffd5a1bd2565b9d93634412dce778/ikfast0x1000004a.TranslationDirection5D.3_4_5_6_7_f8.cpp
+
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.375ffd5a1bd2565b9d93634412dce778/ikfast0x1000004a.TranslationDirection5D.x86_64.3_4_5_6_7_f8.so
+
+ INFO   [ LINE 358 : inversekinematics.py : save ]
+	IK generation is done
+        Shared object created: /private/cache/openrave/kinematics.375ffd5a1bd2565b9d93634412dce778/ikfast0x1000004a.TranslationDirection5D.x86_64.3_4_5_6_7_f8.so
+
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
+	Testing the success rate of robot robotfiles/kawada-hironx-parallelfingers.zae 
+
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
@@ -661,84 +675,7 @@
           SUCCESS 100.0
           FAILURE   0.0
           NO SOLN   0.0
-     MISSING SOLN   4.6
-
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
-	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/fail4.dae
-
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip head: Transform6D [0, 1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
-
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.c9eae8944a6c240040a3239ef8b0445a/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
-
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 124.883020s
-        file = /private/cache/openrave/kinematics.c9eae8944a6c240040a3239ef8b0445a/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
-
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.c9eae8944a6c240040a3239ef8b0445a/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
-
- INFO   [ LINE 358 : inversekinematics.py : save ]
-	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.c9eae8944a6c240040a3239ef8b0445a/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
-
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
-	Testing the success rate of robot robotfiles/fail4.dae 
-
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
-	
-  STATISTICS          #  
------------------------------
-             TEST  1000
-          SUCCESS    12
-          FAILURE     0
-                      %  
------------------------------
-          SUCCESS   1.2
-          FAILURE   0.0
-          NO SOLN  98.8
-     MISSING SOLN   0.1
-
- INFO   [ LINE 988 : inversekinematics.py : generate ]
-	IK_COLLECTION :: WRONG_IKTYPE robotfiles/fail5_4d.zae
-
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
-	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/kawada-hironx-parallelfingers.zae
-
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip rightarm: Transform6D [3, 4, 5, 6, 7, 8], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
-
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.556b5a549250b91dd9b64142ef6fb205/ikfast0x1000004a.Transform6D.3_4_5_6_7_8.cpp
-
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 377.038577s
-        file = /private/cache/openrave/kinematics.556b5a549250b91dd9b64142ef6fb205/ikfast0x1000004a.Transform6D.3_4_5_6_7_8.cpp
-
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.556b5a549250b91dd9b64142ef6fb205/ikfast0x1000004a.Transform6D.x86_64.3_4_5_6_7_8.so
-
- INFO   [ LINE 358 : inversekinematics.py : save ]
-	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.556b5a549250b91dd9b64142ef6fb205/ikfast0x1000004a.Transform6D.x86_64.3_4_5_6_7_8.so
-
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
-	Testing the success rate of robot robotfiles/kawada-hironx-parallelfingers.zae 
-
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
-	
-  STATISTICS          #  
------------------------------
-             TEST  1000
-          SUCCESS   955
-          FAILURE     0
-                      %  
------------------------------
-          SUCCESS  95.5
-          FAILURE   0.0
-          NO SOLN   4.5
-     MISSING SOLN   2.1
+     MISSING SOLN   0.2
 
  INFO   [ LINE 248 : __init__.py : InitializeFromParser ]
 	IK_COLLECTION :: NO_ROBOT robotfiles/kuka-kr150.zae
@@ -746,30 +683,70 @@
  INFO   [ LINE 282 : inversekinematics.py : __init__ ]
 	IK_COLLECTION :: NONE_MANIP robotfiles/kuka-kr210l180.zae
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/kuka-kr30l16.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm: Transform6D [0, 1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.6781f5b9fb4cec330e08bca0c06f7a43/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.1999c6d2c0204e8fd3c6915845778c23/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 33.245891s
-        file = /private/cache/openrave/kinematics.6781f5b9fb4cec330e08bca0c06f7a43/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 22.941988s
+        file = /private/cache/openrave/kinematics.1999c6d2c0204e8fd3c6915845778c23/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.6781f5b9fb4cec330e08bca0c06f7a43/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.1999c6d2c0204e8fd3c6915845778c23/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.6781f5b9fb4cec330e08bca0c06f7a43/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+        Shared object created: /private/cache/openrave/kinematics.1999c6d2c0204e8fd3c6915845778c23/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/kuka-kr30l16.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
+	
+  STATISTICS          #  
+-----------------------------
+             TEST  1000
+          SUCCESS   915
+          FAILURE     0
+                      %  
+-----------------------------
+          SUCCESS  91.5
+          FAILURE   0.0
+          NO SOLN   8.5
+     MISSING SOLN   7.8
+
+ INFO   [ LINE 248 : __init__.py : InitializeFromParser ]
+	IK_COLLECTION :: NO_ROBOT robotfiles/kuka-kr360.zae
+
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
+	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/kuka-kr3-cr.zae
+
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [0, 1, 2, 3, 4], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.525a00a02c115adef0fd35b40096e49c/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4_f5.cpp
+
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 3.996114s
+        file = /private/cache/openrave/kinematics.525a00a02c115adef0fd35b40096e49c/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4_f5.cpp
+
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.525a00a02c115adef0fd35b40096e49c/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4_f5.so
+
+ INFO   [ LINE 358 : inversekinematics.py : save ]
+	IK generation is done
+        Shared object created: /private/cache/openrave/kinematics.525a00a02c115adef0fd35b40096e49c/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4_f5.so
+
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
+	Testing the success rate of robot robotfiles/kuka-kr3-cr.zae 
+
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
@@ -783,230 +760,307 @@
           NO SOLN   0.0
      MISSING SOLN   5.7
 
- INFO   [ LINE 248 : __init__.py : InitializeFromParser ]
-	IK_COLLECTION :: NO_ROBOT robotfiles/kuka-kr360.zae
-
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
-	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/kuka-kr3-cr.zae
-
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm: Transform6D [0, 1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
-
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.9deed4f1a71b1f9720c53decad09f2eb/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
-
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 21.695150s
-        file = /private/cache/openrave/kinematics.9deed4f1a71b1f9720c53decad09f2eb/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
-
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.9deed4f1a71b1f9720c53decad09f2eb/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
-
- INFO   [ LINE 358 : inversekinematics.py : save ]
-	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.9deed4f1a71b1f9720c53decad09f2eb/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
-
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
-	Testing the success rate of robot robotfiles/kuka-kr3-cr.zae 
-
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
-	
-  STATISTICS          #  
------------------------------
-             TEST  1000
-          SUCCESS  1000
-          FAILURE     0
-                      %  
------------------------------
-          SUCCESS 100.0
-          FAILURE   0.0
-          NO SOLN   0.0
-     MISSING SOLN   4.8
-
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/kuka-kr5-r650.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm: Transform6D [0, 1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.91a2b4cd201a030d8d22848745147445/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.f39e879836615ea489f5611d5593ce3c/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 17.682576s
-        file = /private/cache/openrave/kinematics.91a2b4cd201a030d8d22848745147445/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 27.331692s
+        file = /private/cache/openrave/kinematics.f39e879836615ea489f5611d5593ce3c/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.91a2b4cd201a030d8d22848745147445/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.f39e879836615ea489f5611d5593ce3c/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.91a2b4cd201a030d8d22848745147445/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+        Shared object created: /private/cache/openrave/kinematics.f39e879836615ea489f5611d5593ce3c/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/kuka-kr5-r650.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
              TEST  1000
-          SUCCESS  1000
+          SUCCESS   934
           FAILURE     0
                       %  
 -----------------------------
-          SUCCESS 100.0
+          SUCCESS  93.4
           FAILURE   0.0
-          NO SOLN   0.0
-     MISSING SOLN  47.7
+          NO SOLN   6.6
+     MISSING SOLN  51.9
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/kuka-kr5-r850.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm: Transform6D [0, 1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.e158d2c8ede0f4f82aa37d63b20914b5/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.8529cf64e1f47189a44788609179f24f/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 18.266953s
-        file = /private/cache/openrave/kinematics.e158d2c8ede0f4f82aa37d63b20914b5/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 22.802578s
+        file = /private/cache/openrave/kinematics.8529cf64e1f47189a44788609179f24f/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.e158d2c8ede0f4f82aa37d63b20914b5/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.8529cf64e1f47189a44788609179f24f/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.e158d2c8ede0f4f82aa37d63b20914b5/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+        Shared object created: /private/cache/openrave/kinematics.8529cf64e1f47189a44788609179f24f/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5_f0.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/kuka-kr5-r850.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
              TEST  1000
-          SUCCESS  1000
+          SUCCESS   947
           FAILURE     0
                       %  
 -----------------------------
-          SUCCESS 100.0
+          SUCCESS  94.7
           FAILURE   0.0
-          NO SOLN   0.0
-     MISSING SOLN  47.6
+          NO SOLN   5.3
+     MISSING SOLN  50.7
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
-	IK_COLLECTION :: WRONG_IKTYPE robotfiles/kuka-youbot-hires.zae
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
+	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/kuka-youbot-hires.zae
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [2, 3, 4, 5, 6], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.131b81c1feef2fc4b5f4bfdf822602d4/ikfast0x1000004a.TranslationDirection5D.2_3_4_5_6.cpp
+
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
+	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/kuka-youbot.zae
+
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.8746506cee5bd638a55a80ffc6235292/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5.cpp
+
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 283.500250s
+        file = /private/cache/openrave/kinematics.8746506cee5bd638a55a80ffc6235292/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5.cpp
+
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.8746506cee5bd638a55a80ffc6235292/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5.so
+
+ INFO   [ LINE 358 : inversekinematics.py : save ]
+	IK generation is done
+        Shared object created: /private/cache/openrave/kinematics.8746506cee5bd638a55a80ffc6235292/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5.so
+
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
+	Testing the success rate of robot robotfiles/kuka-youbot.zae 
+
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
+	
+  STATISTICS          #  
+-----------------------------
+             TEST  1000
+          SUCCESS   853
+          FAILURE     0
+                      %  
+-----------------------------
+          SUCCESS  85.3
+          FAILURE   0.0
+          NO SOLN  14.7
+     MISSING SOLN   0.5
+
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/man1.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip leftarm: Transform6D [10, 11, 13, 14, 15, 16], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip leftarm: TranslationDirection5D [11, 12, 13, 14, 15], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.eebdaab6fb12dcef053ad06f8aa171e1/ikfast0x1000004a.Transform6D.10_11_13_14_15_16_f12.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.5f4802dbebac736baa649f94b8df2b0b/ikfast0x1000004a.TranslationDirection5D.11_12_13_14_15_f10_16.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 45.030752s
-        file = /private/cache/openrave/kinematics.eebdaab6fb12dcef053ad06f8aa171e1/ikfast0x1000004a.Transform6D.10_11_13_14_15_16_f12.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 4.296224s
+        file = /private/cache/openrave/kinematics.5f4802dbebac736baa649f94b8df2b0b/ikfast0x1000004a.TranslationDirection5D.11_12_13_14_15_f10_16.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.eebdaab6fb12dcef053ad06f8aa171e1/ikfast0x1000004a.Transform6D.x86_64.10_11_13_14_15_16_f12.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.5f4802dbebac736baa649f94b8df2b0b/ikfast0x1000004a.TranslationDirection5D.x86_64.11_12_13_14_15_f10_16.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.eebdaab6fb12dcef053ad06f8aa171e1/ikfast0x1000004a.Transform6D.x86_64.10_11_13_14_15_16_f12.so
+        Shared object created: /private/cache/openrave/kinematics.5f4802dbebac736baa649f94b8df2b0b/ikfast0x1000004a.TranslationDirection5D.x86_64.11_12_13_14_15_f10_16.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/man1.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
              TEST  1000
-          SUCCESS   999
+          SUCCESS   904
           FAILURE     0
                       %  
 -----------------------------
-          SUCCESS  99.9
+          SUCCESS  90.4
           FAILURE   0.0
-          NO SOLN   0.1
-     MISSING SOLN   3.0
+          NO SOLN   9.6
+     MISSING SOLN   0.6
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
-	IK_COLLECTION :: WRONG_IKTYPE robotfiles/neuronics-katana.zae
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
+	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/neuronics-katana.zae
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [0, 1, 2, 3, 4], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.ab9d03903279e44bc692e896791bcd05/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4.cpp
+
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 463.198969s
+        file = /private/cache/openrave/kinematics.ab9d03903279e44bc692e896791bcd05/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4.cpp
+
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.ab9d03903279e44bc692e896791bcd05/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4.so
+
+ INFO   [ LINE 358 : inversekinematics.py : save ]
+	IK generation is done
+        Shared object created: /private/cache/openrave/kinematics.ab9d03903279e44bc692e896791bcd05/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4.so
+
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
+	Testing the success rate of robot robotfiles/neuronics-katana.zae 
+
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
+	
+  STATISTICS          #  
+-----------------------------
+             TEST  1000
+          SUCCESS   922
+          FAILURE     0
+                      %  
+-----------------------------
+          SUCCESS  92.2
+          FAILURE   0.0
+          NO SOLN   7.8
+     MISSING SOLN   6.9
+
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/pa10schunk.robot.xml
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm: Transform6D [0, 1, 3, 4, 5, 6], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.a880a8d13e2c46e5d0cd99a17f516b86/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.197f863f13f8bc481b0d92a11d69c607/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0_6.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 53.718268s
-        file = /private/cache/openrave/kinematics.a880a8d13e2c46e5d0cd99a17f516b86/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
+	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/pr2-beta-sim.robot.xml
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.a880a8d13e2c46e5d0cd99a17f516b86/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip leftarm_camera: TranslationDirection5D [15, 16, 17, 18, 19], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.212b72a9a206f8708ae129b24e0f8340/ikfast0x1000004a.TranslationDirection5D.15_16_17_18_19.cpp
+
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 57.593745s
+        file = /private/cache/openrave/kinematics.212b72a9a206f8708ae129b24e0f8340/ikfast0x1000004a.TranslationDirection5D.15_16_17_18_19.cpp
+
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.212b72a9a206f8708ae129b24e0f8340/ikfast0x1000004a.TranslationDirection5D.x86_64.15_16_17_18_19.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.a880a8d13e2c46e5d0cd99a17f516b86/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
+        Shared object created: /private/cache/openrave/kinematics.212b72a9a206f8708ae129b24e0f8340/ikfast0x1000004a.TranslationDirection5D.x86_64.15_16_17_18_19.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
-	Testing the success rate of robot robotfiles/pa10schunk.robot.xml 
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
+	Testing the success rate of robot robotfiles/pr2-beta-sim.robot.xml 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
              TEST  1000
-          SUCCESS  1000
+          SUCCESS     0
           FAILURE     0
                       %  
 -----------------------------
-          SUCCESS 100.0
+          SUCCESS   0.0
           FAILURE   0.0
-          NO SOLN   0.0
-     MISSING SOLN  28.1
+          NO SOLN 100.0
+     MISSING SOLN   0.0
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
-	IK_COLLECTION :: WRONG_IKTYPE robotfiles/pr2-beta-sim.robot.xml
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
+	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/pr2-beta-static.zae
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
-	IK_COLLECTION :: WRONG_IKTYPE robotfiles/pr2-beta-static.zae
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip leftarm_camera: TranslationDirection5D [15, 16, 17, 18, 19], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.212b72a9a206f8708ae129b24e0f8340/ikfast0x1000004a.TranslationDirection5D.15_16_17_18_19.cpp
+
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 57.184291s
+        file = /private/cache/openrave/kinematics.212b72a9a206f8708ae129b24e0f8340/ikfast0x1000004a.TranslationDirection5D.15_16_17_18_19.cpp
+
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.212b72a9a206f8708ae129b24e0f8340/ikfast0x1000004a.TranslationDirection5D.x86_64.15_16_17_18_19.so
+
+ INFO   [ LINE 358 : inversekinematics.py : save ]
+	IK generation is done
+        Shared object created: /private/cache/openrave/kinematics.212b72a9a206f8708ae129b24e0f8340/ikfast0x1000004a.TranslationDirection5D.x86_64.15_16_17_18_19.so
+
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
+	Testing the success rate of robot robotfiles/pr2-beta-static.zae 
+
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
+	
+  STATISTICS          #  
+-----------------------------
+             TEST  1000
+          SUCCESS     0
+          FAILURE     0
+                      %  
+-----------------------------
+          SUCCESS   0.0
+          FAILURE   0.0
+          NO SOLN 100.0
+     MISSING SOLN   0.0
+
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/pumaarm.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm_nogripper: Transform6D [0, 1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm_nogripper: TranslationDirection5D [0, 1, 2, 3, 4], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.a6c70e6dd694838553470dde754d5825/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.560fcf56964ec92e4e01b8b6c12313af/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4_f5.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 20.641370s
-        file = /private/cache/openrave/kinematics.a6c70e6dd694838553470dde754d5825/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 4.538339s
+        file = /private/cache/openrave/kinematics.560fcf56964ec92e4e01b8b6c12313af/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4_f5.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.a6c70e6dd694838553470dde754d5825/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.560fcf56964ec92e4e01b8b6c12313af/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4_f5.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.a6c70e6dd694838553470dde754d5825/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+        Shared object created: /private/cache/openrave/kinematics.560fcf56964ec92e4e01b8b6c12313af/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4_f5.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/pumaarm.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
@@ -1018,32 +1072,32 @@
           SUCCESS 100.0
           FAILURE   0.0
           NO SOLN   0.0
-     MISSING SOLN  33.7
+     MISSING SOLN  30.1
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/pumabarrett.robot.xml
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm: Transform6D [0, 1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [0, 1, 2, 3, 4], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.a6c70e6dd694838553470dde754d5825/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.301156d9aa6cda76c4e7196ed231922f/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4_f5.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 20.563417s
-        file = /private/cache/openrave/kinematics.a6c70e6dd694838553470dde754d5825/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 4.569442s
+        file = /private/cache/openrave/kinematics.301156d9aa6cda76c4e7196ed231922f/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4_f5.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.a6c70e6dd694838553470dde754d5825/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.301156d9aa6cda76c4e7196ed231922f/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4_f5.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.a6c70e6dd694838553470dde754d5825/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+        Shared object created: /private/cache/openrave/kinematics.301156d9aa6cda76c4e7196ed231922f/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4_f5.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/pumabarrett.robot.xml 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
@@ -1055,35 +1109,35 @@
           SUCCESS 100.0
           FAILURE   0.0
           NO SOLN   0.0
-     MISSING SOLN  28.3
+     MISSING SOLN  31.3
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
+ INFO   [ LINE 1007 : inversekinematics.py : generate ]
 	IK_COLLECTION :: WRONG_IKTYPE robotfiles/pumagripper.zae
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/puma.robot.xml
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm: Transform6D [0, 1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [0, 1, 2, 3, 4], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.a6c70e6dd694838553470dde754d5825/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.1212e32be9160d1dd10dda70c49c46d3/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4_f5.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 20.894022s
-        file = /private/cache/openrave/kinematics.a6c70e6dd694838553470dde754d5825/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 4.551851s
+        file = /private/cache/openrave/kinematics.1212e32be9160d1dd10dda70c49c46d3/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4_f5.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.a6c70e6dd694838553470dde754d5825/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.1212e32be9160d1dd10dda70c49c46d3/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4_f5.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.a6c70e6dd694838553470dde754d5825/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+        Shared object created: /private/cache/openrave/kinematics.1212e32be9160d1dd10dda70c49c46d3/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4_f5.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/puma.robot.xml 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
@@ -1095,204 +1149,188 @@
           SUCCESS 100.0
           FAILURE   0.0
           NO SOLN   0.0
-     MISSING SOLN  33.4
+     MISSING SOLN  31.7
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/robots_kawada-hironx.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip rightarm: Transform6D [3, 4, 5, 6, 7, 8], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip rightarm: TranslationDirection5D [3, 4, 5, 6, 7], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.556b5a549250b91dd9b64142ef6fb205/ikfast0x1000004a.Transform6D.3_4_5_6_7_8.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.375ffd5a1bd2565b9d93634412dce778/ikfast0x1000004a.TranslationDirection5D.3_4_5_6_7_f8.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 382.286732s
-        file = /private/cache/openrave/kinematics.556b5a549250b91dd9b64142ef6fb205/ikfast0x1000004a.Transform6D.3_4_5_6_7_8.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 16.626831s
+        file = /private/cache/openrave/kinematics.375ffd5a1bd2565b9d93634412dce778/ikfast0x1000004a.TranslationDirection5D.3_4_5_6_7_f8.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.556b5a549250b91dd9b64142ef6fb205/ikfast0x1000004a.Transform6D.x86_64.3_4_5_6_7_8.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.375ffd5a1bd2565b9d93634412dce778/ikfast0x1000004a.TranslationDirection5D.x86_64.3_4_5_6_7_f8.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.556b5a549250b91dd9b64142ef6fb205/ikfast0x1000004a.Transform6D.x86_64.3_4_5_6_7_8.so
+        Shared object created: /private/cache/openrave/kinematics.375ffd5a1bd2565b9d93634412dce778/ikfast0x1000004a.TranslationDirection5D.x86_64.3_4_5_6_7_f8.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/robots_kawada-hironx.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
              TEST  1000
-          SUCCESS   960
+          SUCCESS  1000
           FAILURE     0
                       %  
 -----------------------------
-          SUCCESS  96.0
+          SUCCESS 100.0
           FAILURE   0.0
-          NO SOLN   4.0
-     MISSING SOLN   1.5
+          NO SOLN   0.0
+     MISSING SOLN   0.2
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
-	IK_COLLECTION :: WRONG_IKTYPE robotfiles/robots_kuka-youbot.zae
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
+	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/robots_kuka-youbot.zae
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.8746506cee5bd638a55a80ffc6235292/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5.cpp
+
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 282.207562s
+        file = /private/cache/openrave/kinematics.8746506cee5bd638a55a80ffc6235292/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5.cpp
+
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.8746506cee5bd638a55a80ffc6235292/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5.so
+
+ INFO   [ LINE 358 : inversekinematics.py : save ]
+	IK generation is done
+        Shared object created: /private/cache/openrave/kinematics.8746506cee5bd638a55a80ffc6235292/ikfast0x1000004a.TranslationDirection5D.x86_64.1_2_3_4_5.so
+
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
+	Testing the success rate of robot robotfiles/robots_kuka-youbot.zae 
+
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
+	
+  STATISTICS          #  
+-----------------------------
+             TEST  1000
+          SUCCESS   883
+          FAILURE     0
+                      %  
+-----------------------------
+          SUCCESS  88.3
+          FAILURE   0.0
+          NO SOLN  11.7
+     MISSING SOLN   1.3
+
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/robots_mitsubishi-pa10.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm_nogripper: Transform6D [0, 1, 3, 4, 5, 6], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm_nogripper: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.1327c54bf609b286bd81f3d4c134a061/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.a3fc2a58c084beca1a6f29736b224a40/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0_6.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 53.231212s
-        file = /private/cache/openrave/kinematics.1327c54bf609b286bd81f3d4c134a061/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
+	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/robots_neuronics-katana.zae
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.1327c54bf609b286bd81f3d4c134a061/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [0, 1, 2, 3, 4], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.ab9d03903279e44bc692e896791bcd05/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4.cpp
+
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 463.369279s
+        file = /private/cache/openrave/kinematics.ab9d03903279e44bc692e896791bcd05/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4.cpp
+
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.ab9d03903279e44bc692e896791bcd05/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.1327c54bf609b286bd81f3d4c134a061/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
+        Shared object created: /private/cache/openrave/kinematics.ab9d03903279e44bc692e896791bcd05/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
-	Testing the success rate of robot robotfiles/robots_mitsubishi-pa10.zae 
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
+	Testing the success rate of robot robotfiles/robots_neuronics-katana.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
              TEST  1000
-          SUCCESS  1000
+          SUCCESS   939
           FAILURE     0
                       %  
 -----------------------------
-          SUCCESS 100.0
+          SUCCESS  93.9
           FAILURE   0.0
-          NO SOLN   0.0
-     MISSING SOLN  26.9
+          NO SOLN   6.1
+     MISSING SOLN   6.2
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
-	IK_COLLECTION :: WRONG_IKTYPE robotfiles/robots_neuronics-katana.zae
-
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/robots_schunk-lwa3.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm_nogripper: Transform6D [0, 1, 3, 4, 5, 6], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm_nogripper: TranslationDirection5D [1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.f1b4ece80cdeeec66467d9998ec73679/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.bcb25302dbec7575df10994dd89abd19/ikfast0x1000004a.TranslationDirection5D.1_2_3_4_5_f0_6.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 53.736009s
-        file = /private/cache/openrave/kinematics.f1b4ece80cdeeec66467d9998ec73679/ikfast0x1000004a.Transform6D.0_1_3_4_5_6_f2.cpp
-
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.f1b4ece80cdeeec66467d9998ec73679/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
-
- INFO   [ LINE 358 : inversekinematics.py : save ]
-	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.f1b4ece80cdeeec66467d9998ec73679/ikfast0x1000004a.Transform6D.x86_64.0_1_3_4_5_6_f2.so
-
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
-	Testing the success rate of robot robotfiles/robots_schunk-lwa3.zae 
-
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
-	
-  STATISTICS          #  
------------------------------
-             TEST  1000
-          SUCCESS  1000
-          FAILURE     0
-                      %  
------------------------------
-          SUCCESS 100.0
-          FAILURE   0.0
-          NO SOLN   0.0
-     MISSING SOLN   7.5
-
- INFO   [ LINE 988 : inversekinematics.py : generate ]
+ INFO   [ LINE 1007 : inversekinematics.py : generate ]
 	IK_COLLECTION :: WRONG_IKTYPE robotfiles/robots_shadow-hand.zae
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
+ INFO   [ LINE 1007 : inversekinematics.py : generate ]
 	IK_COLLECTION :: WRONG_IKTYPE robotfiles/romela-darwin-op.zae
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
+ INFO   [ LINE 1007 : inversekinematics.py : generate ]
 	IK_COLLECTION :: WRONG_IKTYPE robotfiles/rotation_stage.zae
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/schunk-lwa3-dual.robot.xml
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip rightarm: Transform6D [7, 8, 10, 11, 12, 13], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip rightarm: TranslationDirection5D [8, 9, 10, 11, 12], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.f1b4ece80cdeeec66467d9998ec73679/ikfast0x1000004a.Transform6D.7_8_10_11_12_13_f9.cpp
-
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 53.763533s
-        file = /private/cache/openrave/kinematics.f1b4ece80cdeeec66467d9998ec73679/ikfast0x1000004a.Transform6D.7_8_10_11_12_13_f9.cpp
-
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.f1b4ece80cdeeec66467d9998ec73679/ikfast0x1000004a.Transform6D.x86_64.7_8_10_11_12_13_f9.so
-
- INFO   [ LINE 358 : inversekinematics.py : save ]
-	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.f1b4ece80cdeeec66467d9998ec73679/ikfast0x1000004a.Transform6D.x86_64.7_8_10_11_12_13_f9.so
-
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
-	Testing the success rate of robot robotfiles/schunk-lwa3-dual.robot.xml 
-
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
-	
-  STATISTICS          #  
------------------------------
-             TEST  1000
-          SUCCESS  1000
-          FAILURE     0
-                      %  
------------------------------
-          SUCCESS 100.0
-          FAILURE   0.0
-          NO SOLN   0.0
-     MISSING SOLN   5.6
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.bcb25302dbec7575df10994dd89abd19/ikfast0x1000004a.TranslationDirection5D.8_9_10_11_12_f7_13.cpp
 
  INFO   [ LINE 248 : __init__.py : InitializeFromParser ]
 	IK_COLLECTION :: NO_ROBOT robotfiles/schunk_manip.kinbody.xml
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
+ INFO   [ LINE 1007 : inversekinematics.py : generate ]
 	IK_COLLECTION :: WRONG_IKTYPE robotfiles/schunk_manip.robot.xml
 
  INFO   [ LINE 282 : inversekinematics.py : __init__ ]
 	IK_COLLECTION :: NONE_MANIP robotfiles/schunk-sdh.zae
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/testik0.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm: Transform6D [0, 1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [0, 1, 2, 3, 4], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.88a87643b02f2686071679b9c1fd8a88/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.1a907be164a76a80c0bcc2cf8a3ab456/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4_f5.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 18.690452s
-        file = /private/cache/openrave/kinematics.88a87643b02f2686071679b9c1fd8a88/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 18.344233s
+        file = /private/cache/openrave/kinematics.1a907be164a76a80c0bcc2cf8a3ab456/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4_f5.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.88a87643b02f2686071679b9c1fd8a88/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.1a907be164a76a80c0bcc2cf8a3ab456/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4_f5.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.88a87643b02f2686071679b9c1fd8a88/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+        Shared object created: /private/cache/openrave/kinematics.1a907be164a76a80c0bcc2cf8a3ab456/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4_f5.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/testik0.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
@@ -1304,35 +1342,35 @@
           SUCCESS 100.0
           FAILURE   0.0
           NO SOLN   0.0
-     MISSING SOLN  73.5
+     MISSING SOLN  51.8
 
- INFO   [ LINE 988 : inversekinematics.py : generate ]
+ INFO   [ LINE 1007 : inversekinematics.py : generate ]
 	IK_COLLECTION :: WRONG_IKTYPE robotfiles/tridof.robot.xml
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/unimation-pumaarm.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm_nogripper: Transform6D [0, 1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm_nogripper: TranslationDirection5D [0, 1, 2, 3, 4], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.a6c70e6dd694838553470dde754d5825/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.560fcf56964ec92e4e01b8b6c12313af/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4_f5.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 21.194925s
-        file = /private/cache/openrave/kinematics.a6c70e6dd694838553470dde754d5825/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 4.582418s
+        file = /private/cache/openrave/kinematics.560fcf56964ec92e4e01b8b6c12313af/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4_f5.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.a6c70e6dd694838553470dde754d5825/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.560fcf56964ec92e4e01b8b6c12313af/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4_f5.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.a6c70e6dd694838553470dde754d5825/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+        Shared object created: /private/cache/openrave/kinematics.560fcf56964ec92e4e01b8b6c12313af/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4_f5.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/unimation-pumaarm.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
@@ -1344,44 +1382,44 @@
           SUCCESS 100.0
           FAILURE   0.0
           NO SOLN   0.0
-     MISSING SOLN  32.6
+     MISSING SOLN  31.3
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/universalrobots-ur6-85-5-a.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
-	Generating inverse kinematics for manip arm: Transform6D [0, 1, 2, 3, 4, 5], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
+	Generating inverse kinematics for manip arm: TranslationDirection5D [0, 1, 2, 3, 4], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
-	Creating IK file /private/cache/openrave/kinematics.c8f3877daab9ad5979dfad442c2c28f5/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
+	Creating IK file /private/cache/openrave/kinematics.4ba771f7164dc381c70babe56f13cfcc/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4_f5.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 65.422566s
-        file = /private/cache/openrave/kinematics.c8f3877daab9ad5979dfad442c2c28f5/ikfast0x1000004a.Transform6D.0_1_2_3_4_5.cpp
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 1010.878782s
+        file = /private/cache/openrave/kinematics.4ba771f7164dc381c70babe56f13cfcc/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4_f5.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
-	Compiling C++ IK file to /private/cache/openrave/kinematics.c8f3877daab9ad5979dfad442c2c28f5/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
+	Compiling C++ IK file to /private/cache/openrave/kinematics.4ba771f7164dc381c70babe56f13cfcc/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4_f5.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
-        Shared object created: /private/cache/openrave/kinematics.c8f3877daab9ad5979dfad442c2c28f5/ikfast0x1000004a.Transform6D.x86_64.0_1_2_3_4_5.so
+        Shared object created: /private/cache/openrave/kinematics.4ba771f7164dc381c70babe56f13cfcc/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4_f5.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/universalrobots-ur6-85-5-a.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
              TEST  1000
-          SUCCESS   992
+          SUCCESS   993
           FAILURE     0
                       %  
 -----------------------------
-          SUCCESS  99.2
+          SUCCESS  99.3
           FAILURE   0.0
-          NO SOLN   0.8
-     MISSING SOLN  95.2
+          NO SOLN   0.7
+     MISSING SOLN  93.3
 
  INFO   [ LINE 248 : __init__.py : InitializeFromParser ]
 	IK_COLLECTION :: NO_ROBOT robotfiles/wam4.kinbody.xml
@@ -1395,40 +1433,40 @@
  INFO   [ LINE 248 : __init__.py : InitializeFromParser ]
 	IK_COLLECTION :: NO_ROBOT robotfiles/zange.zae
 
- INFO   [ LINE 1002 : inversekinematics.py : generate ]
+ INFO   [ LINE 1021 : inversekinematics.py : generate ]
 	IK_COLLECTION :: RIGHT_IKTYPE robotfiles/neuronics-katana.zae
 
- INFO   [ LINE 1012 : inversekinematics.py : generate ]
+ INFO   [ LINE 1031 : inversekinematics.py : generate ]
 	Generating inverse kinematics for manip arm: TranslationDirection5D [0, 1, 2, 3, 4], precision = 8, maxcasedepth = 3 (this might take up to 10 min)
 
- INFO   [ LINE 1020 : inversekinematics.py : generate ]
+ INFO   [ LINE 1039 : inversekinematics.py : generate ]
 	Creating IK file /private/cache/openrave/kinematics.ab9d03903279e44bc692e896791bcd05/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4.cpp
 
- INFO   [ LINE 1086 : inversekinematics.py : generate ]
-	Successfully generated C++ IK file in 487.707593s
+ INFO   [ LINE 1107 : inversekinematics.py : generate ]
+	Successfully generated C++ IK file in 464.862104s
         file = /private/cache/openrave/kinematics.ab9d03903279e44bc692e896791bcd05/ikfast0x1000004a.TranslationDirection5D.0_1_2_3_4.cpp
 
- INFO   [ LINE 1092 : inversekinematics.py : generate ]
+ INFO   [ LINE 1113 : inversekinematics.py : generate ]
 	Compiling C++ IK file to /private/cache/openrave/kinematics.ab9d03903279e44bc692e896791bcd05/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4.so
 
  INFO   [ LINE 358 : inversekinematics.py : save ]
 	IK generation is done
         Shared object created: /private/cache/openrave/kinematics.ab9d03903279e44bc692e896791bcd05/ikfast0x1000004a.TranslationDirection5D.x86_64.0_1_2_3_4.so
 
- INFO   [ LINE 1378 : inversekinematics.py : RunFromParser ]
+ INFO   [ LINE 1410 : inversekinematics.py : RunFromParser ]
 	Testing the success rate of robot robotfiles/neuronics-katana.zae 
 
- INFO   [ LINE 1215 : inversekinematics.py : testik ]
+ INFO   [ LINE 1243 : inversekinematics.py : testik ]
 	
   STATISTICS          #  
 -----------------------------
              TEST  1000
-          SUCCESS   930
+          SUCCESS   921
           FAILURE     0
                       %  
 -----------------------------
-          SUCCESS  93.0
+          SUCCESS  92.1
           FAILURE   0.0
-          NO SOLN   7.0
-     MISSING SOLN   7.8
+          NO SOLN   7.9
+     MISSING SOLN   5.3
 
