@@ -10178,6 +10178,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         Also before calling ROOTS, we plug in the desired root and evaluate the residual first.
 
         The reason we do not use numpy's POLYROOTS is that we have to do two-way type conversions.
+
+        Called by solvePairVariables, solvePairVariablesHalfAngle, solveHighDegreeEquationsHalfAngle.
         """
 
         # log.info('checkFinalEquation for %r', pfinal)
@@ -10207,7 +10209,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         elif all([pfinal.LC().subs(tosubs).subs(self.globalsymbols).subs(testconsistentvalue).evalf()==S.Zero \
                 for testconsistentvalue in self.testconsistentvalues]):
             if printCheckMsg:
-                log.info('checkFinalEquation: ZERO for all sets of consistent values; returns NO valid solution')
+                log.info('checkFinalEquation: ZERO leading coefficient for all sets of consistent values; ' + \
+                         'returns NO valid solution')
             return None
 
         # sanity check that polynomial can produce a solution and is not actually very small values
@@ -10305,9 +10308,9 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                          Abs(Re(root)-realsolution) < thresh3 \
                          for root in r] ):
                     if printCheckMsg:
-                        exec(ipython_str, globals(),locals())
                         log.info('checkFinalEquation: precision comparison PASSED for root %r from Set %i\n' + \
                                  '        %r', realsolution, i, r)
+                        # exec(ipython_str, globals(),locals())
                     found = True
                     break
                 else:
@@ -10341,6 +10344,121 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             
         return pfinal if found else None
 
+    def checkMatrixDet(self, A, htvar, tosubs = []):
+        """
+        """
+        printCheckMsg = True #False
+        # thresholds
+        thresh1 = 2*(10.0**- self.precision)
+        thresh2 =    10.0**- self.precision
+        thresh3 =    10.0**-(self.precision-2)
+
+        found = False
+        for i, testconsistentvalue in enumerate(self.testconsistentvalues):
+            
+            subsdict = dict(testconsistentvalue)
+            subsdict.update(self.globalsymbols)
+            realsolution = subsdict.pop(htvar)
+
+            Asubs = A.subs(subsdict)
+            try:
+                detAsubs = Asubs.berkowitz_det()
+            except Exception, e:
+                log.warn('Failed to compute det(A): %s', e)
+                continue
+
+            detAsubs = self.removecommonexprs(detAsubs)
+            polydetAsubs = Poly(detAsubs, htvar)
+            deg = polydetAsubs.degree()
+            if deg <= 0:
+                continue
+
+            coeffs_dict = polydetAsubs.as_dict()
+            coeffs = [ coeffs_dict.get((i,), S.Zero).evalf()  for i in range(deg+1)[::-1] ]
+            print coeffs            
+
+            has_weird_sym = [not self.isValidSolution(c) for c in coeffs]
+            if any(has_weird_sym):
+                # some variable plugged in the denominator is 0 in test values, yielding +/-oo or nan
+                if printCheckMsg:
+                    log.info('checkMatrixDet: value has I/oo/-oo/nan:\n' + \
+                             '        %r', nz_coeffs)
+                continue
+            
+            if Abs(coeffs[0]) < thresh1:
+                # after plugging in test values, coefficient of highest order becomes 0
+                if printCheckMsg:
+                    log.info('checkMatrixDet: precision comparison NOT passed: %r < %r', \
+                             Abs(nz_coeffs[0]), thresh1)
+                continue
+            
+            if not all([c.is_number for c in coeffs]):
+                # cannot evaluate
+                if printCheckMsg:
+                    log.warn('checkMatrixDet: set found as True, as we cannot evaluate\n        %s', \
+                             "\n        ".join(str(x) for x in nz_coeffs if not x.is_number))
+                found = True
+                break
+
+            # exact solution
+            realsolution = realsolution.evalf()
+
+            # compute residual first before calling expensive root finding
+            residual = Abs(polyval(coeffs, realsolution))
+            if residual < thresh3:
+
+                # divide by (htvar**2+1) several times to get rid of roots +I, -I
+                while True:
+                    q, rem, check = self.checkFactorPmI(coeffs)
+                    if check:
+                        coeffs = q
+                    else:
+                        break
+                print coeffs
+                
+                # compute roots by sympy's roots            
+                r = [r.evalf() for r in roots(coeffs).keys()]
+                if any( [Abs(Im(root))              < thresh2 and \
+                         Abs(Re(root)-realsolution) < thresh3 \
+                         for root in r] ):
+                    if printCheckMsg:
+                        log.info('checkMatrixDet: precision comparison PASSED for root %r from Set %i\n' + \
+                                 '        %r', realsolution, i, r)
+                    found = True
+                    break
+                else:
+                    if any([not c.is_number for m,c in pfinal.terms()]):
+                        if printCheckMsg:
+                            log.info('checkMatrixDet: precision comparison NOT passed for root %r\n' + \
+                                     '        %r', realsolution, r)
+                        pass
+            else:
+                if printCheckMsg:
+                    log.info('checkMatrixDet: residual too large for %r, ' + \
+                             'precision comparison NOT passed', realsolution)
+                pass
+
+        if found:
+            if printCheckMsg:
+                log.info('checkMatrixDet returns VALID solution')
+            try:
+                detA = A.berkowitz_det()
+            except Exception, e:
+                log.warn('Failed to compute det(A): %s', e)
+                return None
+            polydetA = Poly(detA, htvar)
+            # remove all factors of (htvar-0) by dividing htvar until the trailing coefficient (TC) is nonzero
+            p = [p[0] for p, c in polydetA.terms() if p[0]>0]
+            if len(p) > 0 and  min(p) > 0 and polydetA.TC() == S.Zero:
+                min_p = min(p)
+                assert(all([m[0]-min_p>=0 for m, c in polydetA.terms()]))
+                polydetA = Poly(sum(c*htvar**(m[0]-min_p) for m, c in polydetA.terms()), htvar)
+            return polydetA
+        else:
+            if printCheckMsg:
+                log.info('checkMatrixDet returns NO valid solution')
+            return None
+        
     def solveSingleVariable(self, raweqns, \
                             var, othersolvedvars, \
                             maxsolutions = 4, \
@@ -11790,25 +11908,31 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         timepoly += time.time()
                         log.info('After self.checkFinalEquation(Poly(Malldet, leftvar), tosubs); time elapsed: %1.2fs', \
                                  timepoly)
-                        if timepoly>1.2 and possiblefinaleq is not None:
-                            exec(ipython_str, globals(), locals())
-                        if possiblefinaleq is not None:
-                            # sometimes +- I are solutions, so remove them
-                            # incorporated into checkFinalEquation
-                            """
-                            q, r = div(possiblefinaleq, leftvar+I)
-                            if r == S.Zero:
-                                possiblefinaleq = Poly(q, leftvar)
+
+                        timepoly = -time.time()
+                        log.info('Before self.checkMatrixDet(Malldet, leftvar, tosubs)')
+                        possiblefinaleq = self.checkMatrixDet(Mall, leftvar, tosubs)
+                        timepoly += time.time()
+                        log.info('After self.checkMatrixDet(Malldet, leftvar, tosubs); time elapsed: %1.2fs', \
+                                 timepoly)
+                        if possiblefinaleq is None:
+                            continue # eqsindices for-loop\
                                 
-                            q, r = div(possiblefinaleq, leftvar-I)
-                            if r == S.Zero:
-                                possiblefinaleq = Poly(q, leftvar)
-                            """
-                                
-                            possibilities.append(possiblefinaleq)
-                            unusedindices = [ind for ind in unusedindices if ind not in eqsindices]
-                            if len(unusedindices) == 0:
-                                break
+                        # sometimes +- I are solutions, so remove them
+                        # incorporated into checkFinalEquation
+                        """
+                        q, r = div(possiblefinaleq, leftvar+I)
+                        if r == S.Zero:
+                            possiblefinaleq = Poly(q, leftvar)
+
+                        q, r = div(possiblefinaleq, leftvar-I)
+                        if r == S.Zero:
+                            possiblefinaleq = Poly(q, leftvar)
+                        """
+                        possibilities.append(possiblefinaleq)
+                        unusedindices = [ind for ind in unusedindices if ind not in eqsindices]
+                        if len(unusedindices) == 0:
+                            break
 
                     if len(possibilities) > 1:
                         try:
