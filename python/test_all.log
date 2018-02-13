@@ -33,3 +33,5 @@
 18/02/13-12:25:53, --robot=robotfiles/unimation-pumaarm.zae, TranslationDirection5D, 1000, 1000, 0, 100.0, 0.000, 0.000, 32.000, runtime = 4.7s, testtime = 7.7s
 18/02/13-12:44:05, --robot=robotfiles/universalrobots-ur6-85-5-a.zae, TranslationDirection5D, 1000, 996, 0, 99.6, 0.000, 0.400, 92.800, runtime = 1070.2s, testtime = 19.7s
 18/02/13-12:54:32, --robot=robotfiles/neuronics-katana.zae, TranslationDirection5D, 1000, 929, 0, 92.9, 0.000, 7.100, 6.400, runtime = 613.5s, testtime = 0.1s
+18/02/13-14:06:35, --robot=robotfiles/universalrobots-ur6-85-5-a.zae, TranslationDirection5D, 1000, 991, 0, 99.1, 0.000, 0.900, 93.300, runtime = 241.1s, testtime = 19.0s
+18/02/13-14:13:10, --robot=robotfiles/collada_robots_neuronics-katana.zae, TranslationDirection5D, 1000, 927, 0, 92.7, 0.000, 7.300, 6.100, runtime = 97.4s, testtime = 0.1s

@@ -10361,7 +10361,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
 
         Called by solvePairVariablesHalfAngle.
         """
-        printCheckMsg = False
+        printCheckMsg = False # True
         # thresholds
         thresh1 = 2*(10.0**- self.precision)
         thresh2 =    10.0**- self.precision
@@ -10382,11 +10382,12 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 continue
 
             detAsubs = self.removecommonexprs(detAsubs)
-            polydetAsubs = Poly(detAsubs, htvar)
-            deg = polydetAsubs.degree()
-            if deg <= 0:
+            if detAsubs == S.Zero:
+                # log.info('zero determinant')
                 continue
 
+            polydetAsubs = Poly(detAsubs, htvar)
+            deg = polydetAsubs.degree()
             coeffs_dict = polydetAsubs.as_dict()
             coeffs = [ coeffs_dict.get((i,), S.Zero).evalf()  for i in range(deg+1)[::-1] ]
             print coeffs            
@@ -11730,13 +11731,12 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         log.info('solvePairVariables tries solvePairVariablesHalfAngle')
         return self.solvePairVariablesHalfAngle(raweqns, var0, var1, othersolvedvars)
 
-
     @staticmethod
     def ncr(n, r):
         r = min(r, n-r)
         if r == 0: return 1
-        numer = prod(xrange(n, n-r, -1))
-        denom = prod(xrange(1, r+1))
+        numer = IKFastSolver.prod(xrange(n, n-r, -1))
+        denom = IKFastSolver.prod(xrange(1, r+1))
         return numer//denom
     
     def solvePairVariablesHalfAngle(self, raweqns, var0, var1, \
@@ -11854,9 +11854,10 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         #polyeqs = [peq[1] for peq in complexity]
 
         polyeqs.sort(key = lambda x: x.count_ops())
-        
+        detComplexityThreshold = 1200
         solutions = [None, None]
         linearsolution = None
+        
         for ileftvar in (0, 1):
             if linearsolution is not None:
                 log.info('Found linearsolution')
@@ -11881,9 +11882,10 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     break
                 
                 newpolyeqs2 = [peq for peq in newpolyeqs \
-                               if max(peq.degree_list()) <= degree]
-
+                               if max(peq.degree_list()) <= degree and peq != S.Zero]
                 neq = len(newpolyeqs2)
+                if neq == 0:
+                    continue
                 if degree+1 <= neq:
                     # To avoid wrong solutions, we get resultants for all equations
                     possibilities = []
@@ -11894,7 +11896,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         for i, eqindex in enumerate(eqsindices):
                             eq = newpolyeqs2[eqindex]
                             for m, c in eq.terms():
-                                totalcomplexity += self.codeComplexity(c.expand())
+                                totalcomplexity += self.codeComplexity(c)
                                 j = m[0]
                                 Mall[i, j] = c
                         if degree >= 4 and totalcomplexity > 5000:
@@ -11916,8 +11918,12 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                             continue
                         
                         complexity = self.codeComplexity(Malldet)
-                        if complexity > 1200:
-                            log.warn('Complexity of det(Mall) is too big: %d', complexity)
+                        if complexity > detComplexityThreshold:
+                            log.warn('Complexity of det(Mall) is too big: %d > %d', \
+                                     complexity, detComplexityThreshold)
+                            continue
+
+                        if expand(Malldet)==S.Zero:
                             continue
                         """
                         timepoly = -time.time()
@@ -11927,18 +11933,20 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         log.info('After self.checkFinalEquation(Poly(Malldet, leftvar), tosubs); time elapsed: %1.2fs', \
                                  timepoly)
                         """
-                        timepoly = -time.time()
-                        log.info('Before checkMatrixDet')
+                        # timepoly = -time.time()
+                        # log.info('Before checkMatrixDet')
                         possiblefinaleq = self.checkMatrixDet(Mall, Malldet, leftvar, tosubs)
-                        timepoly += time.time()
+                        # timepoly += time.time()
 
                         if possiblefinaleq is None:
-                            log.info('After checkMatrixDet (invalid); time elapsed: %1.2fs', \
-                                     timepoly)
+                            #log.info('After checkMatrixDet (invalid); time elapsed: %1.2fs', \
+                            #         timepoly)
+                            # exec(ipython_str, globals(), locals())
                             continue # eqsindices for-loop
                         else:
-                            log.info('After self.checkMatrixDet (valid); time elapsed: %1.2fs', \
-                                     timepoly)
+                            #log.info('After self.checkMatrixDet (valid); time elapsed: %1.2fs', \
+                            #         timepoly)
+                            pass
                                 
                         # sometimes +- I are solutions, so remove them
                         # incorporated into checkFinalEquation
