@@ -10344,16 +10344,30 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             
         return pfinal if found else None
 
-    def checkMatrixDet(self, A, htvar, tosubs = []):
+    def checkMatrixDet(self, A, detA, htvar, tosubs = []):
         """
+        A variant of checkFinalEquation. Takes a matrix and its determinant, and checks if solving the polynomial 
+        DETA (in one variable HTVAR) produces one *nonzero, real, valid* root (meaning not oo, -oo, or nan) 
+        that is consistent with at least one consistent test value.
+
+        Other symbols in this polynomial are deemed as constants, so are subtituted for by test values in the same set.
+
+        Before calling sympy's relatively expensive root-finding function ROOTS, we factor out (HTVAR**2+1) so 
+        the polynomial does not have roots 0, +I, -I.
+   
+        Also before calling ROOTS, we plug in the desired root and evaluate the residual first.
+
+        The reason we do not use numpy's POLYROOTS is that we have to do two-way type conversions.
+
+        Called by solvePairVariablesHalfAngle.
         """
-        printCheckMsg = True #False
+        printCheckMsg = False
         # thresholds
         thresh1 = 2*(10.0**- self.precision)
         thresh2 =    10.0**- self.precision
         thresh3 =    10.0**-(self.precision-2)
-
         found = False
+        
         for i, testconsistentvalue in enumerate(self.testconsistentvalues):
             
             subsdict = dict(testconsistentvalue)
@@ -10441,11 +10455,6 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         if found:
             if printCheckMsg:
                 log.info('checkMatrixDet returns VALID solution')
-            try:
-                detA = A.berkowitz_det()
-            except Exception, e:
-                log.warn('Failed to compute det(A): %s', e)
-                return None
             polydetA = Poly(detA, htvar)
             # remove all factors of (htvar-0) by dividing htvar until the trailing coefficient (TC) is nonzero
             p = [p[0] for p, c in polydetA.terms() if p[0]>0]
@@ -11901,22 +11910,22 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         if complexity > 1200:
                             log.warn('Complexity of det(Mall) is too big: %d', complexity)
                             continue
-
+                        """
                         timepoly = -time.time()
                         log.info('Before self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)')
                         possiblefinaleq = self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)
                         timepoly += time.time()
                         log.info('After self.checkFinalEquation(Poly(Malldet, leftvar), tosubs); time elapsed: %1.2fs', \
                                  timepoly)
-
+                        """
                         timepoly = -time.time()
                         log.info('Before self.checkMatrixDet(Malldet, leftvar, tosubs)')
-                        possiblefinaleq = self.checkMatrixDet(Mall, leftvar, tosubs)
+                        possiblefinaleq = self.checkMatrixDet(Mall, Malldet, leftvar, tosubs)
                         timepoly += time.time()
                         log.info('After self.checkMatrixDet(Malldet, leftvar, tosubs); time elapsed: %1.2fs', \
                                  timepoly)
                         if possiblefinaleq is None:
-                            continue # eqsindices for-loop\
+                            continue # eqsindices for-loop
                                 
                         # sometimes +- I are solutions, so remove them
                         # incorporated into checkFinalEquation
