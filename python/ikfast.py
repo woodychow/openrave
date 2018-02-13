@@ -11730,6 +11730,15 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         log.info('solvePairVariables tries solvePairVariablesHalfAngle')
         return self.solvePairVariablesHalfAngle(raweqns, var0, var1, othersolvedvars)
 
+
+    @staticmethod
+    def ncr(n, r):
+        r = min(r, n-r)
+        if r == 0: return 1
+        numer = prod(xrange(n, n-r, -1))
+        denom = prod(xrange(1, r+1))
+        return numer//denom
+    
     def solvePairVariablesHalfAngle(self, raweqns, var0, var1, \
                                     othersolvedvars, tosubs = []):
         """
@@ -11919,13 +11928,17 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                                  timepoly)
                         """
                         timepoly = -time.time()
-                        log.info('Before self.checkMatrixDet(Malldet, leftvar, tosubs)')
+                        log.info('Before checkMatrixDet')
                         possiblefinaleq = self.checkMatrixDet(Mall, Malldet, leftvar, tosubs)
                         timepoly += time.time()
-                        log.info('After self.checkMatrixDet(Malldet, leftvar, tosubs); time elapsed: %1.2fs', \
-                                 timepoly)
+
                         if possiblefinaleq is None:
+                            log.info('After checkMatrixDet (invalid); time elapsed: %1.2fs', \
+                                     timepoly)
                             continue # eqsindices for-loop
+                        else:
+                            log.info('After self.checkMatrixDet (valid); time elapsed: %1.2fs', \
+                                     timepoly)
                                 
                         # sometimes +- I are solutions, so remove them
                         # incorporated into checkFinalEquation
