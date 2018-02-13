@@ -11781,13 +11781,15 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     (svar0**3, svar0*(1-cvar0**2)), \
                     (svar1**2,        1-cvar1**2),  \
                     (svar1**3, svar1*(1-cvar1**2))]
+
+        raweqns = [raweqn for raweqn in raweqns if raweqn!=S.Zero]
         polyeqs = []
         for eq in raweqns:
             # c0s0c1s1 = [ c0, s0, c1, s1 ]
-            peq = Poly(eq.subs(varsubs).subs(trigsubs).expand().subs(trigsubs), *c0s0c1s1)
+            peq = Poly(eq.subs(varsubs).expand().subs(trigsubs), *c0s0c1s1)
             
-            if peq.has(varsym0.var) or peq.has(varsym1.var):
-                raise self.CannotSolveError('Expecting only sin and cos! %s' % peq)
+            if peq.has(var0, var1):
+                raise self.CannotSolveError('Expecting only sin and cos, NOT var: %s' % peq)
             
             maxdenom  = [ max([monoms[0]+monoms[1] for monoms in peq.monoms()]), \
                           max([monoms[2]+monoms[3] for monoms in peq.monoms()])  ]
@@ -11852,7 +11854,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         #complexity = [(self.codeComplexity(peq.as_expr()), peq) for peq in polyeqs]
         #complexity.sort(key = itemgetter(0))
         #polyeqs = [peq[1] for peq in complexity]
-
+        polyeqs = [polyeq for polyeq in polyeqs if polyeq!=S.Zero]
         polyeqs.sort(key = lambda x: x.count_ops())
         detComplexityThreshold = 1200
         solutions = [None, None]
@@ -11876,138 +11878,142 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         solutions[ileftvar] = [possiblefinaleq]
                         break
                     
+            assert(all([peq!=S.Zero for peq in newpolyeqs]))
+                    
             for degree in range(mindegree, maxdegree+1):
                 if not (solutions[ileftvar] is None and linearsolution is None):
                     log.info('Found either solutions[%i] or linearsolution', ileftvar)
                     break
                 
-                newpolyeqs2 = [peq for peq in newpolyeqs \
-                               if max(peq.degree_list()) <= degree and peq != S.Zero]
+                newpolyeqs2 = [peq for peq in newpolyeqs if max(peq.degree_list()) <= degree]
                 neq = len(newpolyeqs2)
-                if neq == 0:
+                if neq == 0 or degree+1 > neq:
                     continue
-                if degree+1 <= neq:
-                    # To avoid wrong solutions, we get resultants for all equations
-                    possibilities = []
-                    unusedindices = range(neq)
-                    for eqsindices in combinations(unusedindices, degree+1):
-                        Mall = zeros(degree+1)
-                        totalcomplexity = 0
-                        for i, eqindex in enumerate(eqsindices):
-                            eq = newpolyeqs2[eqindex]
-                            for m, c in eq.terms():
-                                totalcomplexity += self.codeComplexity(c)
-                                j = m[0]
-                                Mall[i, j] = c
-                        if degree >= 4 and totalcomplexity > 5000:
-                            # the determinant will never finish otherwise
-                            continue
-                        # det_bareis freezes when there are huge fractions
-                        # det = self.det_bareis(Mall, *(self.pvars+dummyvars+[leftvar]))
-                        # for i in range(degree+1):
-                        #      for j in range(degree+1):
-                        #          Mall[i,j] = Poly(Mall[i,j], leftvar)
-                        try:
-                            Malldet = Mall.berkowitz_det()
-                            # log.info('Try simplifying det(Mall)')
-                            # Malldet = simplify(Malldet)
-                            # print Malldet
-                            # log.info('Finished simplifying of of det(Mall)')
-                        except Exception, e:
-                            log.warn('Failed to compute det(Mall): %s', e)
-                            continue
-                        
-                        complexity = self.codeComplexity(Malldet)
-                        if complexity > detComplexityThreshold:
-                            log.warn('Complexity of det(Mall) is too big: %d > %d', \
-                                     complexity, detComplexityThreshold)
-                            continue
+                # To avoid wrong solutions, we get resultants for all equations
+                possibilities = []
+                unusedindices = range(neq)
 
-                        if expand(Malldet)==S.Zero:
-                            continue
-                        """
-                        timepoly = -time.time()
-                        log.info('Before self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)')
-                        possiblefinaleq = self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)
-                        timepoly += time.time()
-                        log.info('After self.checkFinalEquation(Poly(Malldet, leftvar), tosubs); time elapsed: %1.2fs', \
-                                 timepoly)
-                        """
-                        # timepoly = -time.time()
-                        # log.info('Before checkMatrixDet')
-                        possiblefinaleq = self.checkMatrixDet(Mall, Malldet, leftvar, tosubs)
-                        # timepoly += time.time()
+                coeffs2Darray = [[newpolyeqs2[i].as_dict().get((j,), S.Zero) for j in range(degree+1)] for i in range(neq)]
+                coeffsMatrix  = Matrix(neq, degree+1, self.jointlists(coeffs2Darray))
+                
+                complexityArray = [[self.codeComplexity(coeff) for coeff in eqcoeff] for eqcoeff in coeffs2Darray]
+                complexityArray = [sum(complexity) for complexity in complexityArray]
 
-                        if possiblefinaleq is None:
-                            #log.info('After checkMatrixDet (invalid); time elapsed: %1.2fs', \
-                            #         timepoly)
-                            # exec(ipython_str, globals(), locals())
-                            continue # eqsindices for-loop
+                tosort = list(izip(complexityArray, newpolyeqs2))
+                # complexities are in increasing order
+                tosort.sort(key = lambda x: x[0])
+                newpolyeqs2     =         [newpolyeq for complexity, newpolyeq in tosort]
+                complexityArray = Matrix([complexity for complexity, newpolyeq in tosort])
+                
+                for eqsindices in combinations(unusedindices, degree+1):
+                    Mall            =        coeffsMatrix.extract(eqsindices, range(degree+1))
+                    totalcomplexity = sum(complexityArray.extract(eqsindices, [0]))
+
+                    if degree >= 4 and totalcomplexity > 5000:
+                        break # complexities in increasing order; do next degree (which is at least 5)
+                    
+                    # det_bareis freezes when there are huge fractions
+                    # det = self.det_bareis(Mall, *(self.pvars+dummyvars+[leftvar]))
+                    # for i in range(degree+1):
+                    #      for j in range(degree+1):
+                    #          Mall[i,j] = Poly(Mall[i,j], leftvar)
+                    try:
+                        Malldet = Mall.berkowitz_det()
+                    except Exception, e:
+                        log.warn('Failed to compute det(Mall): %s', e)
+                        continue
+
+                    complexity = self.codeComplexity(Malldet)
+                    if complexity > detComplexityThreshold:
+                        log.warn('Complexity of det(Mall) is too big: %d > %d', \
+                                 complexity, detComplexityThreshold)
+                        continue
+
+                    if expand(Malldet) == S.Zero:
+                        continue
+                    """
+                    timepoly = -time.time()
+                    log.info('Before self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)')
+                    possiblefinaleq = self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)
+                    timepoly += time.time()
+                    log.info('After self.checkFinalEquation(Poly(Malldet, leftvar), tosubs); time elapsed: %1.2fs', \
+                             timepoly)
+                    """
+                    # timepoly = -time.time()
+                    # log.info('Before checkMatrixDet')
+                    possiblefinaleq = self.checkMatrixDet(Mall, Malldet, leftvar, tosubs)
+                    # timepoly += time.time()
+
+                    if possiblefinaleq is None:
+                        #log.info('After checkMatrixDet (invalid); time elapsed: %1.2fs', \
+                        #         timepoly)
+                        # exec(ipython_str, globals(), locals())
+                        continue # eqsindices for-loop
+                    else:
+                        #log.info('After self.checkMatrixDet (valid); time elapsed: %1.2fs', \
+                        #         timepoly)
+                        pass
+
+                    """
+                    while True:
+                        q, r = div(possiblefinaleq, leftvar**2 + 1)
+                        if r == S.Zero:
+                            possiblefinaleq = Poly(q, leftvar)
+                            exec(ipython_str, globals(),locals())
                         else:
-                            #log.info('After self.checkMatrixDet (valid); time elapsed: %1.2fs', \
-                            #         timepoly)
-                            pass
-                                
-                        # sometimes +- I are solutions, so remove them
-                        # incorporated into checkFinalEquation
-                        """
-                        q, r = div(possiblefinaleq, leftvar+I)
-                        if r == S.Zero:
-                            possiblefinaleq = Poly(q, leftvar)
-
-                        q, r = div(possiblefinaleq, leftvar-I)
-                        if r == S.Zero:
-                            possiblefinaleq = Poly(q, leftvar)
-                        """
-                        possibilities.append(possiblefinaleq)
-                        unusedindices = [ind for ind in unusedindices if ind not in eqsindices]
-                        if len(unusedindices) == 0:
                             break
-
-                    if len(possibilities) > 1:
-                        try:
-                            log.info('[SOLVE %i] solvePairVariablesHalfAngle uses solveVariablesLinearly for %r', \
-                                     self._solutionStackCounter, leftvar)
-                            linearsolutions = self.solveVariablesLinearly(possibilities, othersolvedvars)
-                            log.info('[SOLVE %i] solveVariablesLinearly has found some solution for %r', \
-                                     self._solutionStackCounter, leftvar)
-                            
-                            # if can solve for a unique solution linearly, then prioritize this over anything
-                            prevsolution = AST.SolverBreak('solvePairVariablesHalfAngle fail')
-                            for divisor, linearsolution in linearsolutions:
-                                assert(len(linearsolution)==1)
-                                divisorsymbol = self.gsymbolgen.next()
-                                
-                                # Call AST SolverSolution constructor
-                                solversolution = AST.SolverSolution(varsyms[ileftvar].name, \
-                                                                    jointeval = [2*atan(linearsolution[0]/divisorsymbol)], \
-                                                                    isHinge = self.IsHinge(varsyms[ileftvar].name))
-                                
-                                # Call AST SolverCheckZeros constructor
-                                prevsolution = AST.SolverCheckZeros(varsyms[ileftvar].name, \
-                                                                    [divisorsymbol], \
-                                                                    zerobranch    = [prevsolution], \
-                                                                    nonzerobranch = [solversolution], \
-                                                                    thresh = 1e-6)
-                                    
-                                prevsolution.dictequations = [(divisorsymbol, divisor)]
-                            linearsolution = prevsolution
-                            break
-                        
-                        except self.CannotSolveError:
-                            log.info('[SOLVE %i] solveVariablesLinearly failed to find %r', \
-                                     self._solutionStackCounter, leftvar)
-                            pass
-                        
-                    if len(possibilities) > 0:
-                        # sort with respect to degree
-                        # equationdegrees = [(max(peq.degree_list())*100000 + \
-                        #                     self.codeComplexity(peq.as_expr()), peq) \
-                        #                    for peq in possibilities]
-                        # equationdegrees.sort(key=itemgetter(0))
-                        possibilities.sort(key = lambda x: max(x.degree_list())*100000+x.count_ops())
-                        solutions[ileftvar] = possibilities # [peq[1] for peq in equationdegrees]
+                    """
+                    possibilities.append(possiblefinaleq)
+                    unusedindices = [ind for ind in unusedindices if ind not in eqsindices]
+                    if len(unusedindices) == 0:
                         break
+                    
+                if len(possibilities) == 0:
+                    continue
+                
+                if len(possibilities) > 1:
+                    try:
+                        log.info('[SOLVE %i] solvePairVariablesHalfAngle uses solveVariablesLinearly for %r', \
+                                 self._solutionStackCounter, leftvar)
+                        linearsolutions = self.solveVariablesLinearly(possibilities, othersolvedvars)
+                        log.info('[SOLVE %i] solveVariablesLinearly has found some solution for %r', \
+                                 self._solutionStackCounter, leftvar)
+
+                        # if can solve for a unique solution linearly, then prioritize this over anything
+                        prevsolution = AST.SolverBreak('solvePairVariablesHalfAngle fail')
+                        for divisor, linearsolution in linearsolutions:
+                            assert(len(linearsolution)==1)
+                            divisorsymbol = self.gsymbolgen.next()
+
+                            # Call AST SolverSolution constructor
+                            solversolution = AST.SolverSolution(varsyms[ileftvar].name, \
+                                                                jointeval = [2*atan(linearsolution[0]/divisorsymbol)], \
+                                                                isHinge = self.IsHinge(varsyms[ileftvar].name))
+
+                            # Call AST SolverCheckZeros constructor
+                            prevsolution = AST.SolverCheckZeros(varsyms[ileftvar].name, \
+                                                                [divisorsymbol], \
+                                                                zerobranch    = [prevsolution], \
+                                                                nonzerobranch = [solversolution], \
+                                                                thresh = 1e-6)
+
+                            prevsolution.dictequations = [(divisorsymbol, divisor)]
+                        linearsolution = prevsolution
+                        break
+
+                    except self.CannotSolveError:
+                        log.info('[SOLVE %i] solveVariablesLinearly failed to find %r', \
+                                 self._solutionStackCounter, leftvar)
+                        pass
+
+                # sort with respect to degree
+                # equationdegrees = [(max(peq.degree_list())*100000 + \
+                #                     self.codeComplexity(peq.as_expr()), peq) \
+                #                    for peq in possibilities]
+                # equationdegrees.sort(key=itemgetter(0))
+                possibilities.sort(key = lambda x: max(x.degree_list())*100000+x.count_ops())
+                solutions[ileftvar] = possibilities # [peq[1] for peq in equationdegrees]
+                break
                     
         if linearsolution is not None:
             log.info('[SOLVE %i] solvePairVariablesHalfAngle returns a linear solution.', \
