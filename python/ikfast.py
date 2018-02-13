@@ -5098,7 +5098,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         term *= denom**(maxdenom[peq.gens[i]]-monoms[i]-monoms[i+1])
                         i += 2
                 eqnew += term
-            newreducedeqs.append(Poly(eqnew,*dummys))
+            newreducedeqs.append(Poly(eqnew, *dummys))
             
         # check for equations with a single variable
         if len(singlevariables) > 0:
@@ -7163,7 +7163,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         if len(dialyticeqs) == 0:
             raise self.CannotSolveError('solveDialytically given zero equations')
         
-        allmonoms = set()
+        allmonoms  = set()
         origmonoms = set()
         maxdegree = 0
         leftvar = dialyticeqs[0].gens[ileftvar]
@@ -7178,28 +7178,31 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 newm = tuple(mlist)
                 allmonoms .add(newm)
                 origmonoms.add(newm)
+                #--------
                 mlist[0] += 1
-                allmonoms.add(tuple(mlist))
-            
+                newm = tuple(mlist)
+                allmonoms.add(newm) # len(allmonoms) is even
+                
             # check if any monoms are not expressed in this poly
             # if so, add another poly with the monom multiplied, will this give bad solutions?
-            for igen in range(len(peq.gens)):
-                if all([m[igen]==0 for m in peq.monoms()]):
-                    log.debug('adding extra equation multiplied by %s', peq.gens[igen])
-                    extradialyticeqs.append(peq * peq.gens[igen])
-                    # multiply by peq.gens[igen]
-                    for m in peq.monoms():
-                        mlist = list(m)
-                        mlist[igen] += 1
-                        maxdegree = max(maxdegree, mlist.pop(ileftvar))
-                        newm = tuple(mlist)
-                        allmonoms.add(newm)
-                        origmonoms.add(newm)
-                        #--------
-                        mlist[0] += 1
-                        newm = tuple(mlist)
-                        allmonoms.add(newm) # len(allmonoms) is even
-        
+            for igen, gens in enumerate(peq.gens):
+                if not all([m[igen]==0 for m in peq.monoms()]):
+                    continue
+                log.debug('adding extra equation multiplied by %s', gens)
+                extradialyticeqs.append(peq * gens)
+                # multiply by gens
+                for m in peq.monoms():
+                    mlist = list(m)
+                    mlist[igen] += 1
+                    maxdegree = max(maxdegree, mlist.pop(ileftvar))
+                    newm = tuple(mlist)
+                    allmonoms.add(newm)
+                    origmonoms.add(newm)
+                    #--------
+                    mlist[0] += 1
+                    newm = tuple(mlist)
+                    allmonoms.add(newm) # len(allmonoms) is even
+
         dialyticeqs = list(dialyticeqs) + extradialyticeqs # dialyticeqs could be a tuple
         allmonoms   = list(allmonoms)
         origmonoms  = list(origmonoms)
@@ -7298,12 +7301,15 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 if numpy.isnan(numpy.sum(Anumpy)):
                     log.info('A has NaNs')
                     break
+                
                 # compute eigenvalues
-                eigenvals = numpy.linalg.eigvals(Anumpy)
-                if not all([Abs(eigenval) > eps for eigenval in eigenvals]):
-                    log.info('not all abs(eigenvalues) > %e. min is %e', \
-                             eps, \
-                             min([Abs(eigenval) for eigenval in eigenvals if Abs(eigenval) < eps]))
+                # eigenvals = numpy.linalg.eigvals(Anumpy)
+
+                # compute singular values
+                singvals = numpy.linalg.svd(Anumpy, compute_uv =0)
+
+                if not all([singval > eps for singval in singvals]):
+                    log.info('not all singular values > %e. min is %e', eps, singvals[-1])
                     continue
                 
                 try:
@@ -7388,7 +7394,6 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             if not linearlyindependent:
                 raise self.CannotSolveError('equations are linearly dependent')
 
-        # exec(ipython_str, globals(), locals())
         if returnmatrix:
             return Mall, allmonoms
         else:
@@ -12160,6 +12165,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                      self._solutionStackCounter, len(pfinals))
 
         if pfinals is None:
+            log.warn('solvePairVariablesHalfAngle failed to solve dialytically with %d equations' % \
+                     len(polyeqs))
             raise self.CannotSolveError('solvePairVariablesHalfAngle: ' + \
                                         'failed to solve dialytically with %d equations'% \
                                         len(polyeqs))
