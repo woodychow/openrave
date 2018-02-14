@@ -730,12 +730,13 @@ class IKFastSolver(AutoReloader):
         # Variable class dictionary {formula: Variable class object}
         self.variable_obj = {}
 
-        self._numsolutions = 6
+        self._numsolutions = 9
 
         self._isAnalyzingEquations = False # True # False
         self._isUnderAnalysis = False # True # False
         self._printSolution = False # True
         self._solutionStackCounter = 0
+        self._testEquationsThreshold = 1e-7
         # ================ End of TGN's addition ===============
 
     def _inc_solutionStackCounter(self):
@@ -2257,12 +2258,15 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         the homogeneous matrix T.
         """
         possibleangles_old = [S.Zero, pi.evalf()/2, asin(3.0/5).evalf(), asin(4.0/5).evalf(), \
-                              asin(5.0/13).evalf(), asin(12.0/13).evalf()]
+                              asin(5.0/13).evalf(), asin(12.0/13).evalf(), \
+                              pi.evalf(), -pi.evalf()/2]
         possibleangles = [self.convertRealToRational(x) for x in possibleangles_old]
 
         # TGN: use symbolic numbers for all possible angles instead of floating-point numbers
-        possibleanglescos = [S.One, S.Zero, Rational(4,5), Rational(3,5), Rational(12,13), Rational(5,13)]
-        possibleanglessin = [S.Zero, S.One, Rational(3,5), Rational(4,5), Rational(5,13), Rational(12,13)]
+        possibleanglescos = [S.One, S.Zero, Rational(4,5), Rational(3,5), Rational(12,13), Rational(5,13), \
+                             -S.One, S.Zero]
+        possibleanglessin = [S.Zero, S.One, Rational(3,5), Rational(4,5), Rational(5,13), Rational(12,13), \
+                             S.Zero, -S.One]
         testconsistentvalues = []
         varsubs = self.jointlists([self.getVariable(jointvar).subs for jointvar in jointvars])
 
@@ -2293,6 +2297,10 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
 
             # collect sets of consistent values    
             testconsistentvalues.append(allsubs)
+
+        self.psubsglobal = [(self.pvars[i], self.Tfinal[i].subs(varsubs)) for i in range(12)]
+        self.psubsglobal += [(s, v.subs(self.psubsglobal)) \
+                             for s, v in self.ppsubs + self.npxyzsubs + self.rxpsubs]
 
         assert(len(testconsistentvalues)==numsolutions)
         print('========================== START OF CONSISTENT VALUES PRINT ================================\n')
@@ -8853,16 +8861,20 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         self._scopecounter += 1 # can be hundreds
         scopecounter = int(self._scopecounter)
 
-        log.info('depth = %d, c = %d, stackcounter = %d\n' + \
+        maxdiff = self.testEquations(AllEquations)[1]
+        log.info('depth = %d, c = %d, stackcounter = %d, maxdiff = %r\n' + \
                  '         vars = %s\n' + \
                  '        known = %s\n' + \
                  '        cases = %s', \
                  len(currentcases), \
-                 self._scopecounter, self._solutionStackCounter, \
+                 self._scopecounter, self._solutionStackCounter, maxdiff, \
                  curvars, othersolvedvars, \
                  None if len(currentcases) is 0 else \
                  ("\n"+" "*16).join(str(x) for x in list(currentcases)))
-
+        
+        if maxdiff > self._testEquationsThreshold:
+            exec(ipython_str, globals(), locals())
+            
         if self._isUnderAnalysis:
             exec(ipython_str, globals(), locals())
 
@@ -9350,15 +9362,20 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         self._CheckPreemptFn()
         self._scopecounter += 1
         scopecounter = int(self._scopecounter)
-        log.info('depth = %d, c = %d, nsol = %d, stackcounter = %d\n' + \
+        maxdiff = self.testEquations(AllEquations)[1]
+        log.info('depth = %d, c = %d, nsol = %d, stackcounter = %d, maxdiff = %r\n' + \
                  '         vars = %s\n' + \
                  '        known = %s\n' + \
                  '        cases = %s', \
                  len(currentcases), \
-                 self._scopecounter, len(solutions), self._solutionStackCounter,
+                 self._scopecounter, len(solutions), self._solutionStackCounter, maxdiff, \
                  curvars, othersolvedvars, \
                  None if len(currentcases) is 0 else \
                  ("\n"+" "*16).join(str(x) for x in list(currentcases)))
+
+        if maxdiff > self._testEquationsThreshold:
+            exec(ipython_str, globals(), locals())
+        
         if self._isUnderAnalysis:
             self.printSS(solutions)
             exec(ipython_str, globals(), locals())
@@ -9598,11 +9615,30 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             #NewEquations = [eq.subs(self.npxyzsubs + self.rxpsubs).subs(othervarsubs) for eq in AllEquations]
             NewEquations = [eq.subs(othervarsubs) for eq in AllEquations]
 
+            tosubs = [(u,v) for u,v in dictequations] + [(u,v) for u,v in originalGlobalSymbols.items()]
+            diffMat, maxdiff = self.testEquations(NewEquations, tosubs)
+            if maxdiff > self._testEquationsThreshold:
+                tempdict = dict([(u, v.subs(originalGlobalSymbols)) for u,v in originalGlobalSymbols.items()])
+                tempdict.update(dict(dictequations))
+                othervarsubswithdictequations = [(u,v.subs(dictequations)) for u,v in othervarsubs]
+                if all([u not in tempdict or \
+                        tempdict.get(u) == v for u, v in othervarsubswithdictequations]):
+                    log.info('othervarsubs does not contradict with self.globalsymbols + dictequations yet')
+                else:
+                    # if u is not in tempdict, then it's fine
+                    log.info('othervarsubs contradicts self.globalsymbols + dictequations')
+                    exec(ipython_str, globals(), locals())
+                    continue # flatzerosubstitutioneqs for-loop
+
             if any([eq.is_number and eq!=S.Zero for eq in NewEquations]):
                 log.info('Infeasible substitutions from othervarsubs; some equations are nonzero numbers.')
                 continue
 
             NewEquationsClean = self.PropagateSolvedConstants(NewEquations, curvars, othersolvedvars)
+            diffMat, maxdiff = self.testEquations(NewEquationsClean, dictequations)
+            if maxdiff > self._testEquationsThreshold:
+                exec(ipython_str, globals(), locals())
+
             try:
                 # forcing a value, so have to check if all equations in NewEquations that do not contain
                 # unknown variables are really 0
@@ -9671,6 +9707,10 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     if len(extradictequations) > 0:
                         # have to re-substitute since some equations evaluated to zero
                         NewEquationsClean = [eq.subs(extradictequations).expand() for eq in NewEquationsClean]
+
+                    diffMat, maxdiff = self.testEquations(NewEquationsClean, dictequations)
+                    if maxdiff > self._testEquationsThreshold:
+                        exec(ipython_str, globals(), locals())
                     try:
                         log.info('[SOLVE %i] AddSolution calls SolveAllEquations to solve NewEquationsClean %r for %r', \
                                  self._solutionStackCounter, NewEquationsClean, curvars)
@@ -9703,7 +9743,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                          len(currentcases), scopecounter, \
                          self._solutionStackCounter, \
                          i, len(flatzerosubstitutioneqs), \
-                         ("\n"+" "*23).join(str(x) for x in list(newcases)))
+                         ("\n"+" "*49).join(str(x) for x in list(newcases)))
                 self.degeneratecases.AddCases(newcases)
                         
             except self.CannotSolveError, e:
@@ -10381,6 +10421,9 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             subsdict.update(globalsymbols) 
             realsolution = subsdict.pop(htvar)
 
+            if not self.isValidSolution(realsolution):
+                continue
+
             Asubs = A.subs(subsdict)
             try:
                 detAsubs = Asubs.berkowitz_det()
@@ -10409,7 +10452,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 # after plugging in test values, coefficient of highest order becomes 0
                 if printCheckMsg:
                     log.info('checkMatrixDet: precision comparison NOT passed: %r < %r', \
-                             Abs(nz_coeffs[0]), thresh1)
+                             Abs(coeffs[0]), thresh1)
                 continue
             
             if not all([c.is_number for c in coeffs]):
@@ -11190,9 +11233,13 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
 
         Called by SolveAllEquations only.
         """
-        
-        log.info('[SOLVE %i] Starting solvePairVariables for %r, %r', \
-                 self._solutionStackCounter, var0, var1)
+
+        maxdiff = self.testEquations(raweqns)[1]
+        log.info('[SOLVE %i] Starting solvePairVariables for %r, %r; maxdiff = %r', \
+                 self._solutionStackCounter, var0, var1, maxdiff)
+
+        if maxdiff > self._testEquationsThreshold:
+            exec(ipython_str, globals(), locals())
         
         # make sure both variables are hinges
         if not (self.IsHinge(var0.name) and self.IsHinge(var1.name)):
@@ -11741,6 +11788,16 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         numer = IKFastSolver.prod(xrange(n, n-r, -1))
         denom = IKFastSolver.prod(xrange(1, r+1))
         return numer//denom
+
+    def testEquations(self, eqns, tosubs = []):
+        eqns = [eqn.subs(tosubs) for eqn in eqns]
+        m = len(eqns)
+        n = len(self.testconsistentvalues)
+        aij = [eqns[i].subs(self.testconsistentvalues[j]).evalf() \
+               for i in range(m) for j in range(n)]
+        diffMat = Matrix(m, n, aij)
+        maxdiff = min([max([abs(mij) for mij in diffMat[:,j]]) for j in range(n)])
+        return diffMat, maxdiff
     
     def solvePairVariablesHalfAngle(self, raweqns, var0, var1, \
                                     othersolvedvars, tosubs = []):
@@ -11750,8 +11807,11 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         Called by solvePairVariables, solveLiWoernleHiller.
         """
 
-        log.info('[SOLVE %i] Starting solvePairVariablesHalfAngle for %r, %r', \
-                 self._solutionStackCounter, var0, var1)
+        maxdiff = self.testEquations(raweqns)[1]
+        log.info('[SOLVE %i] Starting solvePairVariablesHalfAngle for %r, %r; maxdiff = %r', \
+                 self._solutionStackCounter, var0, var1, maxdiff)
+        if maxdiff > self._testEquationsThreshold:
+            exec(ipython_str, globals(), locals())
 
         varsym0 = self.getVariable(var0)
         varsym1 = self.getVariable(var1)
@@ -11862,7 +11922,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         detComplexityThreshold = 1200
         solutions = [None, None]
         linearsolution = None
-        
+
         for ileftvar in (0, 1):
             if linearsolution is not None:
                 log.info('Found linearsolution')
@@ -11953,13 +12013,11 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     if possiblefinaleq is None:
                         #log.info('After checkMatrixDet (invalid); time elapsed: %1.2fs', \
                         #         timepoly)
-                        # exec(ipython_str, globals(), locals())
                         continue # eqsindices for-loop
-                    elif possiblefinaleq.degree()<=0:
+                    else:
                         #log.info('After self.checkMatrixDet (valid); time elapsed: %1.2fs', \
                         #         timepoly)
-                        exec(ipython_str, globals(), locals())
-                        continue
+                        pass
 
                     """
                     while True:
