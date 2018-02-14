@@ -10376,7 +10376,9 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         for i, testconsistentvalue in enumerate(self.testconsistentvalues):
             
             subsdict = dict(testconsistentvalue)
-            subsdict.update(self.globalsymbols)
+            globalsymbols = dict([(s, self.globalsymbols[s].subs(self.globalsymbols).subs(testconsistentvalue)) \
+                                  for s in self.globalsymbols]) 
+            subsdict.update(globalsymbols) 
             realsolution = subsdict.pop(htvar)
 
             Asubs = A.subs(subsdict)
@@ -10395,14 +10397,12 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             deg = polydetAsubs.degree()
             coeffs_dict = polydetAsubs.as_dict()
             coeffs = [ coeffs_dict.get((i,), S.Zero).evalf()  for i in range(deg+1)[::-1] ]
-            print coeffs            
-
             has_weird_sym = [not self.isValidSolution(c) for c in coeffs]
             if any(has_weird_sym):
                 # some variable plugged in the denominator is 0 in test values, yielding +/-oo or nan
                 if printCheckMsg:
                     log.info('checkMatrixDet: value has I/oo/-oo/nan:\n' + \
-                             '        %r', nz_coeffs)
+                             '        %r', coeffs)
                 continue
             
             if Abs(coeffs[0]) < thresh1:
@@ -10426,7 +10426,6 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             # compute residual first before calling expensive root finding
             residual = Abs(polyval(coeffs, realsolution))
             if residual < thresh3:
-
                 # divide by (htvar**2+1) several times to get rid of roots +I, -I
                 while True:
                     q, rem, check = self.checkFactorPmI(coeffs)
@@ -10434,7 +10433,6 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         coeffs = q
                     else:
                         break
-                print coeffs
                 
                 # compute roots by sympy's roots            
                 r = [r.evalf() for r in roots(coeffs).keys()]
@@ -11909,6 +11907,9 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 tosort.sort(key = lambda x: x[0])
                 newpolyeqs2     =         [newpolyeq for complexity, newpolyeq in tosort]
                 complexityArray = Matrix([complexity for complexity, newpolyeq in tosort])
+
+                log.info("solvePairVariablesHalfAngle: Choose %d equations out of %d equations: %d combinations", \
+                         neq, degree+1, self.ncr(neq, degree+1))
                 
                 for eqsindices in combinations(unusedindices, degree+1):
                     Mall            =        coeffsMatrix.extract(eqsindices, range(degree+1))
@@ -11954,10 +11955,11 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         #         timepoly)
                         # exec(ipython_str, globals(), locals())
                         continue # eqsindices for-loop
-                    else:
+                    elif possiblefinaleq.degree()<=0:
                         #log.info('After self.checkMatrixDet (valid); time elapsed: %1.2fs', \
                         #         timepoly)
-                        pass
+                        exec(ipython_str, globals(), locals())
+                        continue
 
                     """
                     while True:
@@ -12052,7 +12054,10 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 ileftvar = 0
                 
         dictequations = []
-        if pfinals is None:
+        if pfinals is not None:
+            log.info('[SOLVE %i] solvePairVariablesHalfAngle has found %d pfinals', \
+                     self._solutionStackCounter, len(pfinals))
+        else:
             #simplifyfn = self._createSimplifyFn(self.freevarsubs, self.freevarsubsinv)
             for newreducedeqs in combinations(polyeqs, 2):
                 try:
@@ -12160,9 +12165,6 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     break
                 except self.CannotSolveError,e:
                     log.debug(e)
-        else:
-            log.info('[SOLVE %i] solvePairVariablesHalfAngle has found %d pfinals', \
-                     self._solutionStackCounter, len(pfinals))
 
         if pfinals is None:
             log.warn('solvePairVariablesHalfAngle failed to solve dialytically with %d equations' % \

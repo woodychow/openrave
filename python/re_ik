@@ -26,8 +26,11 @@ clear && clear
 #openrave.py --database inversekinematics --robot=robotfiles/barrett-wamhand.zae \
 #            --numiktests=1000
 
-openrave.py --database inversekinematics --robot=robotfiles/universalrobots-ur6-85-5-a.zae \
-            --numiktests=1000 --iktype=translationdirection5d
+openrave.py --database inversekinematics --robot=robotfiles/collada_robots_kawada-hironx.zae \
+            --numiktests=1000
+
+#openrave.py --database inversekinematics --robot=robotfiles/universalrobots-ur6-85-5-a.zae \
+#            --numiktests=1000 --iktype=translationdirection5d
 
 #openrave.py --database inversekinematics --robot=robotfiles/collada_robots_neuronics-katana.zae \
 #            --numiktests=1000 --iktype=translationdirection5d
