@@ -10193,7 +10193,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         htvar = pfinal.gens[0]
 
         poriginal = pfinal
-        printCheckMsg = True #False
+        printCheckMsg = True # False
 
         # remove all factors of (htvar-0) by dividing htvar until the trailing coefficient (TC) is nonzero
         p = [p[0] for p, c in pfinal.terms() if p[0]>0]
@@ -10232,31 +10232,28 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         thresh2 = 10.0**-self.precision
         thresh3 = 10.0**-(self.precision-2)
         
-        for i, testconsistentvalue in enumerate(self.testconsistentvalues):
+        for itest, testconsistentvalue in enumerate(self.testconsistentvalues):
             globalsymbols = [(s, self.globalsymbols[s].subs(self.globalsymbols).subs(testconsistentvalue).evalf()) \
                              for s in self.globalsymbols]
 
             # plug in test consistent values to evaluate all coefficients
             nz_coeffs = [ c.subs(tosubs).subs(globalsymbols+testconsistentvalue).evalf()/common.evalf() \
                           for m, c in pfinal.terms() ]
-
-            print nz_coeffs
-
+            # print nz_coeffs
             assert(len(nz_coeffs)>0)
-
             has_weird_sym = [not self.isValidSolution(c) for c in nz_coeffs]
             if any(has_weird_sym):
                 # some variable plugged in the denominator is 0 in test values, yielding +/-oo or nan
                 if printCheckMsg:
-                    log.info('checkFinalEquation: value has I/oo/-oo/nan:\n' + \
-                             '        %r', nz_coeffs)
+                    log.info('checkFinalEquation (Set %d): value has I/oo/-oo/nan:\n' + \
+                             '        %r', itest, nz_coeffs)
                 continue
 
             if Abs(nz_coeffs[0]) < thresh1:
                 # after plugging in test values, coefficient of highest order becomes 0
                 if printCheckMsg:
-                    log.info('checkFinalEquation: precision comparison NOT passed: %r < %r', \
-                             Abs(nz_coeffs[0]), thresh1)
+                    log.info('checkFinalEquation (Set %d): leading coefficient less than threshold: %r < %r', \
+                             itest, Abs(nz_coeffs[0]), thresh1)
                 continue
                 
             #for degree in range(pfinal.degree(0), -1, -1):
@@ -10279,8 +10276,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             if not all([c.is_number for c in nz_coeffs]):
                 # cannot evaluate
                 if printCheckMsg:
-                    log.warn('checkFinalEquation: set found as True, as we cannot evaluate\n        %s', \
-                             "\n        ".join(str(x) for x in nz_coeffs if not x.is_number))
+                    log.warn('checkFinalEquation (Set %d): set found as True, as we cannot evaluate\n        %s', \
+                             itest, "\n        ".join(str(x) for x in nz_coeffs if not x.is_number))
                 found = True
                 break
 
@@ -10291,8 +10288,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             coeffs = [0] * (deg+1)
             for i, m in enumerate(ind_list):
                 coeffs[m] = nz_coeffs[i]
-
-            print coeffs
+            # print coeffs
 
             # compute residual first before calling expensive root finding
             residual = Abs(polyval(coeffs, realsolution))
@@ -10313,21 +10309,21 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                          Abs(Re(root)-realsolution) < thresh3 \
                          for root in r] ):
                     if printCheckMsg:
-                        log.info('checkFinalEquation: precision comparison PASSED for root %r from Set %i\n' + \
-                                 '        %r', realsolution, i, r)
+                        log.info('checkFinalEquation (Set %d): precision comparison PASSED for root %r\n' + \
+                                 '        %r', itest, realsolution, r)
                         # exec(ipython_str, globals(),locals())
                     found = True
                     break
                 else:
                     if any([not c.is_number for m,c in pfinal.terms()]):
                         if printCheckMsg:
-                            log.info('checkFinalEquation: precision comparison NOT passed for root %r\n' + \
-                                     '        %r', realsolution, r)
+                            log.info('checkFinalEquation (Set %d): precision comparison NOT passed for root %r\n' + \
+                                     '        %r', itest, realsolution, r)
                         pass
             else:
                 if printCheckMsg:
-                    log.info('checkFinalEquation: residual too large for %r, ' + \
-                             'precision comparison NOT passed', realsolution)
+                    log.info('checkFinalEquation (Set %d): residual too large for %r, ' + \
+                             'precision comparison NOT passed', itest, realsolution)
                 pass
             """
             # compute roots by numpy's polyroots
@@ -10372,9 +10368,16 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         thresh2 =    10.0**- self.precision
         thresh3 =    10.0**-(self.precision-2)
         found = False
+
+        try:
+            polydetA = Poly(detA, htvar)
+        except PolynomialError:
+            return None
         
-        for i, testconsistentvalue in enumerate(self.testconsistentvalues):
-            
+        max_p = polydetA.degree()
+        min_p = min(polydetA.monoms())[0]
+        
+        for itest, testconsistentvalue in enumerate(self.testconsistentvalues):
             subsdict = dict(testconsistentvalue)
             globalsymbols = dict([(s, self.globalsymbols[s].subs(self.globalsymbols).subs(testconsistentvalue)) \
                                   for s in self.globalsymbols]) 
@@ -10395,28 +10398,34 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
 
             polydetAsubs = Poly(detAsubs, htvar)
             deg = polydetAsubs.degree()
+            if deg < max_p: # LC of polydetA is zero
+                continue
             coeffs_dict = polydetAsubs.as_dict()
             coeffs = [ coeffs_dict.get((i,), S.Zero).evalf()  for i in range(deg+1)[::-1] ]
+            if min_p > 0: # remove trailing zeros so there is no trivial solution htvar = 0
+                coeffs = coeffs[:(-min_p)]
+
+            # print coeffs
             has_weird_sym = [not self.isValidSolution(c) for c in coeffs]
             if any(has_weird_sym):
                 # some variable plugged in the denominator is 0 in test values, yielding +/-oo or nan
                 if printCheckMsg:
-                    log.info('checkMatrixDet: value has I/oo/-oo/nan:\n' + \
-                             '        %r', coeffs)
+                    log.info('checkMatrixDet (Set %d): value has I/oo/-oo/nan:\n' + \
+                             '        %r', itest, coeffs)
                 continue
             
             if Abs(coeffs[0]) < thresh1:
                 # after plugging in test values, coefficient of highest order becomes 0
                 if printCheckMsg:
-                    log.info('checkMatrixDet: precision comparison NOT passed: %r < %r', \
-                             Abs(nz_coeffs[0]), thresh1)
+                    log.info('checkMatrixDet (Set %d): precision comparison NOT passed: %r < %r', \
+                             itest, Abs(coeffs[0]), thresh1)
                 continue
             
             if not all([c.is_number for c in coeffs]):
                 # cannot evaluate
                 if printCheckMsg:
-                    log.warn('checkMatrixDet: set found as True, as we cannot evaluate\n        %s', \
-                             "\n        ".join(str(x) for x in nz_coeffs if not x.is_number))
+                    log.warn('checkMatrixDet (Set %d): set found as True, as we cannot evaluate\n        %s', \
+                             itest, "\n        ".join(str(x) for x in coeffs if not x.is_number))
                 found = True
                 break
 
@@ -10440,30 +10449,27 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                          Abs(Re(root)-realsolution) < thresh3 \
                          for root in r] ):
                     if printCheckMsg:
-                        log.info('checkMatrixDet: precision comparison PASSED for root %r from Set %i\n' + \
-                                 '        %r', realsolution, i, r)
+                        log.info('checkMatrixDet (Set %d): precision comparison PASSED for root %r from Set %i\n' + \
+                                 '        %r', itest, realsolution, itest, r)
                     found = True
                     break
                 else:
                     if any([not c.is_number for m,c in pfinal.terms()]):
                         if printCheckMsg:
-                            log.info('checkMatrixDet: precision comparison NOT passed for root %r\n' + \
-                                     '        %r', realsolution, r)
+                            log.info('checkMatrixDet (Set %d): precision comparison NOT passed for root %r\n' + \
+                                     '        %r', itest, realsolution, r)
                         pass
             else:
                 if printCheckMsg:
-                    log.info('checkMatrixDet: residual too large for %r, ' + \
-                             'precision comparison NOT passed', realsolution)
+                    log.info('checkMatrixDet (Set %d): residual too large for %r from set %r, ' + \
+                             'precision comparison NOT passed', itest, realsolution, itest)
                 pass
 
         if found:
             if printCheckMsg:
                 log.info('checkMatrixDet returns VALID solution')
-            polydetA = Poly(detA, htvar)
             # remove all factors of (htvar-0) by dividing htvar until the trailing coefficient (TC) is nonzero
-            p = [p[0] for p, c in polydetA.terms() if p[0]>0]
-            if len(p) > 0 and  min(p) > 0 and polydetA.TC() == S.Zero:
-                min_p = min(p)
+            if min_p > 0:
                 assert(all([m[0]-min_p>=0 for m, c in polydetA.terms()]))
                 polydetA = Poly(sum(c*htvar**(m[0]-min_p) for m, c in polydetA.terms()), htvar)
             return polydetA
@@ -11857,7 +11863,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         #complexity = [(self.codeComplexity(peq.as_expr()), peq) for peq in polyeqs]
         #complexity.sort(key = itemgetter(0))
         #polyeqs = [peq[1] for peq in complexity]
-        polyeqs = [polyeq for polyeq in polyeqs if polyeq!=S.Zero]
+        polyeqs = [polyeq for polyeq in polyeqs if polyeq != S.Zero]
         polyeqs.sort(key = lambda x: x.count_ops())
         detComplexityThreshold = 1200
         solutions = [None, None]
@@ -11929,36 +11935,41 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         log.warn('Failed to compute det(Mall): %s', e)
                         continue
 
+                    if expand(Malldet) == S.Zero:
+                        continue
                     complexity = self.codeComplexity(Malldet)
                     if complexity > detComplexityThreshold:
                         log.warn('Complexity of det(Mall) is too big: %d > %d', \
                                  complexity, detComplexityThreshold)
                         continue
 
-                    if expand(Malldet) == S.Zero:
-                        continue
+
                     """
                     timepoly = -time.time()
                     log.info('Before self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)')
-                    possiblefinaleq = self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)
+                    possiblefinaleq2 = self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)
                     timepoly += time.time()
                     log.info('After self.checkFinalEquation(Poly(Malldet, leftvar), tosubs); time elapsed: %1.2fs', \
                              timepoly)
+                    timepoly = -time.time()
+                    log.info('Before checkMatrixDet')
                     """
-                    # timepoly = -time.time()
-                    # log.info('Before checkMatrixDet')
                     possiblefinaleq = self.checkMatrixDet(Mall, Malldet, leftvar, tosubs)
-                    # timepoly += time.time()
+                    """
+                    timepoly += time.time()
 
+                    if (possiblefinaleq is None and not possiblefinaleq2 is None) or \
+                       (possiblefinaleq2 is None and not possiblefinaleq is None):
+                        exec(ipython_str, globals(), locals())
+                    """
+                    
                     if possiblefinaleq is None:
-                        #log.info('After checkMatrixDet (invalid); time elapsed: %1.2fs', \
-                        #         timepoly)
-                        # exec(ipython_str, globals(), locals())
+                        # log.info('After checkMatrixDet (invalid); time elapsed: %1.2fs', \
+                        #          timepoly)
                         continue # eqsindices for-loop
                     elif possiblefinaleq.degree()<=0:
-                        #log.info('After self.checkMatrixDet (valid); time elapsed: %1.2fs', \
-                        #         timepoly)
-                        exec(ipython_str, globals(), locals())
+                        # log.info('After self.checkMatrixDet (valid); time elapsed: %1.2fs', \
+                        #          timepoly)
                         continue
 
                     """

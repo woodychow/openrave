@@ -12,9 +12,3 @@ cp $CURR_IKFAST_DIR/databases/*.py $OPENRAVE_DIR/databases
 clear && clear
 
 ./test_all robotfiles
-
-openrave.py --database inversekinematics \
-            --robot=robotfiles/neuronics-katana.zae \
-            --iktype=translationdirection5d \
-            --manipname=arm \
-            --numiktests=1000
