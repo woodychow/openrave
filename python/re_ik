@@ -9,5 +9,5 @@ cp $CURR_IKFAST_DIR/databases/*.py $OPENRAVE_DIR/databases
 
 clear && clear
 
-openrave.py --database inversekinematics --robot=robotfiles/collada_robots_neuronics-katana.zae \
+openrave.py --database inversekinematics --robot=../src/robots/pr2-beta-sim.robot.xml \
             --numiktests=1000 --iktype=translationdirection5d

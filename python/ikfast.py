@@ -11280,53 +11280,38 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 allsymbols.append((n,eq.TC().subs(allsymbols)))
                 eq += n - eq.TC()
 
-        eqns2 = []
-        neweqns2 = []
-        # try to take linear combination of any pair of equations to eliminate pairwise variables
-        for eq0, eq1 in combinations(reduceeqns, 2):
-            if len(neweqns) == 20:
-                break
+        # try to at least subtract as much paired variables out
+        eqcombs = [c for c in combinations(reduceeqns,2)]
+        while len(eqcombs) > 0 and len(neweqns) < 20:
+            eq0,eq1 = eqcombs.pop()
             eq0dict = eq0.as_dict()
             eq1dict = eq1.as_dict()
             for i in range(6):
-                monom = [0]*6
+                monom = [0,0,0,0,0,0]
                 monom[i] = 1
-                monom = tuple(monom)
-                eq0value = eq0dict.get(monom, S.Zero)
-                eq1value = eq1dict.get(monom, S.Zero)
-
+                eq0value = eq0dict.get(tuple(monom),S.Zero)
+                eq1value = eq1dict.get(tuple(monom),S.Zero)
                 if eq0value != 0 and eq1value != 0:
-                    gcdvalue = gcd(eq0value, eq1value)
-                    eq0value /= gcdvalue
-                    eq1value /= gcdvalue
-
-                    # linear combination
-                    tempeq = (eq0*eq1value - eq1*eq0value) \
-                             .as_expr().subs(allsymbols+pairwiseinvsubs).expand()
-                    
+                    tempeq = (eq0.as_expr()*eq1value-eq0value*eq1.as_expr()).subs(allsymbols+pairwiseinvsubs).expand()
                     if self.codeComplexity(tempeq) > 200:
                         continue
                     eq = simplify(tempeq)
                     if eq == S.Zero:
                         continue
                     
-                    peq = Poly(eq, *pairwisevars)
+                    peq = Poly(eq,*pairwisevars)
                     if max(peq.degree_list()) > 0 and self.codeComplexity(eq) > maxcomplexity:
-                        # only include equations that no longer contain pairwise variables and are not too complex
-                        continue
-
-                    eq = self.trigsimp(eq)
-                    if not self.CheckExpressionUnique(eqns2, eq) or \
-                       not self.CheckExpressionUnique(eqns,  eq):
+                        # don't need such complex equations
                         continue
                     
-                    if eq.has(*c0s0c1s1): # be a little strict about new candidates
-                        eqns2.append(eq)
-                        eqnew, syms = self.groupTerms(eq, c0s0c1s1, symbolgen)
-                        allsymbols += syms
-                        neweqns2.append([self.codeComplexity(eq), Poly(eqnew, *c0s0c1s1)])
-        eqns    +=    eqns2
-        neweqns += neweqns2
+                    if not self.CheckExpressionUnique(eqns, eq):
+                        continue
+                    
+                    if eq.has(*unknownvars): # be a little strict about new candidates
+                        eqns.append(eq)
+                        eqnew, symbols = self.groupTerms(eq, unknownvars, symbolgen)
+                        allsymbols += symbols
+                        neweqns.append([self.codeComplexity(eq), Poly(eqnew,*unknownvars)])
         
         orgeqns = neweqns[:]
         # try to solve for all pairwise variables

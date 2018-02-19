@@ -32,3 +32,5 @@
 18/02/19-13:33:00, --robot=robotfiles/testik0.zae, TranslationDirection5D, 1000, 1000, 0, 100.0, 0.000, 0.000, 53.800, runtime = 18.3s, testtime = 6.9s
 18/02/19-13:33:15, --robot=robotfiles/unimation-pumaarm.zae, TranslationDirection5D, 1000, 1000, 0, 100.0, 0.000, 0.000, 31.900, runtime = 4.6s, testtime = 7.7s
 18/02/19-13:37:52, --robot=robotfiles/universalrobots-ur6-85-5-a.zae, TranslationDirection5D, 1000, 992, 0, 99.2, 0.000, 0.800, 92.800, runtime = 255.4s, testtime = 19.1s
+18/02/19-14:40:08, --robot=../src/robots/pr2-beta-sim.robot.xml, TranslationDirection5D, 1000, 928, 0, 92.8, 0.000, 7.200, 14.400, runtime = 60.8s, testtime = 0.5s
+18/02/19-14:41:58, --robot=../src/robots/pr2-beta-sim.robot.xml, TranslationDirection5D, 1000, 929, 0, 92.9, 0.000, 7.100, 14.200, runtime = 60.6s, testtime = 0.5s
