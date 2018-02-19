@@ -10369,48 +10369,30 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         thresh3 =    10.0**-(self.precision-2)
         found = False
 
-        complexityDetA = detA.count_ops()
-        complexityThreshold = 300
+        # complexityDetA = detA.count_ops()
+        # complexityThreshold = 300
         # log.info('%f\n%r', complexityDetA, detA)
 
-        if complexityDetA > complexityThreshold:
-            # try to obtain degree in htvar by subs in random numbers (to-do: iterate 2~3 times; set maxiter)
-            log.info('Before using the random number approach')
-            timepoly = -time.time()
-            # detA = expand(detA) # expanded in solvePairVariablesHalfAngle
-            deglist = []
-            maxiter = 1
-            for i in range(maxiter):
-                subsdict = dict(self.testconsistentvalues[0])
-                randangles = list((numpy.random.rand(len(subsdict))*2-1)*pi.evalf())
-                subsdict = {s: v for s, v in izip(subsdict, randangles)}
-                subsdict.pop(htvar)
-                try:
-                    polydetA = Poly(detA.subs(subsdict), htvar)
-                except PolynomialError:
-                    return None
-                deglist.append(polydetA.degree())
-            max_p = max(deglist)
-            timepoly += time.time()
-            log.info('After using the random number approach: %1.2fs', timepoly)
-        else:
-            log.info('Before calling Poly')
-            timepoly = -time.time()
+        # try to obtain degree in htvar by subs in random numbers (to-do: iterate 2~3 times; set maxiter)
+        log.info('Before using the random number approach')
+        timepoly = -time.time()
+        # detA = expand(detA) # expanded in solvePairVariablesHalfAngle
+        deglist = []
+        maxiter = 1
+        for i in range(maxiter):
+            subsdict = dict(self.testconsistentvalues[0])
+            randangles = list((numpy.random.rand(len(subsdict))*2-1)*pi.evalf())
+            subsdict = {s: v for s, v in izip(subsdict, randangles)}
+            subsdict.pop(htvar)
             try:
-                polydetA = Poly(detA, htvar)
+                polydetAsubs = Poly(detA.subs(subsdict), htvar)
             except PolynomialError:
                 return None
-            timepoly += time.time()
-            log.info('After calling Poly: %1.2fs', timepoly)        
-            max_p = polydetA.degree()
-            
-        min_p = min(polydetA.monoms())[0]
-
-        """
-        if max_p2 != max_p:
-            print max_p2, max_p
-            exec(ipython_str, globals(), locals())
-        """
+            deglist.append(polydetAsubs.degree())
+        min_p = min(polydetAsubs.monoms())[0]
+        max_p = max(deglist)
+        timepoly += time.time()
+        log.info('After using the random number approach: %1.2fs', timepoly)
                 
         for itest, testconsistentvalue in enumerate(self.testconsistentvalues):
             subsdict = dict(testconsistentvalue)
@@ -10504,7 +10486,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             if printCheckMsg:
                 log.info('checkMatrixDet returns VALID solution')
                 
-            if complexityDetA > 300: # used random number approach before
+            if True: # complexityDetA > 300: # used random number approach before
                 try:
                     polydetA = Poly(detA, htvar)
                 except PolynomialError:
