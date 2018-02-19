@@ -10374,8 +10374,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         # log.info('%f\n%r', complexityDetA, detA)
 
         # try to obtain degree in htvar by subs in random numbers (to-do: iterate 2~3 times; set maxiter)
-        log.info('Before using the random number approach')
-        timepoly = -time.time()
+        # log.info('Before using the random number approach')
+        # timepoly = -time.time()
         # detA = expand(detA) # expanded in solvePairVariablesHalfAngle
         deglist = []
         maxiter = 1
@@ -10391,8 +10391,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             deglist.append(polydetAsubs.degree())
         min_p = min(polydetAsubs.monoms())[0]
         max_p = max(deglist)
-        timepoly += time.time()
-        log.info('After using the random number approach: %1.2fs', timepoly)
+        # timepoly += time.time()
+        # log.info('After using the random number approach: %1.2fs', timepoly)
                 
         for itest, testconsistentvalue in enumerate(self.testconsistentvalues):
             subsdict = dict(testconsistentvalue)
@@ -11960,15 +11960,15 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         log.warn('Failed to compute det(Mall): %s', e)
                         continue
 
-                    expandedMalldet = expand(Malldet)
-                    if expandedMalldet == S.Zero:
-                        continue
                     complexity = self.codeComplexity(Malldet)
                     if complexity > detComplexityThreshold:
                         log.warn('Complexity of det(Mall) is too big: %d > %d', \
                                  complexity, detComplexityThreshold)
                         continue
 
+                    expandedMalldet = expand(Malldet)
+                    if expandedMalldet == S.Zero:
+                        continue
                     """
                     timepoly = -time.time()
                     log.info('Before self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)')
@@ -11977,11 +11977,11 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     log.info('After self.checkFinalEquation(Poly(Malldet, leftvar), tosubs); time elapsed: %1.2fs', \
                              timepoly)
                     """
-                    timepoly = -time.time()
-                    log.info('Before checkMatrixDet')
+                    # timepoly = -time.time()
+                    # log.info('Before checkMatrixDet')
                     possiblefinaleq = self.checkMatrixDet(Mall, expandedMalldet, leftvar, tosubs)
-                    timepoly += time.time()
-                    log.info('After checkMatrixDet: %1.2fs', timepoly)
+                    # timepoly += time.time()
+                    # log.info('After checkMatrixDet: %1.2fs', timepoly)
                     
                     """
                     if (possiblefinaleq is None and not possiblefinaleq2 is None) or \
