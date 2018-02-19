@@ -11292,7 +11292,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 eq0value = eq0dict.get(tuple(monom),S.Zero)
                 eq1value = eq1dict.get(tuple(monom),S.Zero)
                 if eq0value != 0 and eq1value != 0:
-                    tempeq = (eq0.as_expr()*eq1value-eq0value*eq1.as_expr()).subs(allsymbols+pairwiseinvsubs).expand()
+                    tempeq = (eq0*eq1value-eq0value*eq1).as_expr().subs(allsymbols+pairwiseinvsubs).expand()
                     if self.codeComplexity(tempeq) > 200:
                         continue
                     eq = simplify(tempeq)
@@ -11307,11 +11307,11 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     if not self.CheckExpressionUnique(eqns, eq):
                         continue
                     
-                    if eq.has(*unknownvars): # be a little strict about new candidates
+                    if eq.has(*c0s0c1s1): # be a little strict about new candidates
                         eqns.append(eq)
-                        eqnew, symbols = self.groupTerms(eq, unknownvars, symbolgen)
-                        allsymbols += symbols
-                        neweqns.append([self.codeComplexity(eq), Poly(eqnew,*unknownvars)])
+                        eqnew, syms = self.groupTerms(eq, c0s0c1s1, symbolgen)
+                        allsymbols += syms
+                        neweqns.append([self.codeComplexity(eq), Poly(eqnew, *c0s0c1s1)])
         
         orgeqns = neweqns[:]
         # try to solve for all pairwise variables
@@ -11398,7 +11398,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                                 # too complex
                                 continue
                             if len(addedeqs) > 10 and self.codeComplexity(eq) > 2000:
-                                # have enough equations
+                                # have enough equations, so need less complex ones
                                 continue
                             if eq != S.Zero and self.CheckExpressionUnique(addedeqs, eq):
                                 eqnew, syms = self.groupTerms(eq, c0s0c1s1, symbolgen)
@@ -11462,10 +11462,10 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
 
         # Find a group that has two or more equations:
         # Case 1: Look for equations where all monoms but one involve one of c0,s0,c1,s1.
-        goodgroup = []
-        useconic = False
+        groups = []
         for i in range(4): # iterate through (c0,s0,c1,s1)
             listeqs = []
+            listeqscmp = []
             for rank, eq in neweqns:
                 # variable (one of c0,s0,c1,s1) either does not appear or appears alone (at least once)
                 if all([m[i] == 0 or (sum(m) == m[i] and m[i] > 0) for m in eq.monoms()]) and \
@@ -11476,24 +11476,30 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         eqcmp = self.removecommonexprs(eq.subs(allsymbols).as_expr(), \
                                                        onlygcd = True, \
                                                        onlynumbers = False)
-                        if self.CheckExpressionUnique(listeqs, eqcmp):
+                        if self.CheckExpressionUnique(listeqscmp, eqcmp):
                             listeqs.append(eq)
-            if len(listeqs) >= 2:
-                goodgroup.append((i, listeqs))
+                            listeqscmp.append(eqcmp)
+            groups.append(listeqs)
             
+        # find a group that has two or more equations:
+        useconic = False
+        goodgroup = [(i,g) for i,g in enumerate(groups) if len(g) >= 2]
         if len(goodgroup) == 0:
-            # Case 2: Look for equations where all monoms but one involve only (c0, s0) or (c1, s1).
-            #         Might be able to solve a set of equations with conics.
-            goodgroup = []
-            useconic = True
+            # Case 2: Look for equations where all monoms but one involve only (c0, s0) or (c1, s1). 
+            #         Might be able to solve a set of equations with conics. 
+            groups = []
             for i in [0, 2]:
+                unknownvar    = c0s0c1s1[i]
+                complementvar = c0s0c1s1[i+1]
                 listeqs = []
-                for rank, eq in neweqns:
+                listeqscmp = []
+                for rank,eq in neweqns:
                     addeq = False
                     if all([sum(m) == m[i]+m[i+1] for m in eq.monoms()]):
                         # only (c0, s0) or (c1, s1) appear in eq
                         addeq = True
                     else:
+                        # make sure there's only one monom that includes other variables
                         othervars = 0
                         for m in eq.monoms():
                             if sum(m) >  m[i]+m[i+1]:
@@ -11509,11 +11515,15 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         eqcmp = self.removecommonexprs(eq.subs(allsymbols).as_expr(), \
                                                        onlygcd = True, \
                                                        onlynumbers = False)
-                        if self.CheckExpressionUnique(listeqs, eqcmp):
+                        if self.CheckExpressionUnique(listeqscmp, eqcmp):
                             listeqs.append(eq)
-                if len(listeqs) >= 2:
-                    goodgroup.append((i, listeqs))
-
+                            listeqscmp.append(eqcmp)
+                groups.append(listeqs)
+                groups.append([]) # necessary to get indices correct
+                
+            goodgroup = [(i,g) for i,g in enumerate(groups) if len(g) >= 2]
+            useconic = True
+            
             if len(goodgroup) == 0:
                 try:
                     log.info('[SOLVE %i] solvePairVariables tries solvePairVariablesHalfAngle for %r, %r', \
@@ -11534,7 +11544,6 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     iscoupled = any([sum(m)>0 and c.has(cvar1, svar1) for m, c in p.terms()])
                     if not iscoupled:
                         neweqs.append([p-p.TC(), Poly(-p.TC(), cvar1, svar1)])
-                        
                 if len(neweqs) > 0:
                     for ivar in (0, 1):
                         # eq[0] is polynomial in c0, s0; eq[1] in c1, s1
@@ -11545,7 +11554,6 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                             eq1 = paireq1[ivar]
                             eq0dict = eq0.as_dict()
                             eq1dict = eq1.as_dict()
-
                             eq0cval = eq0dict.get((1,0), S.Zero)
                             eq0sval = eq0dict.get((0,1), S.Zero)
                             eq1cval = eq1dict.get((1,0), S.Zero)
@@ -11626,7 +11634,6 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         simpleterms  = []
         complexterms = []
         domagicsquare = False
-
         for i in (0, 1):
             term = [(m, c) for m, c in eqs[i].terms() \
                     if sum(m) - m[varindex] > (m[varindex+1] if useconic else 0)]
@@ -11647,7 +11654,6 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             # here is the magic transformation:
             finaleq = self.trigsimp(expand((complexterms[0]**2 + complexterms[1]**2 - \
                                                 simpleterms [0]**2 -  simpleterms[1]**2)  ))
-            
             denoms = [fraction(simpleterms [0])[1], \
                       fraction(simpleterms [1])[1], \
                       fraction(complexterms[0])[1], \
@@ -11721,7 +11727,6 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             log.info('solvePairVariables returns a solution')
             return [solution]
 
-        exec(ipython_str, globals(), locals())
         # now that everything is with respect to one variable, simplify and solve the equation
         eqnew, symbols = self.groupTerms(finaleq, c0s0c1s1, symbolgen)
         allsymbols += symbols
