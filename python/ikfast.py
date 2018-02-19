@@ -10369,14 +10369,49 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         thresh3 =    10.0**-(self.precision-2)
         found = False
 
-        try:
-            polydetA = Poly(detA, htvar)
-        except PolynomialError:
-            return None
-        
-        max_p = polydetA.degree()
+        complexityDetA = detA.count_ops()
+        complexityThreshold = 300
+        # log.info('%f\n%r', complexityDetA, detA)
+
+        if complexityDetA > complexityThreshold:
+            # try to obtain degree in htvar by subs in random numbers (to-do: iterate 2~3 times; set maxiter)
+            log.info('Before using the random number approach')
+            timepoly = -time.time()
+            # detA = expand(detA) # expanded in solvePairVariablesHalfAngle
+            deglist = []
+            maxiter = 1
+            for i in range(maxiter):
+                subsdict = dict(self.testconsistentvalues[0])
+                randangles = list((numpy.random.rand(len(subsdict))*2-1)*pi.evalf())
+                subsdict = {s: v for s, v in izip(subsdict, randangles)}
+                subsdict.pop(htvar)
+                try:
+                    polydetA = Poly(detA.subs(subsdict), htvar)
+                except PolynomialError:
+                    return None
+                deglist.append(polydetA.degree())
+            max_p = max(deglist)
+            timepoly += time.time()
+            log.info('After using the random number approach: %1.2fs', timepoly)
+        else:
+            log.info('Before calling Poly')
+            timepoly = -time.time()
+            try:
+                polydetA = Poly(detA, htvar)
+            except PolynomialError:
+                return None
+            timepoly += time.time()
+            log.info('After calling Poly: %1.2fs', timepoly)        
+            max_p = polydetA.degree()
+            
         min_p = min(polydetA.monoms())[0]
-        
+
+        """
+        if max_p2 != max_p:
+            print max_p2, max_p
+            exec(ipython_str, globals(), locals())
+        """
+                
         for itest, testconsistentvalue in enumerate(self.testconsistentvalues):
             subsdict = dict(testconsistentvalue)
             globalsymbols = dict([(s, self.globalsymbols[s].subs(self.globalsymbols).subs(testconsistentvalue)) \
@@ -10468,6 +10503,14 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         if found:
             if printCheckMsg:
                 log.info('checkMatrixDet returns VALID solution')
+                
+            if complexityDetA > 300: # used random number approach before
+                try:
+                    polydetA = Poly(detA, htvar)
+                except PolynomialError:
+                    return None
+                max_p2 = polydetA.degree()
+                assert(max_p == max_p2)
             # remove all factors of (htvar-0) by dividing htvar until the trailing coefficient (TC) is nonzero
             if min_p > 0:
                 assert(all([m[0]-min_p>=0 for m, c in polydetA.terms()]))
@@ -11935,14 +11978,14 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                         log.warn('Failed to compute det(Mall): %s', e)
                         continue
 
-                    if expand(Malldet) == S.Zero:
+                    expandedMalldet = expand(Malldet)
+                    if expandedMalldet == S.Zero:
                         continue
                     complexity = self.codeComplexity(Malldet)
                     if complexity > detComplexityThreshold:
                         log.warn('Complexity of det(Mall) is too big: %d > %d', \
                                  complexity, detComplexityThreshold)
                         continue
-
 
                     """
                     timepoly = -time.time()
@@ -11951,13 +11994,14 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     timepoly += time.time()
                     log.info('After self.checkFinalEquation(Poly(Malldet, leftvar), tosubs); time elapsed: %1.2fs', \
                              timepoly)
+                    """
                     timepoly = -time.time()
                     log.info('Before checkMatrixDet')
-                    """
-                    possiblefinaleq = self.checkMatrixDet(Mall, Malldet, leftvar, tosubs)
-                    """
+                    possiblefinaleq = self.checkMatrixDet(Mall, expandedMalldet, leftvar, tosubs)
                     timepoly += time.time()
-
+                    log.info('After checkMatrixDet: %1.2fs', timepoly)
+                    
+                    """
                     if (possiblefinaleq is None and not possiblefinaleq2 is None) or \
                        (possiblefinaleq2 is None and not possiblefinaleq is None):
                         exec(ipython_str, globals(), locals())
