@@ -11238,16 +11238,16 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         
         varsym0 = self.getVariable(var0)
         varsym1 = self.getVariable(var1)
-        cvar0, svar0 = varsym0.cvar, varsym0.svar
-        cvar1, svar1 = varsym1.cvar, varsym1.svar
+        c0, s0 = varsym0.cvar, varsym0.svar
+        c1, s1 = varsym1.cvar, varsym1.svar
         varsubs = varsym0.subs + varsym1.subs
         varsubsinv = varsym0.subsinv + varsym1.subsinv
-        c0s0c1s1 = [cvar0, svar0, cvar1, svar1]
+        c0s0c1s1 = [c0, s0, c1, s1]
         # replace sj*sj and sj*sj*sj
-        reducesubs = [(svar0**2,        1-cvar0**2), \
-                      (svar0**3, svar0*(1-cvar0**2)), \
-                      (svar1**2,        1-cvar1**2), \
-                      (svar1**3, svar1*(1-cvar1**2)) ]
+        reducesubs = [(s0**2,     1-c0**2),  \
+                      (s0**3, s0*(1-c0**2)), \
+                      (s1**2,     1-c1**2),  \
+                      (s1**3, s1*(1-c1**2))  ]
         eqns = [eq.subs(varsubs).subs(reducesubs).expand() for eq in eqns]
 
         # group equations with single variables
@@ -11256,26 +11256,26 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         eqnsyms = [(self.codeComplexity(eq), \
                     self.groupTerms(eq, c0s0c1s1, symbolgen)) for eq in eqns]
         eqnsyms.sort(lambda x, y: x[0]-y[0])
-        orgeqns = [(eqnsym[0], Poly(eqnsym[1][0], *c0s0c1s1)) for eqnsym in eqnsyms]
-        allsymbols = self.jointlists([eqnsym[1][1] for eqnsym in eqnsyms])
+        orgeqns = [(rank, Poly(eqnsym[0], *c0s0c1s1)) for rank, eqnsym in eqnsyms]
+        allsymbols = self.jointlists([eqnsym[1] for rank, eqnsym in eqnsyms])
         # neweqns and orgeqns are polynomials in c0, s0, c1, s1
         neweqns = orgeqns[:]
         
-        pairwisesubs = [(svar0*cvar1, Symbol('s0c1')), \
-                        (svar0*svar1, Symbol('s0s1')), \
-                        (cvar0*cvar1, Symbol('c0c1')), \
-                        (cvar0*svar1, Symbol('c0s1')), \
-                        (cvar0*svar0, Symbol('s0c0')), \
-                        (cvar1*svar1, Symbol('s1c1'))  ] 
+        pairwisevars = [Symbol(v) for v in \
+                        ['s0c1', 's0s1', 'c0c1', 'c0s1', 's0c0', 's1c1']] 
+        s0c1, s0s1, c0c1, c0s1, s0c0, s1c1 = pairwisevars 
+        pairwisesubs = [(s0*c1, s0c1), (s0*s1, s0s1), \
+                        (c0*c1, c0c1), (c0*s1, c0s1), \
+                        (c0*s0, s0c0), (c1*s1, s1c1)  ]
         pairwiseinvsubs = [(f[1], f[0]) for f in pairwisesubs]
-        pairwisevars    =  [f[1]        for f in pairwisesubs]
+
 
         # isolate pairwise variables in each equation
         # reduceeqns are polynomials in pairwise variables
         reduceeqns = [Poly(eqnsym[0].subs(pairwisesubs), *pairwisevars) \
                       for rank, eqnsym in eqnsyms if rank < 4*maxcomplexity] # complexity < 200
         for eq in reduceeqns:
-            if eq.TC != S.Zero and not eq.TC().is_Symbol:
+            if not (eq.TC == S.Zero or eq.TC().is_Symbol):
                 n = symbolgen.next()
                 allsymbols.append((n,eq.TC().subs(allsymbols)))
                 eq += n - eq.TC()
@@ -11287,39 +11287,40 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             eq0dict = eq0.as_dict()
             eq1dict = eq1.as_dict()
             for i in range(6):
-                monom = [0,0,0,0,0,0]
+                monom = [0, 0, 0, 0, 0, 0]
                 monom[i] = 1
-                eq0value = eq0dict.get(tuple(monom),S.Zero)
-                eq1value = eq1dict.get(tuple(monom),S.Zero)
-                if eq0value != 0 and eq1value != 0:
-                    tempeq = (eq0*eq1value-eq0value*eq1).as_expr().subs(allsymbols+pairwiseinvsubs).expand()
-                    if self.codeComplexity(tempeq) > 200:
-                        continue
-                    eq = simplify(tempeq)
-                    if eq == S.Zero:
-                        continue
-                    
-                    peq = Poly(eq,*pairwisevars)
-                    if max(peq.degree_list()) > 0 and self.codeComplexity(eq) > maxcomplexity:
-                        # don't need such complex equations
-                        continue
-                    
-                    if not self.CheckExpressionUnique(eqns, eq):
-                        continue
-                    
-                    if eq.has(*c0s0c1s1): # be a little strict about new candidates
-                        eqns.append(eq)
-                        eqnew, syms = self.groupTerms(eq, c0s0c1s1, symbolgen)
-                        allsymbols += syms
-                        neweqns.append([self.codeComplexity(eq), Poly(eqnew, *c0s0c1s1)])
+                eq0value = eq0dict.get(tuple(monom), S.Zero)
+                eq1value = eq1dict.get(tuple(monom), S.Zero)
+                if eq0value == S.Zero or eq1value == S.Zero:
+                    continue
+                # take a linear combination to eliminate pairwisevars[i]
+                tempeq = (eq0*eq1value-eq0value*eq1).as_expr().subs(allsymbols+pairwiseinvsubs).expand()
+                if self.codeComplexity(tempeq) > 200:
+                    continue
+                eq = simplify(tempeq)
+                if eq == S.Zero:
+                    continue
+
+                peq = Poly(eq, *pairwisevars)
+                if max(peq.degree_list()) > 0 and self.codeComplexity(eq) > maxcomplexity: # 50
+                    # don't need such complex equations
+                    continue
+
+                if not self.CheckExpressionUnique(eqns, eq):
+                    continue
+
+                if eq.has(*c0s0c1s1): # be a little strict about new candidates
+                    eqns.append(eq)
+                    eqnew, syms = self.groupTerms(eq, c0s0c1s1, symbolgen)
+                    allsymbols += syms
+                    neweqns.append([self.codeComplexity(eq), Poly(eqnew, *c0s0c1s1)])
         
         orgeqns = neweqns[:]
         # try to solve for all pairwise variables
         systemofequations = []
         for reduceeqn in reduceeqns:
-            # pairwisevars[4:6] = [s0c0, s1c1]
             # reduceeqn is a polynomial in pairwise variables
-            if reduceeqn.has(pairwisevars[4], pairwisevars[5]) or \
+            if reduceeqn.has(s0c0, s1c1) or \
                not all([sum(m) <= 1 for m in reduceeqn.monoms()]):
                 continue
             arr = [S.Zero]*5
@@ -11345,17 +11346,18 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 Hence C*A = det(A)*I and det(A)*x = C*b =: c. So we add 4 equations v[i]*det(A)-c[i], 
                 without concerning whether det(A) != 0.
                 """
-                if detA.evalf() != S.Zero:
-                    c = A.adjugate()*b
-                    for i in range(4):
-                        eq = (pairwisesubs[i][0] * detA - c[i]).subs(allsymbols)
-                        eqnew, syms = self.groupTerms(eq, c0s0c1s1, symbolgen)
-                        allsymbols += syms
-                        singleeqs.append([self.codeComplexity(eq), Poly(eqnew,*c0s0c1s1)])
+                if detA.evalf() == S.Zero:
+                    continue
+                c = A.adjugate()*b
+                for i in range(4):
+                    eq = (pairwisesubs[i][0] * detA - c[i]).subs(allsymbols)
+                    eqnew, syms = self.groupTerms(eq, c0s0c1s1, symbolgen)
+                    allsymbols += syms
+                    singleeqs.append([self.codeComplexity(eq), Poly(eqnew,*c0s0c1s1)])
 
-                    neweqns += singleeqs
-                    neweqns.sort(lambda x, y: x[0]-y[0])
-                    break
+                neweqns += singleeqs
+                neweqns.sort(lambda x, y: x[0]-y[0])
+                break
 
         # check if any equations are of degree 1
         for ivar in (0, 1):
@@ -11382,35 +11384,36 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     pbase = pbase[0]
                     pbasedict = pbase.as_dict()
                     for p in polyunknown:
-                        eq0value = pbasedict.get(monom, S.Zero)
-                        eq1value = p.as_dict().get(monom,S.Zero)
-                        if eq0value != 0 and eq1value != 0:
-                            gcdvalue = gcd(eq0value, eq1value)
-                            eq0value /= gcdvalue
-                            eq1value /= gcdvalue
-                            # take a linear combination to eliminate cj*cj, cj*sj
-                            eq = (p*eq0value - pbase*eq1value).as_expr().subs(allsymbols)
-                            if self.codeComplexity(eq) > 4000:
-                                # too complex
-                                continue
-                            eq = eq.expand()
-                            if self.codeComplexity(eq) > 10000:
-                                # too complex
-                                continue
-                            if len(addedeqs) > 10 and self.codeComplexity(eq) > 2000:
-                                # have enough equations, so need less complex ones
-                                continue
-                            if eq != S.Zero and self.CheckExpressionUnique(addedeqs, eq):
-                                eqnew, syms = self.groupTerms(eq, c0s0c1s1, symbolgen)
-                                allsymbols += syms
-                                p = Poly(eqnew, cvar, svar)
-                                if p.as_dict().get((1, 1), S.Zero) != S.Zero:
-                                    # if there's still cj*sj, then now must be the first iteration;
-                                    # add this new equation into the second iteration
-                                    assert(monom == (2, 0))
-                                    polyunknown.insert(0, p)
-                                polyeqs.append([self.codeComplexity(eqnew), Poly(eqnew, *c0s0c1s1)])
-                                addedeqs.append(eq)
+                        eq0value = pbasedict  .get(monom, S.Zero)
+                        eq1value = p.as_dict().get(monom, S.Zero)
+                        if eq0value == S.Zero or eq1value == S.Zero:
+                            continue
+                        #gcdvalue = gcd(eq0value, eq1value)
+                        #eq0value /= gcdvalue
+                        #eq1value /= gcdvalue
+                        # take a linear combination to eliminate cj*cj, cj*sj
+                        eq = (p*eq0value - pbase*eq1value).as_expr().subs(allsymbols)
+                        if self.codeComplexity(eq) > 4000:
+                            # too complex
+                            continue
+                        eq = eq.expand()
+                        if self.codeComplexity(eq) > 10000:
+                            # too complex
+                            continue
+                        if len(addedeqs) > 10 and self.codeComplexity(eq) > 2000:
+                            # have enough equations, so need less complex ones
+                            continue
+                        if eq != S.Zero and self.CheckExpressionUnique(addedeqs, eq):
+                            eqnew, syms = self.groupTerms(eq, c0s0c1s1, symbolgen)
+                            allsymbols += syms
+                            p = Poly(eqnew, cvar, svar)
+                            if p.as_dict().get((1, 1), S.Zero) != S.Zero:
+                                # if there's still cj*sj, then now must be the first iteration;
+                                # add this new equation into the second iteration
+                                assert(monom == (2, 0))
+                                polyunknown.insert(0, p)
+                            polyeqs.append([self.codeComplexity(eqnew), Poly(eqnew, *c0s0c1s1)])
+                            addedeqs.append(eq)
             neweqns += polyeqs
         neweqns.sort(lambda x, y: x[0]-y[0])
 
@@ -11423,7 +11426,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             self._inc_solutionStackCounter()
             rawsolutions += self.solveSingleVariable(self.sortComplexity([eq.as_expr().subs(varsubsinv).expand() \
                                                                           for score, eq in neweqns \
-                                                                          if not eq.has(cvar1, svar1, var1)]), \
+                                                                          if not eq.has(c1, s1, var1)]), \
                                                      var0, \
                                                      othersolvedvars, \
                                                      tosubs = allsymbols, \
@@ -11441,7 +11444,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             self._inc_solutionStackCounter()
             rawsolutions += self.solveSingleVariable(self.sortComplexity([eq.as_expr().subs(varsubsinv).expand() \
                                                                           for score, eq in neweqns \
-                                                                          if not eq.has(cvar0, svar0, var0)]), \
+                                                                          if not eq.has(c0, s0, var0)]), \
                                                      var1, \
                                                      othersolvedvars, \
                                                      tosubs = allsymbols, \
@@ -11540,10 +11543,10 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 # try to separate (c0,s0) and (c1,s1) on both sides
                 neweqs = []
                 for rank, eq in neweqns:
-                    p = Poly(eq, cvar0, svar0)
-                    iscoupled = any([sum(m)>0 and c.has(cvar1, svar1) for m, c in p.terms()])
+                    p = Poly(eq, c0, s0)
+                    iscoupled = any([sum(m)>0 and c.has(c1, s1) for m, c in p.terms()])
                     if not iscoupled:
-                        neweqs.append([p-p.TC(), Poly(-p.TC(), cvar1, svar1)])
+                        neweqs.append([p-p.TC(), Poly(-p.TC(), c1, s1)])
                 if len(neweqs) > 0:
                     for ivar in (0, 1):
                         # eq[0] is polynomial in c0, s0; eq[1] in c1, s1
