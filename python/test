@@ -6,9 +6,9 @@ OPENRAVE_DIR=$MUJIN_INSTALL_DIR/lib/python2.7/site-packages/openravepy/_openrave
 CURR_IKFAST_DIR=$MUJIN_JHBUILD_CHECKOUT_DIR/openrave/python
 
 cp $CURR_IKFAST_DIR/*.py $OPENRAVE_DIR
-
 cp $CURR_IKFAST_DIR/databases/*.py $OPENRAVE_DIR/databases
+rm -f *.log /var/tmp/ikfast-*.log *.out
 
 clear && clear
 
-./test_all robotfiles
+./test_all5d robotfiles
