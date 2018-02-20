@@ -11281,37 +11281,48 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 eq += n - eq.TC()
 
         # try to at least subtract as much paired variables out
-        eqcombs = [c for c in combinations(reduceeqns,2)]
-        while len(eqcombs) > 0 and len(neweqns) < 20:
-            eq0,eq1 = eqcombs.pop()
-            eq0dict = eq0.as_dict()
-            eq1dict = eq1.as_dict()
-            for i in range(6):
-                monom = [0, 0, 0, 0, 0, 0]
-                monom[i] = 1
-                eq0value = eq0dict.get(tuple(monom), S.Zero)
-                eq1value = eq1dict.get(tuple(monom), S.Zero)
-                if eq0value == S.Zero or eq1value == S.Zero:
-                    continue
-                # take a linear combination to eliminate pairwisevars[i]
-                eq = (eq0*eq1value-eq0value*eq1).as_expr().subs(allsymbols+pairwiseinvsubs).expand()
-                if self.codeComplexity(eq) > 200:
-                    continue
-                eq = simplify(eq)
-                if eq == S.Zero:
-                    continue
-                peq = Poly(eq, *pairwisevars)
-                if max(peq.degree_list()) > 0 and self.codeComplexity(eq) > maxcomplexity: # 50
-                    # only want equations that contain no pairwise variables and are not complex
-                    continue
+        eqcombs = [c for c in combinations(reduceeqns, 2)]
+        reduceeqnsdict = [eq.as_dict() for eq in reduceeqns]
 
-                if not (self.CheckExpressionUnique(eqns, eq) and eq.has(*c0s0c1s1)):
+        eye6 = eye(6)
+        for i in range(6):
+            monom = [0, 0, 0, 0, 0, 0]
+            monom[i] = 1
+            m = tuple(monom)
+            for j1, eq0 in enumerate(reduceeqns):
+                eq0dict = reduceeqnsdict[j1]
+                eq0value = eq0dict.get(m, S.Zero)
+                if eq0value == S.Zero:
                     continue
-
-                eqns.append(eq)
-                eqnew, syms = self.groupTerms(eq, c0s0c1s1, symbolgen)
-                allsymbols += syms
-                neweqns.append([self.codeComplexity(eq), Poly(eqnew, *c0s0c1s1)])
+                for j2, eq1 in enumerate(reduceeqns[j1+1:]):
+                    j2 += j1+1
+                    eq1dict = reduceeqnsdict[j2]
+                    eq1value = eq1dict.get(m, S.Zero)
+                    if eq1value == S.Zero:
+                        continue
+                    # take a linear combination to eliminate pairwisevars[i]
+                    eq = (eq0*eq1value-eq0value*eq1).as_expr().subs(allsymbols+pairwiseinvsubs).expand()
+                    if self.codeComplexity(eq) > 200:
+                        continue
+                    eq = simplify(eq)
+                    if eq == S.Zero:
+                        continue
+                    peq = Poly(eq, *pairwisevars)
+                    if max(peq.degree_list()) > 0 and self.codeComplexity(eq) > maxcomplexity: # 50
+                        # only want equations that contain no pairwise variables and are not complex
+                        continue
+                    if not (self.CheckExpressionUnique(eqns, eq) and eq.has(*c0s0c1s1)):
+                        continue
+                    eqns.append(eq)
+                    eqnew, syms = self.groupTerms(eq, c0s0c1s1, symbolgen)
+                    allsymbols += syms
+                    neweqns.append([self.codeComplexity(eq), Poly(eqnew, *c0s0c1s1)])
+                    if len(neweqns)== 20:
+                        break
+                if len(neweqns)==20:
+                    break
+            if len(neweqns)==20:
+                break
         
         orgeqns = neweqns[:]
         # try to solve for all pairwise variables
@@ -11461,8 +11472,9 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                      self._solutionStackCounter, var0, var1)
             return solutions
 
-        # Find a group that has two or more equations:
-        # Case 1: Look for equations where all monoms but one involve one of c0,s0,c1,s1.
+        ## ------------------------------------------------------------------------------
+        ## Method 2: Find groups that each have two or more equations:
+        #  Case 1: Look for equations where all monoms but one involve one of c0,s0,c1,s1.
         groups = []
         for i in range(4): # iterate through (c0,s0,c1,s1)
             listeqs = []
@@ -11484,8 +11496,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             
         # find a group that has two or more equations:
         useconic = False
-        goodgroup = [(i,g) for i,g in enumerate(groups) if len(g) >= 2]
-        if len(goodgroup) == 0:
+        goodgroups = [(i,g) for i,g in enumerate(groups) if len(g) >= 2]
+        if len(goodgroups) == 0:
             # Case 2: Look for equations where all monoms but one involve only (c0, s0) or (c1, s1). 
             #         Might be able to solve a set of equations with conics. 
             groups = []
@@ -11497,7 +11509,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 for rank,eq in neweqns:
                     addeq = False
                     if all([sum(m) == m[i]+m[i+1] for m in eq.monoms()]):
-                        # only (c0, s0) or (c1, s1) appear in eq
+                        # only one set of (c0, s0) or (c1, s1) appear in eq
                         addeq = True
                     else:
                         # make sure there's only one monom that includes other variables
@@ -11522,10 +11534,10 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 groups.append(listeqs)
                 groups.append([]) # necessary to get indices correct
                 
-            goodgroup = [(i,g) for i,g in enumerate(groups) if len(g) >= 2]
+            goodgroups = [(i,g) for i,g in enumerate(groups) if len(g) >= 2]
             useconic = True
             
-            if len(goodgroup) == 0:
+            if len(goodgroups) == 0:
                 try:
                     log.info('[SOLVE %i] solvePairVariables tries solvePairVariablesHalfAngle for %r, %r', \
                              self._solutionStackCounter, var0, var1)
@@ -11626,12 +11638,13 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 raise self.CannotSolveError('cannot cleanly separate pair equations')
 
         # take the first good group (there can be more than 1 good group)
-        varindex = goodgroup[0][0]
+        goodgroup = goodgroups[0] 
+        varindex, eqs = goodgroup
         # if useconic is True, then varindex is either 0 or 2
         assert(not useconic or varindex==0 or varindex==2)
         var, varsym = (var0, varsym0) if varindex < 2 else (var1, varsym1)
         unknownvar = c0s0c1s1[varindex]
-        eqs = goodgroup[0][1][0:2] # first two equations
+        eqs = eqs[0:2] # first two equations
         simpleterms  = []
         complexterms = []
         domagicsquare = False
