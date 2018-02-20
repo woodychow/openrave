@@ -10391,6 +10391,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             deglist.append(polydetAsubs.degree())
         min_p = min(polydetAsubs.monoms())[0]
         max_p = max(deglist)
+        # log.info('min_p = %d, max_p = %d', min_p, max_p)
         # timepoly += time.time()
         # log.info('After using the random number approach: %1.2fs', timepoly)
                 
@@ -10408,7 +10409,6 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 log.warn('Failed to compute det(A): %s', e)
                 continue
 
-            detAsubs = self.removecommonexprs(detAsubs)
             if detAsubs == S.Zero:
                 # log.info('zero determinant')
                 continue
@@ -10434,7 +10434,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             if Abs(coeffs[0]) < thresh1:
                 # after plugging in test values, coefficient of highest order becomes 0
                 if printCheckMsg:
-                    log.info('checkMatrixDet (Set %d): precision comparison NOT passed: %r < %r', \
+                    log.info('checkMatrixDet (Set %d): leading coefficient (LC) less than threshold: %r < %r', \
                              itest, Abs(coeffs[0]), thresh1)
                 continue
             
@@ -10471,7 +10471,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     found = True
                     break
                 else:
-                    if any([not c.is_number for m,c in pfinal.terms()]):
+                    if any([not c.is_number for m, c in polydetAsubs.terms()]):
                         if printCheckMsg:
                             log.info('checkMatrixDet (Set %d): precision comparison NOT passed for root %r\n' + \
                                      '        %r', itest, realsolution, r)
@@ -11930,7 +11930,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 complexityArray = Matrix([complexity for complexity, newpolyeq in tosort])
 
                 log.info("solvePairVariablesHalfAngle: Choose %d equations out of %d equations: %d combinations", \
-                         neq, degree+1, self.ncr(neq, degree+1))
+                         degree+1, neq, self.ncr(neq, degree+1))
                 
                 for eqsindices in combinations(unusedindices, degree+1):
                     Mall            =        coeffsMatrix.extract(eqsindices, range(degree+1))
@@ -11959,19 +11959,20 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     expandedMalldet = expand(Malldet)
                     if expandedMalldet == S.Zero:
                         continue
+
                     """
                     timepoly = -time.time()
                     log.info('Before self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)')
-                    possiblefinaleq2 = self.checkFinalEquation(Poly(Malldet, leftvar), tosubs)
+                    possiblefinaleq = self.checkFinalEquation(Poly(expandedMalldet, leftvar), tosubs)
                     timepoly += time.time()
                     log.info('After self.checkFinalEquation(Poly(Malldet, leftvar), tosubs); time elapsed: %1.2fs', \
                              timepoly)
                     """
-                    # timepoly = -time.time()
-                    # log.info('Before checkMatrixDet')
+                    #timepoly = -time.time()
+                    #log.info('Before checkMatrixDet')
                     possiblefinaleq = self.checkMatrixDet(Mall, expandedMalldet, leftvar, tosubs)
-                    # timepoly += time.time()
-                    # log.info('After checkMatrixDet: %1.2fs', timepoly)
+                    #timepoly += time.time()
+                    #log.info('After checkMatrixDet: %1.2fs', timepoly)
                     
                     """
                     if (possiblefinaleq is None and not possiblefinaleq2 is None) or \
