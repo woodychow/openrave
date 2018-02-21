@@ -3965,7 +3965,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     manipdir2[i] = self.convertRealToRational(manipdir2[i])
 
             # TGN: ensure solvejointvars is a subset of self.trigvars_subs
-            assert(all([z in self.trigvars_subs for z in solvejointvars]))
+            assert(all([z in self.trigvars_subs for z in solvejointvars if self.IsHinge(z.name)]))
             
             eq = self.SimplifyTransform(self.trigsimp(globaldir2.dot(manipdir2))) - cos(self.Tee[0])
             if self.CheckExpressionUnique(AllEquations, eq):
@@ -4226,8 +4226,8 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
           |-- solveFullIK_TranslationAxisAngle4D
         """
         AllEquations = [] 
-        # TGN: ensure usedvars is a subset of self.trigvars_subs 
-        assert(all([z in self.trigvars_subs for z in usedvars])) 
+        # TGN: ensure usedvars is a subset of self.trigvars_subs
+        assert(all([z in self.trigvars_subs for z in usedvars if self.IsHinge(z.name)])) 
         numcol = len(leftside) 
         assert(numcol == len(rightside))
         
@@ -10546,7 +10546,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                                      for othersolvedvar in othersolvedvars])
 
         # TGN: ensure othersolvedvars is a subset of self.trigvars_subs
-        assert(all([z in self.trigvars_subs for z in othersolvedvars]))
+        assert(all([z in self.trigvars_subs for z in othersolvedvars if self.IsHinge(z.name)]))
 
 #         eqns = []
 #         for eq in raweqns:
@@ -11246,7 +11246,7 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             raise self.CannotSolveError('Need at least 2 equations; now there are %i' % len(eqns))
 
         # TGN: ensure othersolvedvars+[var0,var1] is a subset of self.trigvars_subs
-        assert(all([z in self.trigvars_subs for z in othersolvedvars + [var0, var1]]))
+        assert(all([z in self.trigvars_subs for z in othersolvedvars + [var0, var1] if self.IsHinge(z.name)]))
         
         varsym0 = self.getVariable(var0)
         varsym1 = self.getVariable(var1)
