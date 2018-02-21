@@ -16,5 +16,8 @@ ZAEFILES=`sudo ls $DIRNAME/*.zae $DIRNAME/*.xml $DIRNAME/*.dae`
 
 for f in $ZAEFILES
 do
-    openrave.py --database inversekinematics --robot=$f --numiktests=1000 --iktype=translationdirection5d 
+    openrave.py --database inversekinematics --robot=$f --numiktests=1000 --iktype=translationxaxisangle4d
+    #--iktyp=lookat3d
+    #,ray4d
+    #translationdirection5d 
 done
