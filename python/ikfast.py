@@ -2256,9 +2256,9 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
         IK equations to derive orientation and coordinates of the end-effector, described by
         the homogeneous matrix T.
         """
-        possibleangles_old = [S.Zero, pi.evalf()/2, asin(3.0/5).evalf(), asin(4.0/5).evalf(), \
+        possibleangles = [S.Zero, pi.evalf()/2, asin(3.0/5).evalf(), asin(4.0/5).evalf(), \
                               asin(5.0/13).evalf(), asin(12.0/13).evalf()]
-        possibleangles = [self.convertRealToRational(x) for x in possibleangles_old]
+        # possibleangles = [self.convertRealToRational(x) for x in possibleangles_old]
 
         # TGN: use symbolic numbers for all possible angles instead of floating-point numbers
         possibleanglescos = [S.One, S.Zero, Rational(4,5), Rational(3,5), Rational(12,13), Rational(5,13)]
@@ -4150,11 +4150,11 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                 for peq in rawpolyeqs:
                     maxdenom = [ max([monoms[2*i]+monoms[2*i+1] \
                                       for monoms in peq.monoms()]) \
-                                 for i in range(numvar)]
+                                 for i in range(numvars)]
                     eqnew = S.Zero
                     for monoms, c in peq.terms():
                         term = c
-                        for i in range(numvar):
+                        for i in range(numvars):
                             term *= dummynums[2*i]**monoms[2*i]
                             term *= dummynums[2*i+1]**monoms[2*i+1]
                             term *= dummydenoms[i]**(maxdenom[i]-monoms[2*i]-monoms[2*i+1])
@@ -4243,34 +4243,28 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     # useful when we need norm equations
                     if p.is_Add:
                         pconstterm = [term for term in p.args if term.is_number]
-                        # number of non-number addends
-                        np = len(p.args)-len(pconstterm)
                     elif p.is_number:
                         pconstterm = [p]
-                        np = 0
                     else:
                         pconstterm = []
-                        np = 1
                     if pee.is_Add:
                         peeconstterm = [term for term in pee.args if term.is_number]
-                        # number of non-number addends
-                        npee = len(pee.args)-len(peeconstterm)
                     elif pee.is_number:
                         peeconstterm = [pee]
-                        npee = 0
                     else:
                         peeconstterm = []
-                        npee = 1
+                    if len(pconstterm)>0 and len(peeconstterm)>0:
+                        sumterm = sum(peeconstterm if len(p.args) < len(pee.args) else pconstterm)
+                        leftside [i][j] -= sumterm
+                        rightside[i][j] -= sumterm
 
-                    sumterm = sum(peeconstterm if np<npee else pconstterm)
-                    leftside [i][j] -= sumterm
-                    rightside[i][j] -= sumterm
-                        
                 eq = self.trigsimp(p - pee)
                 if self.codeComplexity(eq) < 1500:
                     eq = self.SimplifyTransform(eq)
                 if self.CheckExpressionUnique(AllEquations, eq):
                     AllEquations.append(eq)
+                else:
+                    log.info('The position (%i, %i) equation appeared before: %r', j, i, eq)
 
             if uselength:
                 # length means squared 2-norm
@@ -4282,10 +4276,11 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
                     eq = self.SimplifyTransform(self.trigsimp(pnorm - penorm))
                     if self.CheckExpressionUnique(AllEquations, eq):
                         AllEquations.append(eq.expand())
+                    else:
+                        log.info('The 2-norm equation for column %i appeared before: %r', i, eq)
                 else:
                     log.info('Length of equation too big, skip %d, %d', \
-                             self.codeComplexity(p2), self.codeComplexity(pe2))
-                    
+                             self.codeComplexity(pnorm), self.codeComplexity(penorm))
         self.sortComplexity(AllEquations)
         return AllEquations
         
@@ -4347,10 +4342,11 @@ inv(A) = [ r02  r12  r22  npz ]        [ 2  5  8  14 ]
             else:
                 Positions.append(zeros((len(indices),1)))
                 Positionsee.append(toappendee)
-                    
-        return self.buildEquationsFromTwoSides(Positions, Positionsee, \
+                
+        AllEquations = self.buildEquationsFromTwoSides(Positions, Positionsee, \
                                                transvars + othersolvedvars, \
                                                uselength = uselength)
+        return AllEquations
 
     def buildEquationsFromRotation(self, T0links, Ree, rotvars, othersolvedvars):
         """

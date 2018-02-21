@@ -12,5 +12,8 @@ clear && clear
 #openrave.py --database inversekinematics --robot=robotfiles/collada_robots_schunk-lwa3.zae \
 #            --numiktests=1000 --iktype=translationdirection5d
 
-openrave.py --database inversekinematics --robot=../src/robots/pr2-beta-static.zae \
-            --numiktests=1000 --iktype=translationdirection5d
+#openrave.py --database inversekinematics --robot=../src/robots/pr2-beta-static.zae \
+    #            --numiktests=1000 --iktype=translationdirection5d
+
+openrave.py --database inversekinematics --robot=robotfiles/barrettwam4.robot.xml \
+            --numiktests=1000 --iktype=translationxaxisangle4d
