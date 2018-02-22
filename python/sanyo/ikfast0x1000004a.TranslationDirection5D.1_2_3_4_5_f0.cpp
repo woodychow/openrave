@@ -27,6 +27,7 @@ using namespace ikfast;
 IKFAST_COMPILE_ASSERT(IKFAST_VERSION==0x1000004a);
 
 #include <cmath>
+#include <cfloat>
 #include <vector>
 #include <limits>
 #include <algorithm>
@@ -351,13 +352,13 @@ IkReal j100, cj100, sj100;
 unsigned char _ij100[2], _nj100;
 bool ComputeIk(const IkReal* eetrans, const IkReal* eerot, const IkReal* pfree, IkSolutionListBase<IkReal>& solutions) {
 
+    printf("eetrans = ");
     for (int i=0; i<3; ++i)
-        printf("%f ", eetrans[i]);
-    // printf("\n");
+        printf("%.16f ", eetrans[i]);
+    printf("\neerot = ");
     for (int i=0; i<9; ++i)
-        printf("%f ", eerot[i]);
-    printf("\n");
-
+        printf("%.16f ", eerot[i]);
+    printf("\npfree = %.16f\n", pfree[0]);
     
 j1=numeric_limits<IkReal>::quiet_NaN(); _ij1[0] = -1; _ij1[1] = -1; _nj1 = -1; j2=numeric_limits<IkReal>::quiet_NaN(); _ij2[0] = -1; _ij2[1] = -1; _nj2 = -1; j3=numeric_limits<IkReal>::quiet_NaN(); _ij3[0] = -1; _ij3[1] = -1; _nj3 = -1; j4=numeric_limits<IkReal>::quiet_NaN(); _ij4[0] = -1; _ij4[1] = -1; _nj4 = -1; j5=numeric_limits<IkReal>::quiet_NaN(); _ij5[0] = -1; _ij5[1] = -1; _nj5 = -1;  _ij0[0] = -1; _ij0[1] = -1; _nj0 = 0; 
 for(int dummyiter = 0; dummyiter < 1; ++dummyiter) {
@@ -404,7 +405,18 @@ op[14]=r02;
 op[15]=x31;
 op[16]=0;
 op[17]=x32;
+
+ printf("\nlength of op is %i\n", sizeof(op)/sizeof(op[0]));
+
+ printf("\n---------- printing op ----------\n");
+ for (int i=0; i<18; i++)
+     printf("%1.2e, ", op[i]);
+ printf("\n-------- finished printing op -\n\n");
+
 solvedialyticpoly8qep(op,zeror,numroots);
+
+ printf("Finished solvedialyticpoly8qep\n");
+ 
 IkReal j4array[16], cj4array[16], sj4array[16], j3array[16], cj3array[16], sj3array[16];
 int numsolutions = 0;
 for(int ij4 = 0; ij4 < numroots; ij4 += 2)
@@ -6534,6 +6546,7 @@ static inline void solvedialyticpoly8qep(const IkReal* matcoeffs, IkReal* rawroo
 {
     const IkReal tol = 128.0*std::numeric_limits<IkReal>::epsilon();
     IkReal IKFAST_ALIGNED16(M[16*16]) = {0};
+ 
     IkReal IKFAST_ALIGNED16(A[8*8]);
     IkReal IKFAST_ALIGNED16(work[16*16*15]);
     int ipiv[8];
@@ -6548,12 +6561,21 @@ static inline void solvedialyticpoly8qep(const IkReal* matcoeffs, IkReal* rawroo
         for(int k = 0; k < 6; ++k) {
             M[matrixdim+(j+4)+2*matrixdim*k] = M[matrixdim+j+2*matrixdim*(k+2)] = -matcoeffs[coeffindex++];
         }
-    }
+    }     
     for(int j = 0; j < 4; ++j) {
         for(int k = 0; k < 6; ++k) {
             M[matrixdim+(j+4)+2*matrixdim*k+matrixdim*2*matrixdim] = M[matrixdim+j+2*matrixdim*(k+2)+matrixdim*2*matrixdim] = -matcoeffs[coeffindex++];
         }
     }
+
+        for ( int i=0; i<16; i++)
+        {
+            for ( int j=0; j<16; j++)
+                {
+                    printf("%1.2e, ", M[i*16+j]);
+                }
+            printf("\n");
+        }  
     for(int j = 0; j < 4; ++j) {
         for(int k = 0; k < 6; ++k) {
             A[(j+4)+matrixdim*k] = A[j+matrixdim*(k+2)] = matcoeffs[coeffindex++];
@@ -6590,6 +6612,8 @@ static inline void solvedialyticpoly8qep(const IkReal* matcoeffs, IkReal* rawroo
         for(int j = 0; j < 4; ++j) {
             for(int k = 0; k < 6; ++k) {
                 IkReal a = matcoeffs[coeffindex+48], b = matcoeffs[coeffindex+24], c = matcoeffs[coeffindex];
+                if(std::isnan(a) || std::isnan(b) || std::isnan(c))
+                    printf("\ncoeffindex = %i, a = %1.2e, b = %1.2e, c = %1.2e\n", coeffindex, a,b,c);
                 A[(j+4)+matrixdim*k] = A[j+matrixdim*(k+2)] = lf[0]*lf[0]*a+lf[0]*lf[2]*b+lf[2]*lf[2]*c;
                 M[matrixdim+(j+4)+2*matrixdim*k] = M[matrixdim+j+2*matrixdim*(k+2)] = -(lf[1]*lf[1]*a + lf[1]*lf[3]*b + lf[3]*lf[3]*c);
                 M[matrixdim+(j+4)+2*matrixdim*k+matrixdim*2*matrixdim] = M[matrixdim+j+2*matrixdim*(k+2)+matrixdim*2*matrixdim] = -(2*lf[0]*lf[1]*a + (lf[0]*lf[3]+lf[1]*lf[2])*b + 2*lf[2]*lf[3]*c);
@@ -6609,6 +6633,17 @@ static inline void solvedialyticpoly8qep(const IkReal* matcoeffs, IkReal* rawroo
         return;
     }
 
+    /*
+    for ( int i=0; i<16; i++)
+        {
+            for ( int j=0; j<16; j++)
+                {
+                    printf("%1.2e, ", M[i*16+j]);
+                }
+            printf("\n");
+        }    
+    */
+
     // set identity in upper corner
     for(int j = 0; j < matrixdim; ++j) {
         M[matrixdim*2*matrixdim+j+matrixdim*2*j] = 1;
@@ -6618,6 +6653,10 @@ static inline void solvedialyticpoly8qep(const IkReal* matcoeffs, IkReal* rawroo
     IkReal IKFAST_ALIGNED16(vr[16*16]);
     int one=1;
     printf("Before calling dgeev_ ...\n");
+    printf("matrixdim2 = %d\n", matrixdim2);
+
+
+    
     dgeev_("N", "V", &matrixdim2, M, &matrixdim2, wr, wi,NULL, &one, vr, &matrixdim2, work, &worksize, &info);
     printf("Finished calling dgeev_\n");
     if( info != 0 ) {

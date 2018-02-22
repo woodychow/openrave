@@ -11,6 +11,8 @@ clear && clear
 
 #python test.py
 
-#gdb --args python which
+#gdb --args python whic
+make -C /private/cache/openrave/kinematics.beab021f34048993a898af827bc00492
+
 openrave.py --database inversekinematics --robot=sanyo.mujin.dae \
             --iktype=translationdirection5d --freeindices=0 --numiktests=1 --usecached
