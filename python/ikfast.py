@@ -188,6 +188,7 @@ __version__ = '0x1000004a' # hex of the version, has to be prefixed with 0x. als
 
 import sys, copy, time, math, datetime
 import __builtin__
+import traceback
 from optparse import OptionParser
 try:
     from openravepy.metaclass import AutoReloader
@@ -261,7 +262,46 @@ except ImportError:
                 return
 
 import logging
-log = logging.getLogger('openravepy.ikfast')
+# ========== TGN's tools for studying how IKFast works ========== 
+import traceback
+def ikfast_print_stack(): 
+    tb = traceback.extract_stack() 
+    pattern = '%-30s %5s %24s'  
+    print( '\n'+pattern % ('        FUNCTION','LINE', 'FILE      ')) 
+    keyword_of_interest = [ 'ikfast.py', \
+                            'inversekinematics.py', \
+                            'openrave.py' ] 
+    print('--------------------------------------------------------------') 
+    for function_call in tb: 
+        for keyword in keyword_of_interest: 
+            if (keyword in function_call[0]) and (function_call[2] not in 'ikfast_print_stack'): 
+                print(pattern % (function_call[2], function_call[1], keyword)) 
+                break 
+ipython_str = 'ikfast_print_stack(); ' + \
+              'from IPython.terminal import embed; ' + \
+              'ipshell = embed.InteractiveShellEmbed(banner1="", config=embed.load_default_config())(local_ns=locals())' 
+""" 
+When exec(ipython_str) does not work, use 
+ 
+from IPython.terminal import embed; 
+ipshell = embed.InteractiveShellEmbed(banner1="", config=embed.load_default_config())(local_ns=locals()) 
+""" 
+             
+LOGGING_FORMAT = ' %(levelname)-6s [ LINE %(lineno)d : %(filename)s : %(funcName)s ]\n' + \
+                 '\t%(message)s\n' 
+logging.basicConfig( format = LOGGING_FORMAT, \
+                     datefmt='%d-%m-%Y:%H:%M:%S', \
+                     level=logging.DEBUG) 
+ 
+log = logging.getLogger('ikfast_generator_cpp') 
+hdlr = logging.FileHandler('/var/tmp/inversekinematics.log') 
+formatter = logging.Formatter(LOGGING_FORMAT) 
+hdlr.setFormatter(formatter) 
+log.addHandler(hdlr) 
+ 
+# TGN writes statistics into a file 
+import datetime 
+# ========== End of TGN's tools  ============== 
 
 try:
     # not necessary, just used for testing
@@ -5278,7 +5318,7 @@ class IKFastSolver(AutoReloader):
             newpeq = Poly(eqnew,htvars+nonhtvars)
             if newpeq != S.Zero:
                 newreducedeqs.append(newpeq)
-                hassinglevariable |= any([all([__builtin__.sum(monom)==monom[i] for monom in newpeq.monoms()]) for i in range(3)])
+                hassinglevariable |= any([all([__builtin__.sum(monom)==monom[i] for monom in newpeq.monoms()]) for i in range(len(newpeq.gens))])
         
         if hassinglevariable:
             log.info('hassinglevariable, trying with raw equations')

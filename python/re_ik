@@ -1,0 +1,16 @@
+#!/bin/bash
+
+OPENRAVE_DIR=$MUJIN_INSTALL_DIR/lib/python2.7/site-packages/openravepy/_openravepy_0_9
+CURR_IKFAST_DIR=$MUJIN_JHBUILD_CHECKOUT_DIR/openrave/python
+
+cp $CURR_IKFAST_DIR/*.py $OPENRAVE_DIR
+
+cp $CURR_IKFAST_DIR/databases/*.py $OPENRAVE_DIR/databases
+
+clear && clear
+
+#python test.py
+
+#gdb --args python which
+openrave.py --database inversekinematics --robot=sanyo.mujin.dae \
+            --iktype=translationdirection5d --freeindices=0 --numiktests=1000 
