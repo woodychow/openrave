@@ -13,4 +13,4 @@ clear && clear
 
 #gdb --args python which
 openrave.py --database inversekinematics --robot=sanyo.mujin.dae \
-            --iktype=translationdirection5d --freeindices=0 --numiktests=1000 
+            --iktype=translationdirection5d --freeindices=0 --numiktests=1 --usecached

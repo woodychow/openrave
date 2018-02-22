@@ -1028,8 +1028,9 @@ class InverseKinematicsModel(DatabaseGenerator):
             if jacobianthreshold is not None:
                 cmd += 'jacobianthreshold %s '%jacobianthreshold
             testtime = -time.time()
-            exec(ipython_str, globals(), locals())
+            # exec(ipython_str, globals(), locals())
             res = self.ikfastproblem.SendCommand(cmd).split()
+            exec(ipython_str, globals(), locals())
             testtime += time.time() 
             # collect solution results
             solutionresults = []
